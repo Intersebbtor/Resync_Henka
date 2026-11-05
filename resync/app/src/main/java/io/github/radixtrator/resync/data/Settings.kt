@@ -47,6 +47,10 @@ data class Settings(
     val muteVideos: Boolean = false,
     /** Sync's comment navigation bar: previous/next top-level comment buttons. Off by default, as in Sync. */
     val commentNavigation: Boolean = false,
+    /** Reopening a post returns to where you were, with the same threads folded. */
+    val rememberCommentPosition: Boolean = true,
+    /** Footnote numbers on off-Reddit links, with a card per link under the text. */
+    val linkCards: Boolean = true,
     /** Sync's extended swipe: drag left, and each further step arms the next of these three. */
     val postSwipe: Boolean = true,
     val postSwipeActions: List<SwipeAction> = DEFAULT_POST_SWIPES,

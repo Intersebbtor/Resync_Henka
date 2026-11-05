@@ -57,6 +57,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -106,6 +107,7 @@ import io.github.radixtrator.resync.ui.common.CardPreview
 import io.github.radixtrator.resync.ui.common.ConfirmDeleteDialog
 import io.github.radixtrator.resync.ui.common.FlairChip
 import io.github.radixtrator.resync.ui.common.Format
+import io.github.radixtrator.resync.ui.common.LinkCards
 import io.github.radixtrator.resync.ui.common.LinkRow
 import io.github.radixtrator.resync.ui.common.MessageEffect
 import io.github.radixtrator.resync.ui.common.OptionRow
@@ -120,7 +122,7 @@ import io.github.radixtrator.resync.ui.common.SwipeActions
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.common.TopSheet
 import io.github.radixtrator.resync.ui.common.hasCardPreview
-import io.github.radixtrator.resync.ui.common.rememberRedditHtml
+import io.github.radixtrator.resync.ui.common.rememberRedditText
 import io.github.radixtrator.resync.ui.navigation.ComposeMode
 import io.github.radixtrator.resync.ui.navigation.ComposeRoute
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
@@ -162,6 +164,19 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
     MessageEffect(state.message, snackbar, vm::messageShown)
     LaunchedEffect(state.postDeleted) { if (state.postDeleted) nav.pop() }
     LaunchedEffect(route.postId) { container.visited.mark(route.postId) }
+
+    // Sync's "Remember comment position": return to last visit's spot once the comments are in,
+    // and note where the user is whenever this page leaves the screen.
+    var restored by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(state.comments.isNotEmpty()) {
+        if (!restored && state.comments.isNotEmpty()) {
+            vm.savedPosition?.let { listState.scrollToItem(it.index, it.offset) }
+            restored = true
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose { vm.saveScroll(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) }
+    }
 
     fun reply(target: String, quote: String) {
         if (vm.requireLogin()) nav.push(ComposeRoute(ComposeMode.REPLY, target = target, quote = quote))
@@ -396,8 +411,10 @@ private fun PostHeader(post: Post, onVote: (Int) -> Unit, onToggleSave: () -> Un
                 LinkRow(post, onClick = { nav.openMedia(post) })
             }
             post.selfTextHtml?.takeIf { it.isNotBlank() }?.let { html ->
+                val body = rememberRedditText(html, footnotes = LocalSettings.current.linkCards)
                 Spacer(Modifier.height(10.dp))
-                Text(rememberRedditHtml(html), style = CommentBody.copy(fontSize = 16.sp, lineHeight = 23.sp))
+                Text(body.text, style = CommentBody)
+                LinkCards(body.links, Modifier.padding(top = 12.dp))
             }
         }
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -492,8 +509,10 @@ private fun CommentRow(
                 // Collapsing a reply chain keeps the comment itself readable (Sync's default); a lone
                 // comment folds to its header.
                 if (!collapsed || hiddenCount > 0) {
+                    val body = rememberRedditText(comment.bodyHtml, footnotes = settings.linkCards)
                     Spacer(Modifier.height(6.dp))
-                    Text(rememberRedditHtml(comment.bodyHtml), style = CommentBody)
+                    Text(body.text, style = CommentBody)
+                    LinkCards(body.links, Modifier.padding(top = 10.dp))
                 }
             }
         }

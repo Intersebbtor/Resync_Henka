@@ -91,6 +91,8 @@ fun SettingsScreen(container: AppContainer) {
                 Toggle("Slide to go back", "Drag a page to the right to close it", settings.swipeBack) { v -> update { it.copy(swipeBack = v) } }
                 Toggle("Open links in the app", "Custom Tabs instead of your browser app", settings.inAppBrowser) { v -> update { it.copy(inAppBrowser = v) } }
                 Toggle("Comment navigation buttons", "Jump between top-level comments", settings.commentNavigation) { v -> update { it.copy(commentNavigation = v) } }
+                Toggle("Remember comment position", "Reopen posts where you left off, threads folded as you left them", settings.rememberCommentPosition) { v -> update { it.copy(rememberCommentPosition = v) } }
+                Toggle("Link cards", "Number links and list them under posts and comments", settings.linkCards) { v -> update { it.copy(linkCards = v) } }
 
                 Section("Reddit")
                 ListItem(

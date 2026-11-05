@@ -13,6 +13,11 @@ import io.github.radixtrator.resync.data.Parser
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.SwipeAction
 import io.github.radixtrator.resync.ui.common.armedStage
+import io.github.radixtrator.resync.ui.common.footnoteLinks
+import io.github.radixtrator.resync.ui.common.isImageLink
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withLink
 import io.github.radixtrator.resync.data.PostMedia
 import io.github.radixtrator.resync.data.ProfileItem
 import io.github.radixtrator.resync.data.RedditClient
@@ -284,6 +289,27 @@ class ParserTest {
         assertEquals(Settings.DEFAULT_COMMENT_SWIPES, Settings(commentSwipeActions = listOf(SwipeAction.HIDE)).commentSwipeStages)
         // Old or partial blobs load with defaults for anything missing.
         assertEquals(Settings(theme = ThemeMode.DARK), json.decodeFromString(Settings.serializer(), """{"theme":"DARK","removedField":1}"""))
+    }
+
+    @Test
+    fun `off-reddit links get footnotes and cards`() {
+        val text = buildAnnotatedString {
+            append("See ")
+            withLink(LinkAnnotation.Url("https://i.imgur.com/a.jpg")) { append("this") }
+            append(" by ")
+            withLink(LinkAnnotation.Url("https://www.reddit.com/u/someone")) { append("u/someone") }
+            append(" and ")
+            withLink(LinkAnnotation.Url("https://example.com/page")) { append("that") }
+            append(", again ")
+            withLink(LinkAnnotation.Url("https://i.imgur.com/a.jpg")) { append("this") }
+        }
+        val result = footnoteLinks(text)
+        // Reddit's own links stay plain; a repeated URL keeps its first number.
+        assertEquals(listOf("https://i.imgur.com/a.jpg", "https://example.com/page"), result.links)
+        assertEquals("See this¹ by u/someone and that², again this¹", result.text.text)
+        assertTrue(isImageLink("https://i.imgur.com/a.jpg"))
+        assertTrue(isImageLink("https://preview.redd.it/x.jpeg?width=627&format=pjpg"))
+        assertTrue(!isImageLink("https://example.com/page"))
     }
 
     @Test

@@ -10,6 +10,8 @@ import io.github.radixtrator.resync.data.CommentSort
 import io.github.radixtrator.resync.data.CommentTree
 import io.github.radixtrator.resync.data.MoreComments
 import io.github.radixtrator.resync.data.Post
+import io.github.radixtrator.resync.data.PostMemory
+import io.github.radixtrator.resync.data.PostMemoryStore
 import io.github.radixtrator.resync.ui.common.likesFor
 import io.github.radixtrator.resync.ui.common.voteValue
 import kotlinx.coroutines.CancellationException
@@ -43,6 +45,12 @@ class PostViewModel(
     private val _state = MutableStateFlow(State(sort = container.settings.settings.value.commentSort))
     val state = _state.asStateFlow()
 
+    private val memoryKey = PostMemoryStore.key(postId, focusCommentId)
+    private val remembering get() = container.settings.settings.value.rememberCommentPosition
+
+    /** Where the user left this page last time, to restore once comments load. */
+    val savedPosition: PostMemory? = container.postMemory[memoryKey]?.takeIf { remembering }
+
     private val _subredditIcon = MutableStateFlow<String?>(null)
     /** The post's community icon for the toolbar, fetched once the post is known. */
     val subredditIcon = _subredditIcon.asStateFlow()
@@ -60,7 +68,16 @@ class PostViewModel(
             try {
                 val result = container.api.comments(postId, _state.value.sort, focusCommentId, context)
                 _state.update {
-                    it.copy(post = result.post, comments = result.comments, collapsed = emptySet(), loading = false, refreshing = false)
+                    // Keep folds across refreshes, and restore last visit's on first load.
+                    val folded = if (it.post == null) savedPosition?.collapsed.orEmpty() else it.collapsed
+                    val ids = result.comments.mapTo(HashSet()) { node -> node.id }
+                    it.copy(
+                        post = result.post,
+                        comments = result.comments,
+                        collapsed = folded.filterTo(HashSet()) { id -> id in ids },
+                        loading = false,
+                        refreshing = false,
+                    )
                 }
                 if (_subredditIcon.value == null) loadSubredditIcon(result.post.subreddit)
             } catch (e: CancellationException) {
@@ -109,13 +126,23 @@ class PostViewModel(
         load(refresh = false)
     }
 
-    fun toggleCollapsed(comment: Comment) = _state.update {
-        it.copy(collapsed = if (comment.id in it.collapsed) it.collapsed - comment.id else it.collapsed + comment.id)
+    fun toggleCollapsed(comment: Comment) {
+        _state.update { it.copy(collapsed = if (comment.id in it.collapsed) it.collapsed - comment.id else it.collapsed + comment.id) }
+        rememberFolds()
     }
 
     /** Sync's "Collapse all": fold every top-level thread down to its first comment. */
-    fun collapseAll() = _state.update { s ->
-        s.copy(collapsed = s.comments.filter { it is Comment && it.depth == 0 }.mapTo(HashSet()) { it.id })
+    fun collapseAll() {
+        _state.update { s -> s.copy(collapsed = s.comments.filter { it is Comment && it.depth == 0 }.mapTo(HashSet()) { it.id }) }
+        rememberFolds()
+    }
+
+    private fun rememberFolds() {
+        if (remembering) container.postMemory.saveCollapsed(memoryKey, _state.value.collapsed)
+    }
+
+    fun saveScroll(index: Int, offset: Int) {
+        if (remembering && _state.value.post != null) container.postMemory.saveScroll(memoryKey, index, offset)
     }
 
     private fun loadSubredditIcon(subreddit: String) {
