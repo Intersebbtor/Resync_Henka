@@ -1,0 +1,62 @@
+{
+ "kind": "Listing",
+ "data": {
+  "after": null,
+  "children": [
+   {
+    "kind": "t5",
+    "data": {
+     "display_name": "Android",
+     "name": "t5_android",
+     "id": "android",
+     "title": "Android news and discussion",
+     "public_description": "A place for Android news, discussion and questions.",
+     "description_html": "<div class=\"md\"><p>A place for Android news, discussion and questions.</p><h2>Rules</h2><ol><li><p>Be kind.</p></li><li><p>Stay on topic.</p></li></ol></div>",
+     "subscribers": 4100000,
+     "active_user_count": 10250,
+     "community_icon": "https://picsum.photos/seed/icon-Android/256/256",
+     "banner_background_image": "https://picsum.photos/seed/banner-Android/1600/400",
+     "user_is_subscriber": true,
+     "over18": false,
+     "created_utc": 1478476000.0
+    }
+   },
+   {
+    "kind": "t5",
+    "data": {
+     "display_name": "androiddev",
+     "name": "t5_androiddev",
+     "id": "androiddev",
+     "title": "Android developers",
+     "public_description": "News and discussion for Android developers.",
+     "description_html": "<div class=\"md\"><p>News and discussion for Android developers.</p><h2>Rules</h2><ol><li><p>Be kind.</p></li><li><p>Stay on topic.</p></li></ol></div>",
+     "subscribers": 260000,
+     "active_user_count": 650,
+     "community_icon": "https://picsum.photos/seed/icon-androiddev/256/256",
+     "banner_background_image": "https://picsum.photos/seed/banner-androiddev/1600/400",
+     "user_is_subscriber": false,
+     "over18": false,
+     "created_utc": 1478476000.0
+    }
+   },
+   {
+    "kind": "t5",
+    "data": {
+     "display_name": "AndroidApps",
+     "name": "t5_androidapps",
+     "id": "androidapps",
+     "title": "Android apps",
+     "public_description": "Find and share great Android apps.",
+     "description_html": "<div class=\"md\"><p>Find and share great Android apps.</p><h2>Rules</h2><ol><li><p>Be kind.</p></li><li><p>Stay on topic.</p></li></ol></div>",
+     "subscribers": 410000,
+     "active_user_count": 1025,
+     "community_icon": "https://picsum.photos/seed/icon-AndroidApps/256/256",
+     "banner_background_image": "https://picsum.photos/seed/banner-AndroidApps/1600/400",
+     "user_is_subscriber": false,
+     "over18": false,
+     "created_utc": 1478476000.0
+    }
+   }
+  ]
+ }
+}

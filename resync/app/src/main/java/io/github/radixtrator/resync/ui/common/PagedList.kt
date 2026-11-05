@@ -1,0 +1,116 @@
+package io.github.radixtrator.resync.ui.common
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+
+/**
+ * A paged LazyColumn with loading/error/empty states and load-more near the end.
+ *
+ * Without a [header], the "nothing yet" states render outside the list: LazyColumn keeps the
+ * first visible keyed item in view, so a lone keyed footer would stay pinned once items arrive
+ * and the list would open scrolled to the end.
+ */
+@Composable
+fun <T> PagedList(
+    state: ListingState<T>,
+    key: (T) -> String,
+    onLoadMore: () -> Unit,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+    listState: LazyListState = rememberLazyListState(),
+    contentPadding: PaddingValues = PaddingValues(vertical = 6.dp),
+    emptyText: String = "Nothing here yet",
+    header: (LazyListScope.() -> Unit)? = null,
+    item: @Composable (T) -> Unit,
+) {
+    if (header == null && state.items.isEmpty()) {
+        Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            EmptyState(state, emptyText, onRetry)
+        }
+        return
+    }
+
+    val nearEnd by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 6
+        }
+    }
+    LaunchedEffect(nearEnd, state.items.size) { if (nearEnd && state.items.isNotEmpty()) onLoadMore() }
+
+    LazyColumn(state = listState, contentPadding = contentPadding, modifier = modifier.fillMaxSize()) {
+        header?.invoke(this)
+        items(state.items, key = key) { item(it) }
+        item(key = "footer") {
+            Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                if (state.items.isEmpty()) {
+                    EmptyState(state, emptyText, onRetry)
+                } else when {
+                    state.loading -> CircularProgressIndicator()
+                    state.error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(state.error, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                        TextButton(onClick = onRetry) { Text("Retry") }
+                    }
+                    state.endReached -> Text("You've reached the end", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyState(state: ListingState<*>, emptyText: String, onRetry: () -> Unit) {
+    when {
+        state.loading || state.refreshing -> CircularProgressIndicator()
+        state.error != null -> Column(
+            Modifier.padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text("Couldn't load this", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(8.dp))
+            Text(state.error, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(16.dp))
+            Button(onClick = onRetry) { Text("Retry") }
+        }
+        else -> Text(emptyText, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(32.dp))
+    }
+}
+
+/** Shows a view model's one-shot [ListingState.message] as a snackbar. */
+@Composable
+fun MessageEffect(message: String?, snackbar: SnackbarHostState, onShown: () -> Unit) {
+    LaunchedEffect(message) {
+        if (message != null) {
+            snackbar.showSnackbar(message)
+            onShown()
+        }
+    }
+}

@@ -1,0 +1,53 @@
+{
+ "json": {
+  "errors": [],
+  "data": {
+   "things": [
+    {
+     "kind": "t1",
+     "data": {
+      "id": "cb6",
+      "name": "t1_cb6",
+      "parent_id": "t1_cb5",
+      "depth": 2,
+      "author": "late_reply",
+      "body": "Same, and I stopped doom-scrolling in bed.",
+      "body_html": "<div class=\"md\"><p>Same, and I stopped doom-scrolling in bed.</p></div>",
+      "score": 44,
+      "score_hidden": false,
+      "created_utc": 1762264000.0,
+      "edited": false,
+      "is_submitter": false,
+      "distinguished": null,
+      "stickied": false,
+      "likes": null,
+      "author_flair_text": null,
+      "replies": ""
+     }
+    },
+    {
+     "kind": "t1",
+     "data": {
+      "id": "cb5",
+      "name": "t1_cb5",
+      "parent_id": "t1_cb1",
+      "depth": 1,
+      "author": "second_try",
+      "body": "Week three of this. It works.",
+      "body_html": "<div class=\"md\"><p>Week three of this. It works.</p></div>",
+      "score": 120,
+      "score_hidden": false,
+      "created_utc": 1762256800.0,
+      "edited": false,
+      "is_submitter": false,
+      "distinguished": null,
+      "stickied": false,
+      "likes": null,
+      "author_flair_text": null,
+      "replies": ""
+     }
+    }
+   ]
+  }
+ }
+}

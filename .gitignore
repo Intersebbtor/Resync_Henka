@@ -1,0 +1,15 @@
+# Gradle / Android Studio
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml
+
+# Signing keys and built APKs
+*.keystore
+*.jks
+*.apk
+
+# Third-party tools used by patch_sync.py (download apktool yourself)
+tools/*.jar

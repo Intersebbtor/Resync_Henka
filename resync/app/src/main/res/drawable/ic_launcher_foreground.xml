@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Two chasing arcs. 108dp adaptive canvas; artwork sits inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M37.1,47.8 A18,18 0 0,1 70.9,47.8"
+        android:strokeWidth="6"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M73.98,56.26 L77.48,45.41 L64.32,50.19 Z" />
+    <path
+        android:pathData="M70.9,60.2 A18,18 0 0,1 37.1,60.2"
+        android:strokeWidth="6"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34.02,51.74 L30.52,62.59 L43.68,57.81 Z" />
+</vector>

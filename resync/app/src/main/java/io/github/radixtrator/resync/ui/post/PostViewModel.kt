@@ -1,0 +1,184 @@
+package io.github.radixtrator.resync.ui.post
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import io.github.radixtrator.resync.AppContainer
+import io.github.radixtrator.resync.ContentEvent
+import io.github.radixtrator.resync.data.Comment
+import io.github.radixtrator.resync.data.CommentNode
+import io.github.radixtrator.resync.data.CommentSort
+import io.github.radixtrator.resync.data.CommentTree
+import io.github.radixtrator.resync.data.MoreComments
+import io.github.radixtrator.resync.data.Post
+import io.github.radixtrator.resync.ui.common.likesFor
+import io.github.radixtrator.resync.ui.common.voteValue
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+class PostViewModel(
+    private val container: AppContainer,
+    private val postId: String,
+    /** Show only this comment's subtree (plus [context] parents), like Reddit's permalinks. */
+    val focusCommentId: String?,
+    private val context: Int,
+) : ViewModel() {
+
+    data class State(
+        val post: Post? = null,
+        val comments: List<CommentNode> = emptyList(),
+        val collapsed: Set<String> = emptySet(),
+        val sort: CommentSort = CommentSort.BEST,
+        val loading: Boolean = true,
+        val refreshing: Boolean = false,
+        val loadingMore: Set<String> = emptySet(),
+        val error: String? = null,
+        val message: String? = null,
+        val postDeleted: Boolean = false,
+    )
+
+    private val _state = MutableStateFlow(State(sort = container.settings.settings.value.commentSort))
+    val state = _state.asStateFlow()
+    private var loadJob: Job? = null
+
+    init {
+        load(refresh = false)
+        viewModelScope.launch { container.events.collect(::onEvent) }
+    }
+
+    fun load(refresh: Boolean) {
+        loadJob?.cancel()
+        _state.update { it.copy(loading = !refresh, refreshing = refresh, error = null) }
+        loadJob = viewModelScope.launch {
+            try {
+                val result = container.api.comments(postId, _state.value.sort, focusCommentId, context)
+                _state.update {
+                    it.copy(post = result.post, comments = result.comments, collapsed = emptySet(), loading = false, refreshing = false)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copy(loading = false, refreshing = false, error = e.message ?: "Something went wrong") }
+            }
+        }
+    }
+
+    private fun onEvent(event: ContentEvent) {
+        val post = _state.value.post ?: return
+        when (event) {
+            is ContentEvent.Replied -> _state.update { s ->
+                if (event.parentFullname == post.fullname) {
+                    s.copy(comments = listOf(event.comment.copy(depth = 0, parentId = post.fullname)) + s.comments)
+                } else {
+                    val index = s.comments.indexOfFirst { it is Comment && it.fullname == event.parentFullname }
+                    if (index < 0) return@update s
+                    val parent = s.comments[index]
+                    val reply = event.comment.copy(depth = parent.depth + 1, parentId = event.parentFullname)
+                    s.copy(
+                        comments = s.comments.subList(0, index + 1) + reply + s.comments.subList(index + 1, s.comments.size),
+                        collapsed = s.collapsed - parent.id,
+                    )
+                }
+            }
+            is ContentEvent.Edited -> when {
+                event.fullname == post.fullname -> load(refresh = true)
+                else -> updateComment(event.fullname) {
+                    it.copy(body = event.body, bodyHtml = event.bodyHtml ?: it.bodyHtml, edited = true)
+                }
+            }
+            is ContentEvent.Deleted -> when {
+                event.fullname == post.fullname -> _state.update { it.copy(postDeleted = true) }
+                else -> updateComment(event.fullname) {
+                    it.copy(author = "[deleted]", body = "[deleted]", bodyHtml = "<div class=\"md\"><p>[deleted]</p></div>")
+                }
+            }
+        }
+    }
+
+    fun setSort(sort: CommentSort) {
+        if (sort == _state.value.sort) return
+        _state.update { it.copy(sort = sort, comments = emptyList()) }
+        load(refresh = false)
+    }
+
+    fun toggleCollapsed(comment: Comment) = _state.update {
+        it.copy(collapsed = if (comment.id in it.collapsed) it.collapsed - comment.id else it.collapsed + comment.id)
+    }
+
+    fun loadMore(more: MoreComments) {
+        val post = _state.value.post ?: return
+        if (more.children.isEmpty() || more.id in _state.value.loadingMore) return
+        _state.update { it.copy(loadingMore = it.loadingMore + more.id) }
+        viewModelScope.launch {
+            try {
+                val loaded = container.api.moreChildren(post.fullname, more.children, _state.value.sort)
+                _state.update {
+                    it.copy(
+                        comments = CommentTree.splice(it.comments, more, loaded, remaining = more.children.drop(100)),
+                        loadingMore = it.loadingMore - more.id,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copy(loadingMore = it.loadingMore - more.id, message = "Couldn't load replies: ${e.message}") }
+            }
+        }
+    }
+
+    fun votePost(direction: Int) {
+        val post = _state.value.post ?: return
+        if (!requireLogin()) return
+        _state.update { it.copy(post = post.copy(likes = likesFor(direction), score = post.score - voteValue(post.likes) + direction)) }
+        viewModelScope.launch {
+            runCatching { container.api.vote(post.fullname, direction) }.onFailure { e ->
+                _state.update { it.copy(post = post, message = "Vote failed: ${e.message}") }
+            }
+        }
+    }
+
+    fun toggleSavePost() {
+        val post = _state.value.post ?: return
+        if (!requireLogin()) return
+        _state.update { it.copy(post = post.copy(saved = !post.saved)) }
+        viewModelScope.launch {
+            runCatching { container.api.setSaved(post.fullname, !post.saved) }.onFailure { e ->
+                _state.update { it.copy(post = post, message = "Save failed: ${e.message}") }
+            }
+        }
+    }
+
+    fun voteComment(comment: Comment, direction: Int) {
+        if (!requireLogin()) return
+        updateComment(comment.fullname) { it.copy(likes = likesFor(direction), score = it.score - voteValue(it.likes) + direction) }
+        viewModelScope.launch {
+            runCatching { container.api.vote(comment.fullname, direction) }.onFailure { e ->
+                updateComment(comment.fullname) { it.copy(likes = comment.likes, score = comment.score) }
+                _state.update { it.copy(message = "Vote failed: ${e.message}") }
+            }
+        }
+    }
+
+    fun delete(fullname: String) {
+        viewModelScope.launch {
+            runCatching { container.api.delete(fullname) }
+                .onSuccess { container.emit(ContentEvent.Deleted(fullname)) }
+                .onFailure { e -> _state.update { it.copy(message = "Delete failed: ${e.message}") } }
+        }
+    }
+
+    private fun updateComment(fullname: String, change: (Comment) -> Comment) = _state.update { s ->
+        s.copy(comments = s.comments.map { if (it is Comment && it.fullname == fullname) change(it) else it })
+    }
+
+    fun requireLogin(): Boolean {
+        if (container.username.value != null) return true
+        _state.update { it.copy(message = "Log in first") }
+        return false
+    }
+
+    fun messageShown() = _state.update { it.copy(message = null) }
+}

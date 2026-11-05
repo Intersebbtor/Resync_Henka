@@ -1,0 +1,18 @@
+{
+ "kind": "t5",
+ "data": {
+  "display_name": "Android",
+  "name": "t5_android",
+  "id": "android",
+  "title": "Android news and discussion",
+  "public_description": "A place for Android news, discussion and questions.",
+  "description_html": "<div class=\"md\"><p>A place for Android news, discussion and questions.</p><h2>Rules</h2><ol><li><p>Be kind.</p></li><li><p>Stay on topic.</p></li></ol></div>",
+  "subscribers": 4100000,
+  "active_user_count": 10250,
+  "community_icon": "https://picsum.photos/seed/icon-Android/256/256",
+  "banner_background_image": "https://picsum.photos/seed/banner-Android/1600/400",
+  "user_is_subscriber": true,
+  "over18": false,
+  "created_utc": 1478476000.0
+ }
+}

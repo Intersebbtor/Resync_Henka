@@ -1,0 +1,244 @@
+[
+ {
+  "kind": "Listing",
+  "data": {
+   "after": null,
+   "children": [
+    {
+     "kind": "t3",
+     "data": {
+      "id": "dm0007",
+      "name": "t3_dm0007",
+      "subreddit": "AskReddit",
+      "author": "curious_q",
+      "title": "What small habit made the biggest difference in your week?",
+      "selftext": "Curious what actually stuck for people.",
+      "selftext_html": "<div class=\"md\"><p>Curious what actually stuck for people.</p></div>",
+      "url": "https://www.reddit.com/r/AskReddit/comments/dm0007/",
+      "domain": "self.AskReddit",
+      "permalink": "/r/AskReddit/comments/dm0007/demo/",
+      "score": 9120,
+      "num_comments": 4302,
+      "created_utc": 1762192000.0,
+      "over_18": false,
+      "spoiler": false,
+      "stickied": false,
+      "is_self": true,
+      "likes": null,
+      "saved": false,
+      "link_flair_text": null
+     }
+    }
+   ]
+  }
+ },
+ {
+  "kind": "Listing",
+  "data": {
+   "after": null,
+   "children": [
+    {
+     "kind": "t1",
+     "data": {
+      "id": "ca1",
+      "name": "t1_ca1",
+      "parent_id": "t3_dm0007",
+      "depth": 0,
+      "author": "AutoModerator",
+      "body": "Reminder: keep it civil.",
+      "body_html": "<div class=\"md\"><p>Reminder: keep it civil.</p></div>",
+      "score": 1,
+      "score_hidden": false,
+      "created_utc": 1762192000.0,
+      "edited": false,
+      "is_submitter": false,
+      "distinguished": "moderator",
+      "stickied": true,
+      "likes": null,
+      "author_flair_text": null,
+      "replies": ""
+     }
+    },
+    {
+     "kind": "t1",
+     "data": {
+      "id": "cb1",
+      "name": "t1_cb1",
+      "parent_id": "t3_dm0007",
+      "depth": 0,
+      "author": "early_bird",
+      "body": "Putting my phone in another room at night. Sleep went way up.",
+      "body_html": "<div class=\"md\"><p>Putting my phone in another room at night. Sleep went way up.</p></div>",
+      "score": 5120,
+      "score_hidden": false,
+      "created_utc": 1762195600.0,
+      "edited": false,
+      "is_submitter": false,
+      "distinguished": null,
+      "stickied": false,
+      "likes": null,
+      "author_flair_text": null,
+      "replies": {
+       "kind": "Listing",
+       "data": {
+        "children": [
+         {
+          "kind": "t1",
+          "data": {
+           "id": "cb2",
+           "name": "t1_cb2",
+           "parent_id": "t1_cb1",
+           "depth": 1,
+           "author": "night_owl",
+           "body": "Tried this, lasted two days. Respect.",
+           "body_html": "<div class=\"md\"><p>Tried this, lasted two days. Respect.</p></div>",
+           "score": 980,
+           "score_hidden": false,
+           "created_utc": 1762199200.0,
+           "edited": false,
+           "is_submitter": false,
+           "distinguished": null,
+           "stickied": false,
+           "likes": null,
+           "author_flair_text": null,
+           "replies": {
+            "kind": "Listing",
+            "data": {
+             "children": [
+              {
+               "kind": "t1",
+               "data": {
+                "id": "cb3",
+                "name": "t1_cb3",
+                "parent_id": "t1_cb2",
+                "depth": 2,
+                "author": "early_bird",
+                "body": "The trick is a cheap alarm clock so there's no excuse.",
+                "body_html": "<div class=\"md\"><p>The trick is a cheap alarm clock so there's no excuse.</p></div>",
+                "score": 760,
+                "score_hidden": false,
+                "created_utc": 1762202800.0,
+                "edited": false,
+                "is_submitter": false,
+                "distinguished": null,
+                "stickied": false,
+                "likes": null,
+                "author_flair_text": null,
+                "replies": {
+                 "kind": "Listing",
+                 "data": {
+                  "children": [
+                   {
+                    "kind": "t1",
+                    "data": {
+                     "id": "cb4",
+                     "name": "t1_cb4",
+                     "parent_id": "t1_cb3",
+                     "depth": 3,
+                     "author": "curious_q",
+                     "body": "Ordering one right now.",
+                     "body_html": "<div class=\"md\"><p>Ordering one right now.</p></div>",
+                     "score": 301,
+                     "score_hidden": false,
+                     "created_utc": 1762206400.0,
+                     "edited": false,
+                     "is_submitter": true,
+                     "distinguished": null,
+                     "stickied": false,
+                     "likes": null,
+                     "author_flair_text": null,
+                     "replies": ""
+                    }
+                   }
+                  ]
+                 }
+                }
+               }
+              }
+             ]
+            }
+           }
+          }
+         },
+         {
+          "kind": "more",
+          "data": {
+           "id": "cb9",
+           "name": "t1_cb9",
+           "parent_id": "t1_cb1",
+           "depth": 1,
+           "count": 2,
+           "children": [
+            "cb5",
+            "cb6"
+           ]
+          }
+         }
+        ]
+       }
+      }
+     }
+    },
+    {
+     "kind": "t1",
+     "data": {
+      "id": "cc1",
+      "name": "t1_cc1",
+      "parent_id": "t3_dm0007",
+      "depth": 0,
+      "author": "list_maker",
+      "body": "Writing tomorrow's three tasks before bed. See <a href=\"/r/productivity\">r/productivity</a>.",
+      "body_html": "<div class=\"md\"><p>Writing tomorrow's three tasks before bed. See <a href=\"/r/productivity\">r/productivity</a>.</p></div>",
+      "score": 2210,
+      "score_hidden": false,
+      "created_utc": 1762210000.0,
+      "edited": 1762228000.0,
+      "is_submitter": false,
+      "distinguished": null,
+      "stickied": false,
+      "likes": null,
+      "author_flair_text": "Organized-ish",
+      "replies": ""
+     }
+    },
+    {
+     "kind": "t1",
+     "data": {
+      "id": "cd1",
+      "name": "t1_cd1",
+      "parent_id": "t3_dm0007",
+      "depth": 0,
+      "author": "plant_person",
+      "body": "Watering plants first thing. Five quiet minutes before the day starts. >!Also coffee.!<",
+      "body_html": "<div class=\"md\"><p>Watering plants first thing. Five quiet minutes before the day starts. <span class=\"md-spoiler-text\">Also coffee.</span></p></div>",
+      "score": 640,
+      "score_hidden": false,
+      "created_utc": 1762220800.0,
+      "edited": false,
+      "is_submitter": false,
+      "distinguished": null,
+      "stickied": false,
+      "likes": true,
+      "author_flair_text": null,
+      "replies": ""
+     }
+    },
+    {
+     "kind": "more",
+     "data": {
+      "id": "ce1",
+      "name": "t1_ce1",
+      "parent_id": "t3_dm0007",
+      "depth": 0,
+      "count": 3,
+      "children": [
+       "ce1",
+       "cf1",
+       "cg1"
+      ]
+     }
+    }
+   ]
+  }
+ }
+]

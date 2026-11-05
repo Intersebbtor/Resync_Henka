@@ -1,0 +1,438 @@
+{
+ "kind": "Listing",
+ "data": {
+  "after": "t3_dm0007",
+  "dist": 8,
+  "children": [
+   {
+    "kind": "t3",
+    "data": {
+     "id": "dm0001",
+     "name": "t3_dm0001",
+     "subreddit": "resync",
+     "author": "resync_bot",
+     "title": "Welcome to the Resync demo feed",
+     "selftext": "This feed is bundled sample data so the UI can be checked without an API key.",
+     "selftext_html": "<div class=\"md\"><p>This feed is bundled sample data so the UI can be checked without an API key. Links like <a href=\"/r/resync\">r/resync</a> open in the app.</p></div>",
+     "url": "https://www.reddit.com/r/resync/comments/dm0001/",
+     "domain": "self.resync",
+     "permalink": "/r/resync/comments/dm0001/demo/",
+     "score": 42,
+     "num_comments": 3,
+     "created_utc": 1762296400.0,
+     "over_18": false,
+     "spoiler": false,
+     "stickied": true,
+     "is_self": true,
+     "likes": null,
+     "saved": false,
+     "link_flair_text": "Announcement"
+    }
+   },
+   {
+    "kind": "t3",
+    "data": {
+     "id": "dm0002",
+     "name": "t3_dm0002",
+     "subreddit": "pics",
+     "author": "lens_cap",
+     "title": "Morning fog rolling over the valley",
+     "selftext": "",
+     "selftext_html": null,
+     "url": "https://i.redd.it/demo-fog.jpg",
+     "domain": "i.redd.it",
+     "permalink": "/r/pics/comments/dm0002/demo/",
+     "score": 18234,
+     "num_comments": 412,
+     "created_utc": 1762282000.0,
+     "over_18": false,
+     "spoiler": false,
+     "stickied": false,
+     "is_self": false,
+     "likes": null,
+     "saved": false,
+     "link_flair_text": null,
+     "post_hint": "image",
+     "preview": {
+      "images": [
+       {
+        "source": {
+         "url": "https://picsum.photos/seed/fog/1600/1067",
+         "width": 1600,
+         "height": 1067
+        },
+        "resolutions": [
+         {
+          "url": "https://picsum.photos/seed/fog/640/426",
+          "width": 640,
+          "height": 426
+         },
+         {
+          "url": "https://picsum.photos/seed/fog/1080/720",
+          "width": 1080,
+          "height": 720
+         }
+        ],
+        "variants": {},
+        "id": "fog"
+       }
+      ],
+      "enabled": true
+     }
+    }
+   },
+   {
+    "kind": "t3",
+    "data": {
+     "id": "dm0003",
+     "name": "t3_dm0003",
+     "subreddit": "Android",
+     "author": "widget_fan",
+     "title": "Three screenshots of my home screen setup",
+     "selftext": "",
+     "selftext_html": null,
+     "url": "https://www.reddit.com/gallery/dm0003",
+     "domain": "reddit.com",
+     "permalink": "/r/Android/comments/dm0003/demo/",
+     "score": 1290,
+     "num_comments": 233,
+     "created_utc": 1762267600.0,
+     "over_18": false,
+     "spoiler": false,
+     "stickied": false,
+     "is_self": false,
+     "likes": null,
+     "saved": false,
+     "link_flair_text": null,
+     "is_gallery": true,
+     "gallery_data": {
+      "items": [
+       {
+        "media_id": "g1",
+        "id": 1
+       },
+       {
+        "media_id": "g2",
+        "id": 2
+       },
+       {
+        "media_id": "g3",
+        "id": 3
+       }
+      ]
+     },
+     "media_metadata": {
+      "g1": {
+       "status": "valid",
+       "e": "Image",
+       "m": "image/jpg",
+       "s": {
+        "u": "https://picsum.photos/seed/g1/1080/2340",
+        "x": 1080,
+        "y": 2340
+       },
+       "p": [
+        {
+         "u": "https://picsum.photos/seed/g1/640/1387",
+         "x": 640,
+         "y": 1387
+        },
+        {
+         "u": "https://picsum.photos/seed/g1/1080/2340",
+         "x": 1080,
+         "y": 2340
+        }
+       ]
+      },
+      "g2": {
+       "status": "valid",
+       "e": "Image",
+       "m": "image/jpg",
+       "s": {
+        "u": "https://picsum.photos/seed/g2/1080/2340",
+        "x": 1080,
+        "y": 2340
+       },
+       "p": [
+        {
+         "u": "https://picsum.photos/seed/g2/640/1387",
+         "x": 640,
+         "y": 1387
+        },
+        {
+         "u": "https://picsum.photos/seed/g2/1080/2340",
+         "x": 1080,
+         "y": 2340
+        }
+       ]
+      },
+      "g3": {
+       "status": "valid",
+       "e": "Image",
+       "m": "image/jpg",
+       "s": {
+        "u": "https://picsum.photos/seed/g3/1080/2340",
+        "x": 1080,
+        "y": 2340
+       },
+       "p": [
+        {
+         "u": "https://picsum.photos/seed/g3/640/1387",
+         "x": 640,
+         "y": 1387
+        },
+        {
+         "u": "https://picsum.photos/seed/g3/1080/2340",
+         "x": 1080,
+         "y": 2340
+        }
+       ]
+      }
+     }
+    }
+   },
+   {
+    "kind": "t3",
+    "data": {
+     "id": "dm0004",
+     "name": "t3_dm0004",
+     "subreddit": "technology",
+     "author": "patch_notes",
+     "title": "Open-source app keeps an old phone useful for another five years",
+     "selftext": "",
+     "selftext_html": null,
+     "url": "https://example.com/articles/old-phone",
+     "domain": "example.com",
+     "permalink": "/r/technology/comments/dm0004/demo/",
+     "score": 5021,
+     "num_comments": 640,
+     "created_utc": 1762249600.0,
+     "over_18": false,
+     "spoiler": false,
+     "stickied": false,
+     "is_self": false,
+     "likes": null,
+     "saved": false,
+     "link_flair_text": null,
+     "post_hint": "link",
+     "preview": {
+      "images": [
+       {
+        "source": {
+         "url": "https://picsum.photos/seed/phone/1200/630",
+         "width": 1200,
+         "height": 630
+        },
+        "resolutions": [
+         {
+          "url": "https://picsum.photos/seed/phone/640/336",
+          "width": 640,
+          "height": 336
+         },
+         {
+          "url": "https://picsum.photos/seed/phone/1080/567",
+          "width": 1080,
+          "height": 567
+         }
+        ],
+        "variants": {},
+        "id": "phone"
+       }
+      ],
+      "enabled": true
+     }
+    }
+   },
+   {
+    "kind": "t3",
+    "data": {
+     "id": "dm0005",
+     "name": "t3_dm0005",
+     "subreddit": "aww",
+     "author": "door_watch",
+     "title": "He figured out the door handle",
+     "selftext": "",
+     "selftext_html": null,
+     "url": "https://v.redd.it/demo05",
+     "domain": "v.redd.it",
+     "permalink": "/r/aww/comments/dm0005/demo/",
+     "score": 30411,
+     "num_comments": 801,
+     "created_utc": 1762228000.0,
+     "over_18": false,
+     "spoiler": false,
+     "stickied": false,
+     "is_self": false,
+     "likes": null,
+     "saved": false,
+     "link_flair_text": null,
+     "is_video": true,
+     "post_hint": "hosted:video",
+     "preview": {
+      "images": [
+       {
+        "source": {
+         "url": "https://picsum.photos/seed/dog/1080/1350",
+         "width": 1080,
+         "height": 1350
+        },
+        "resolutions": [
+         {
+          "url": "https://picsum.photos/seed/dog/640/800",
+          "width": 640,
+          "height": 800
+         },
+         {
+          "url": "https://picsum.photos/seed/dog/1080/1350",
+          "width": 1080,
+          "height": 1350
+         }
+        ],
+        "variants": {},
+        "id": "dog"
+       }
+      ],
+      "enabled": true
+     },
+     "secure_media": {
+      "reddit_video": {
+       "hls_url": "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+       "fallback_url": "https://v.redd.it/demo05/DASH_720.mp4",
+       "width": 1080,
+       "height": 1350
+      }
+     }
+    }
+   },
+   {
+    "kind": "t3",
+    "data": {
+     "id": "dm0006",
+     "name": "t3_dm0006",
+     "subreddit": "movies",
+     "author": "plot_holes",
+     "title": "Ending explained (spoilers obviously)",
+     "selftext": "",
+     "selftext_html": null,
+     "url": "https://i.redd.it/demo-ending.png",
+     "domain": "i.redd.it",
+     "permalink": "/r/movies/comments/dm0006/demo/",
+     "score": 870,
+     "num_comments": 1022,
+     "created_utc": 1762206400.0,
+     "over_18": false,
+     "spoiler": true,
+     "stickied": false,
+     "is_self": false,
+     "likes": null,
+     "saved": false,
+     "link_flair_text": "Discussion",
+     "post_hint": "image",
+     "preview": {
+      "images": [
+       {
+        "source": {
+         "url": "https://picsum.photos/seed/cinema/1920/1080",
+         "width": 1920,
+         "height": 1080
+        },
+        "resolutions": [
+         {
+          "url": "https://picsum.photos/seed/cinema/640/360",
+          "width": 640,
+          "height": 360
+         },
+         {
+          "url": "https://picsum.photos/seed/cinema/1080/607",
+          "width": 1080,
+          "height": 607
+         }
+        ],
+        "variants": {},
+        "id": "cinema"
+       }
+      ],
+      "enabled": true
+     }
+    }
+   },
+   {
+    "kind": "t3",
+    "data": {
+     "id": "dm0008",
+     "name": "t3_dm0008",
+     "subreddit": "gifs",
+     "author": "orbit_cam",
+     "title": "The planet, spinning",
+     "selftext": "",
+     "selftext_html": null,
+     "url": "https://upload.wikimedia.org/wikipedia/commons/2/2c/Rotating_earth_%28large%29.gif",
+     "domain": "upload.wikimedia.org",
+     "permalink": "/r/gifs/comments/dm0008/demo/",
+     "score": 2400,
+     "num_comments": 88,
+     "created_utc": 1762181200.0,
+     "over_18": false,
+     "spoiler": false,
+     "stickied": false,
+     "is_self": false,
+     "likes": null,
+     "saved": false,
+     "link_flair_text": null,
+     "post_hint": "image",
+     "preview": {
+      "images": [
+       {
+        "source": {
+         "url": "https://picsum.photos/seed/earth/400/400",
+         "width": 400,
+         "height": 400
+        },
+        "resolutions": [
+         {
+          "url": "https://picsum.photos/seed/earth/640/640",
+          "width": 640,
+          "height": 640
+         },
+         {
+          "url": "https://picsum.photos/seed/earth/1080/1080",
+          "width": 1080,
+          "height": 1080
+         }
+        ],
+        "variants": {},
+        "id": "earth"
+       }
+      ],
+      "enabled": true
+     }
+    }
+   },
+   {
+    "kind": "t3",
+    "data": {
+     "id": "dm0007",
+     "name": "t3_dm0007",
+     "subreddit": "AskReddit",
+     "author": "curious_q",
+     "title": "What small habit made the biggest difference in your week?",
+     "selftext": "",
+     "selftext_html": null,
+     "url": "https://www.reddit.com/r/AskReddit/comments/dm0007/",
+     "domain": "self.AskReddit",
+     "permalink": "/r/AskReddit/comments/dm0007/demo/",
+     "score": 9120,
+     "num_comments": 4302,
+     "created_utc": 1762192000.0,
+     "over_18": false,
+     "spoiler": false,
+     "stickied": false,
+     "is_self": true,
+     "likes": null,
+     "saved": false,
+     "link_flair_text": null
+    }
+   }
+  ]
+ }
+}

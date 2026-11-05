@@ -1,0 +1,8 @@
+<resources>
+    <!-- Only used for the window before Compose draws; Compose owns all real theming. -->
+    <style name="Theme.Resync" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+    </style>
+    <color name="window_background">#FFF4F6FA</color>
+    <color name="launcher_background">#FF1E6FD9</color>
+</resources>
