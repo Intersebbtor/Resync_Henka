@@ -56,6 +56,8 @@ ui/settings    Theme (system/light/dark/black), Material You, layout, NSFW, spoi
 - Front page, popular, all, subreddits and multis, with every sort (Top/Controversial by hour…all)
 - Sync's six feed layouts (List, Compact, Smaller cards, Small cards, Cards, Slides), chosen per feed;
   cards tile into two columns on wide screens; read posts are dimmed
+- Explore like Sync's: favorites, subscriptions and moderated communities with icons, most visited with counts,
+  recently searched & visited, a default feed to open at launch, and a ⋮ per row
 - Sync-style navigation: bottom nav, Explore sheet to jump between feeds, account switcher under the avatar,
   More actions grid (toolbar ⋮ or the ⋯ FAB), toolbar/nav/FAB hide on scroll
 - Threaded comments, Sync-style: a rail for every ancestor level, tap to fold replies (with a "+N" pill),

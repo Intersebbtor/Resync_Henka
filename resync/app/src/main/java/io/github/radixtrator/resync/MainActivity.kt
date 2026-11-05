@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun ResyncNavHost(container: AppContainer) {
-    val backStack = rememberNavBackStack(if (container.isConfigured) FeedRoute(home = true) else SetupRoute)
+    val backStack = rememberNavBackStack(if (container.isConfigured) homeRoute(container) else SetupRoute)
     val context = LocalContext.current
     val settings by container.settings.settings.collectAsStateWithLifecycle()
     val username by container.username.collectAsStateWithLifecycle()
@@ -90,7 +90,7 @@ private fun ResyncNavHost(container: AppContainer) {
                         container = container,
                         canGoBack = navigator.canPop,
                         onBack = navigator::pop,
-                        onDone = { navigator.resetTo(FeedRoute(home = true)) },
+                        onDone = { navigator.resetTo(homeRoute(container)) },
                     )
                 }
                 entry<LoginRoute> { LoginScreen(container = container, onFinished = navigator::pop) }
@@ -108,3 +108,6 @@ private fun ResyncNavHost(container: AppContainer) {
         )
     }
 }
+
+/** The Posts tab at launch: Explore's default feed (Sync's "Set as default"), else the front page. */
+private fun homeRoute(container: AppContainer) = FeedRoute(container.explore.state.value.defaultFeed, home = true)

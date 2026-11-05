@@ -23,14 +23,6 @@ object Parser {
         return Listing(posts, data.string("after"))
     }
 
-    fun subredditNames(root: JsonElement): Listing<String> {
-        val data = root.jsonObject.obj("data") ?: return Listing(emptyList(), null)
-        val names = data.arr("children").orEmpty().mapNotNull {
-            (it as? JsonObject)?.obj("data")?.string("display_name")
-        }
-        return Listing(names, data.string("after"))
-    }
-
     fun subredditListing(root: JsonElement): Listing<Subreddit> {
         val data = root.jsonObject.obj("data") ?: return Listing(emptyList(), null)
         val subs = data.arr("children").orEmpty().mapNotNull { child ->

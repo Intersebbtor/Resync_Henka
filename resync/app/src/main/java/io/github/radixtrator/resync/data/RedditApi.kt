@@ -51,17 +51,21 @@ class RedditApi(private val client: RedditClient) {
 
     suspend fun me(): Me = Parser.me(client.get("/api/v1/me"))
 
-    suspend fun subscriptions(): List<String> {
-        val names = mutableListOf<String>()
+    /** The account's subscribed communities, A–Z, with icons for Explore. */
+    suspend fun subscriptions(): List<Subreddit> = mine("subscriber")
+
+    /** Communities the account moderates (Explore's Moderated section). */
+    suspend fun moderated(): List<Subreddit> = mine("moderator")
+
+    private suspend fun mine(where: String): List<Subreddit> {
+        val subs = mutableListOf<Subreddit>()
         var after: String? = null
         do {
-            val page = Parser.subredditNames(
-                client.get("/subreddits/mine/subscriber", mapOf("limit" to "100", "after" to after)),
-            )
-            names += page.items
+            val page = Parser.subredditListing(client.get("/subreddits/mine/$where", mapOf("limit" to "100", "after" to after)))
+            subs += page.items
             after = page.after
-        } while (after != null && names.size < 1000)
-        return names.sortedBy { it.lowercase() }
+        } while (after != null && subs.size < 1000)
+        return subs.sortedBy { it.name.lowercase() }
     }
 
     suspend fun subredditAbout(name: String): Subreddit {

@@ -4,6 +4,14 @@ import java.util.Locale
 import kotlin.math.abs
 
 object Format {
+    /** Sync names feeds plainly: "Frontpage" (null or ""), "Popular", "All", or the subreddit as is. */
+    fun feedName(subreddit: String?): String = when (subreddit?.lowercase()) {
+        null, "" -> "Frontpage"
+        "popular" -> "Popular"
+        "all" -> "All"
+        else -> subreddit
+    }
+
     fun timeAgo(epochSeconds: Long, nowSeconds: Long = System.currentTimeMillis() / 1000): String {
         val s = (nowSeconds - epochSeconds).coerceAtLeast(0)
         return when {

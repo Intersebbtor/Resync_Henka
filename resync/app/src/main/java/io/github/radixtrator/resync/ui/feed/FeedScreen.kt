@@ -21,7 +21,6 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -80,7 +79,6 @@ import io.github.radixtrator.resync.ui.home.quickActions
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
-import io.github.radixtrator.resync.ui.navigation.SearchRoute
 import io.github.radixtrator.resync.ui.navigation.SubmitRoute
 import kotlinx.coroutines.launch
 
@@ -104,7 +102,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     var aboutOpen by rememberSaveable { mutableStateOf(false) }
     val callbacks = remember(vm) { vm.postCallbacks() }
     val posts = state.items.visiblePosts { it }
-    val title = feedTitle(subreddit)
+    val title = Format.feedName(subreddit)
     // The toolbar shows the title only once the big header has scrolled away.
     val headerGone by remember { derivedStateOf { gridState.firstVisibleItemIndex > 0 } }
     val openAbout = {
@@ -130,12 +128,9 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
                 onChangeView = { viewOpen = true },
             ),
             onReselectTab = { scope.launch { gridState.animateScrollToItem(0) } },
-            actions = {
-                IconButton(onClick = { nav.push(SearchRoute(subreddit = subreddit.takeIf { vm.isCommunity })) }) {
-                    Icon(Icons.Outlined.Search, "Search")
-                }
-                IconButton(onClick = { sortOpen = true }) { Icon(AppIcons.Sort, "Sort") }
-            },
+            actions = { IconButton(onClick = { sortOpen = true }) { Icon(AppIcons.Sort, "Sort") } },
+            showSearch = true,
+            searchSubreddit = subreddit.takeIf { vm.isCommunity },
         ) { padding ->
             PullToRefreshBox(
                 isRefreshing = state.refreshing,
@@ -185,14 +180,6 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
             },
         )
     }
-}
-
-/** Sync titles feeds by plain name: "Frontpage", "pics", "Popular". */
-private fun feedTitle(subreddit: String?): String = when (subreddit?.lowercase()) {
-    null -> "Frontpage"
-    "popular" -> "Popular"
-    "all" -> "All"
-    else -> subreddit
 }
 
 @Composable

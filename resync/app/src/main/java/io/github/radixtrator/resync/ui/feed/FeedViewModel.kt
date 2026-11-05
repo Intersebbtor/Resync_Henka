@@ -39,6 +39,8 @@ class FeedViewModel(container: AppContainer, val subreddit: String?) : ListingVi
         }
         // The community header shows the icon and subscriber count, like Sync's.
         loadAbout(quiet = true)
+        // Feeds Explore's "Most visited" and "Recently searched & visited".
+        container.explore.recordVisit(subreddit)
     }
 
     private fun defaultSort(user: String?) = if (subreddit == null && user != null) Sort.BEST else Sort.HOT
@@ -71,7 +73,7 @@ class FeedViewModel(container: AppContainer, val subreddit: String?) : ListingVi
         _about.value = sub.copy(isSubscribed = !sub.isSubscribed, subscribers = sub.subscribers + if (sub.isSubscribed) -1 else 1)
         viewModelScope.launch {
             runCatching { container.api.setSubscribed(sub.name, !sub.isSubscribed) }
-                .onSuccess { container.refreshSubscriptions() }
+                .onSuccess { container.refreshSubscriptions(force = true) }
                 .onFailure {
                     _about.value = sub
                     showMessage("Couldn't update subscription: ${it.message}")

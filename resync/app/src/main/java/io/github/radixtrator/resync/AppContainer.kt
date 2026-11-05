@@ -8,7 +8,9 @@ import io.github.radixtrator.resync.data.ApiConfigStore
 import io.github.radixtrator.resync.data.Comment
 import io.github.radixtrator.resync.data.RedditApi
 import io.github.radixtrator.resync.data.RedditClient
+import io.github.radixtrator.resync.data.ExploreStore
 import io.github.radixtrator.resync.data.PostMemoryStore
+import io.github.radixtrator.resync.data.Subreddit
 import io.github.radixtrator.resync.data.SettingsStore
 import io.github.radixtrator.resync.data.VisitedStore
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -32,6 +34,7 @@ class AppContainer(context: Context) {
     val settings = SettingsStore(prefs)
     val visited = VisitedStore(prefs)
     val postMemory = PostMemoryStore(prefs)
+    val explore = ExploreStore(prefs)
     private val accountStore = AccountStore(prefs)
     val client = RedditClient(configStore, accountStore, context.assets)
     val api = RedditApi(client)
@@ -53,6 +56,13 @@ class AppContainer(context: Context) {
     private val _subscriptions = MutableStateFlow<List<String>>(emptyList())
     /** The active account's subscriptions, shared by every feed and the Explore sheet. */
     val subscriptions: StateFlow<List<String>> = _subscriptions.asStateFlow()
+
+    private val _moderated = MutableStateFlow<List<String>>(emptyList())
+    val moderated: StateFlow<List<String>> = _moderated.asStateFlow()
+
+    private val _subredditIcons = MutableStateFlow<Map<String, String>>(emptyMap())
+    /** Icons of subscribed and moderated communities, by lowercase name. */
+    val subredditIcons: StateFlow<Map<String, String>> = _subredditIcons.asStateFlow()
 
     private val _events = MutableSharedFlow<ContentEvent>(extraBufferCapacity = 16)
     val events: SharedFlow<ContentEvent> = _events.asSharedFlow()
@@ -98,12 +108,28 @@ class AppContainer(context: Context) {
         }
     }
 
-    suspend fun refreshSubscriptions() {
-        if (_username.value == null) {
+    /** The account [refreshSubscriptions] last loaded, so opening feeds doesn't refetch every time. */
+    private var subscriptionsLoadedFor: String? = null
+
+    /** Loads subscriptions and moderated communities once per account; [force] reloads anyway. */
+    suspend fun refreshSubscriptions(force: Boolean = false) {
+        val user = _username.value
+        if (user == null) {
             _subscriptions.value = emptyList()
+            _moderated.value = emptyList()
+            subscriptionsLoadedFor = null
             return
         }
-        runCatching { api.subscriptions() }.onSuccess { _subscriptions.value = it }
+        if (!force && subscriptionsLoadedFor == user) return
+        runCatching { api.subscriptions() }.onSuccess { subs ->
+            subscriptionsLoadedFor = user // only once it worked, so a failure retries next time
+            _subscriptions.value = subs.map { it.name }
+            _subredditIcons.value += subs.iconsByName()
+        }
+        runCatching { api.moderated() }.onSuccess { subs ->
+            _moderated.value = subs.map { it.name }
+            _subredditIcons.value += subs.iconsByName()
+        }
     }
 
     fun setInboxCount(count: Int) {
@@ -130,7 +156,11 @@ class AppContainer(context: Context) {
         _inboxCount.value = 0
         _avatar.value = null
         _subscriptions.value = emptyList()
+        _moderated.value = emptyList()
+        subscriptionsLoadedFor = null
     }
+
+    private fun List<Subreddit>.iconsByName() = mapNotNull { sub -> sub.iconUrl?.let { sub.name.lowercase() to it } }.toMap()
 
     private fun forgetAllAccounts() {
         accountStore.removeAll()

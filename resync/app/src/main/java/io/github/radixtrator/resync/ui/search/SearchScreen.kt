@@ -87,7 +87,7 @@ class SearchPostsViewModel(container: AppContainer, query: String, private val s
     val restrict = _restrict.asStateFlow()
 
     init {
-        if (query.isNotBlank()) reload()
+        if (query.isNotBlank()) search(query)
     }
 
     override suspend fun fetch(after: String?): Listing<Post> {
@@ -101,6 +101,9 @@ class SearchPostsViewModel(container: AppContainer, query: String, private val s
     override fun withPost(item: Post, post: Post) = post
 
     fun search(query: String) {
+        if (query != _query.value || _state.value.items.isEmpty()) {
+            if (query.isNotBlank()) container.explore.recordSearch(query, subreddit.takeIf { _restrict.value })
+        }
         _query.value = query
         updateItems { emptyList() }
         reload()

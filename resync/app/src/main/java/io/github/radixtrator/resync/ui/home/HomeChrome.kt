@@ -128,6 +128,9 @@ fun ShellScaffold(
     quickActions: List<QuickAction>,
     onReselectTab: () -> Unit,
     actions: @Composable RowScope.() -> Unit,
+    /** Sync's toolbar search opens Explore in search mode; inside a community it can search just that one. */
+    showSearch: Boolean = false,
+    searchSubreddit: String? = null,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val nav = LocalNavigator.current
@@ -162,6 +165,7 @@ fun ShellScaffold(
                     if (smallTitle != null) Text(smallTitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 },
                 actions = {
+                    if (showSearch) IconButton(onClick = { explore = ExploreMode.SEARCH }) { Icon(Icons.Outlined.Search, "Search") }
                     actions()
                     IconButton(onClick = { moreOpen = true }) { Icon(Icons.Default.MoreVert, "More actions") }
                 },
@@ -221,6 +225,7 @@ fun ShellScaffold(
         ExploreSheet(
             container = container,
             mode = mode,
+            subreddit = searchSubreddit,
             onDismiss = { explore = null },
             onOpenFeed = { name ->
                 explore = null

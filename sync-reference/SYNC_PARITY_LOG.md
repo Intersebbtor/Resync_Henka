@@ -455,8 +455,8 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Image viewer info sheet (download, link info, copy/share/comments) | yes | zoomable viewer | ◐ |
 | Video player: HD toggle, speed, download, mute | yes | Media3 player | ◐ |
 | Galleries | broken in Sync | gallery viewer | ✅ (better) |
-| Explore sheet: Favorites / Subscriptions / Moderated / Most visited (+counts) / Follows, per-sub menu | yes | Feeds + Subscriptions, live subreddit suggestions, Open r/ / u/, Search all | ◐ (no favorites, most visited, per-sub menu) |
-| Recently searched & visited | yes | — | ❌ |
+| Explore sheet: Favorites / Subscriptions / Moderated / Most visited (+counts) / Follows, per-sub menu | yes | Favorites, Feeds, Subscriptions (with icons), Moderated, Most visited (counts, Default tag), row ⋮ (favorite, set as default, about, unsubscribe, reset viewed), options ⋮ (section visibility, duplicate favorites, reload, clear) | ◐ (no Follows/Custom feeds sections, no favorite reordering) |
+| Recently searched & visited | yes | toolbar search opens Explore with recent feeds and searches; "Search r/<sub>" inside a community | ✅ |
 | Subreddit header chips: Join, About, Wiki, Flairs, Watch, Favorite | yes | info sheet with join/leave + sidebar | ◐ |
 | Wiki viewer | yes | — | ❌ |
 | Inbox sections | 9 (incl. DMs, comment/post replies, mentions, mod) | All, Unread, DMs, Sent, Comment replies, Post replies, Mentions | ◐ (no mod boxes) |
