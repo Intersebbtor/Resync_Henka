@@ -9,61 +9,84 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.data.ThemeMode
 
+// Sync builds its theme from Monet tonal palettes (N1/N2 neutrals, A1–A3 accents). These are the tones
+// Sync showed on the reference device (sync-reference/SYNC_PARITY_LOG.md §1), mapped onto M3 roles the
+// way Sync uses them: window, cards/sheets, nav bar and selection pills are successive neutral steps.
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF1E6FD9),
+    primary = Color(0xFF505E81), // A1-600
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFD6E4FF),
-    onPrimaryContainer = Color(0xFF001B3F),
-    secondary = Color(0xFF4F5B6E),
-    background = Color(0xFFF4F6FA),
-    onBackground = Color(0xFF15181D),
-    surface = Color(0xFFF4F6FA),
-    onSurface = Color(0xFF15181D),
-    surfaceContainerLowest = Color.White,
-    surfaceContainerLow = Color.White,
-    surfaceContainer = Color(0xFFFBFCFE),
-    surfaceVariant = Color(0xFFE3E7EF),
-    onSurfaceVariant = Color(0xFF5A6270),
-    outlineVariant = Color(0xFFDDE1E8),
+    primaryContainer = Color(0xFF505E81), // Sync's FAB is the saturated accent in light mode too
+    onPrimaryContainer = Color.White,
+    secondary = Color(0xFF575E71),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFC0C6DC), // A2-200: nav indicator
+    onSecondaryContainer = Color(0xFF151B2C),
+    tertiary = Color(0xFF6A567F),
+    tertiaryContainer = Color(0xFFEFDBFF),
+    background = Color(0xFFEEEDF3),
+    onBackground = Color(0xFF1A1B20),
+    surface = Color(0xFFEEEDF3),
+    onSurface = Color(0xFF1A1B20),
+    surfaceContainerLowest = Color(0xFFEEEDF3),
+    surfaceContainerLow = Color(0xFFFEFBFF), // cards, sheets, chips
+    surfaceContainer = Color(0xFFE1E2ED), // bottom nav
+    surfaceContainerHigh = Color(0xFFE3E2E7),
+    surfaceContainerHighest = Color(0xFFDCDBE2),
+    surfaceVariant = Color(0xFFF1F0F6), // neutral flair chips
+    onSurfaceVariant = Color(0xFF5C5E67),
+    outline = Color(0xFF8E909A),
+    outlineVariant = Color(0xFFC5C6D0),
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF8AB4FF),
-    onPrimary = Color(0xFF002F66),
-    primaryContainer = Color(0xFF16457F),
-    onPrimaryContainer = Color(0xFFD6E4FF),
-    background = Color(0xFF0E1116),
-    onBackground = Color(0xFFE3E6EC),
-    surface = Color(0xFF0E1116),
-    onSurface = Color(0xFFE3E6EC),
-    surfaceContainerLowest = Color(0xFF14181E),
-    surfaceContainerLow = Color(0xFF181C23),
-    surfaceContainer = Color(0xFF1C2028),
-    surfaceVariant = Color(0xFF2A303A),
-    onSurfaceVariant = Color(0xFFA9B1BE),
-    outlineVariant = Color(0xFF2C323C),
+    primary = Color(0xFF9DABD1), // A1-300: Sync's accent text (sub names, links, headers)
+    onPrimary = Color(0xFF0B1A3A),
+    primaryContainer = Color(0xFF394668), // A1-700: FAB
+    onPrimaryContainer = Color(0xFFD9E2FF),
+    secondary = Color(0xFFC0C6DC),
+    onSecondary = Color(0xFF2A3042),
+    secondaryContainer = Color(0xFF454957), // nav indicator
+    onSecondaryContainer = Color(0xFFDCE2F9),
+    tertiary = Color(0xFFD5BDEC),
+    tertiaryContainer = Color(0xFF513F66),
+    background = Color(0xFF121418),
+    onBackground = Color(0xFFE6E5EC),
+    surface = Color(0xFF121418),
+    onSurface = Color(0xFFE6E5EC),
+    surfaceContainerLowest = Color(0xFF121418),
+    surfaceContainerLow = Color(0xFF1C1D21), // cards, sheets, chips
+    surfaceContainer = Color(0xFF27292D), // bottom nav
+    surfaceContainerHigh = Color(0xFF2D2F3A), // selected rows, highlighted comment
+    surfaceContainerHighest = Color(0xFF34363E),
+    surfaceVariant = Color(0xFF282A2E), // neutral flair chips
+    onSurfaceVariant = Color(0xFFA3A5AD),
+    outline = Color(0xFF8E909A),
+    outlineVariant = Color(0xFF2E3038),
 )
 
 object ResyncColors {
-    val Upvote = Color(0xFFFF6A33)
-    val Downvote = Color(0xFF7193FF)
+    val Upvote = Color(0xFFFF7500)
+    val Downvote = Color(0xFF9494FF)
     val Nsfw = Color(0xFFE5484D)
-    val Moderator = Color(0xFF2EA043)
-    val Saved = Color(0xFFF2B01E)
+    val Moderator = Color(0xFF4CAF50)
+    val Saved = Color(0xFFECC940)
+    val Reply = Color(0xFF3ABF6D)
+    val Hide = Color(0xFFB71C1C)
 
-    /** Comment thread rails, cycling by depth. */
+    /** Comment thread rails, cycling by depth (Sync's order: blue, purple, green, orange, pink). */
     val Depth = listOf(
-        Color(0xFF3B82F6),
-        Color(0xFF22C55E),
-        Color(0xFFF59E0B),
-        Color(0xFFEF4444),
-        Color(0xFFA855F7),
-        Color(0xFF14B8A6),
+        Color(0xFF4484F6),
+        Color(0xFF9C27B0),
+        Color(0xFF4CAF50),
+        Color(0xFFFF9800),
+        Color(0xFFE91E63),
     )
 }
 
@@ -91,8 +114,13 @@ fun ResyncTheme(settings: Settings, content: @Composable () -> Unit) {
         dark -> DarkColors
         else -> LightColors
     }
-    MaterialTheme(
-        colorScheme = if (settings.theme == ThemeMode.BLACK) base.blackened() else base,
-        content = content,
-    )
+    CompositionLocalProvider(LocalDarkTheme provides dark) {
+        MaterialTheme(
+            colorScheme = if (settings.theme == ThemeMode.BLACK) base.blackened() else base,
+            content = content,
+        )
+    }
 }
+
+/** Whether the resolved theme is dark, for actions that flip it (Sync's "Dark mode" quick action). */
+val LocalDarkTheme = staticCompositionLocalOf { false }

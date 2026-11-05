@@ -306,7 +306,7 @@ private fun CommentRow(
     val isOwn = LocalAccount.current?.equals(comment.author, ignoreCase = true) == true
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val rail = ResyncColors.Depth[comment.depth % ResyncColors.Depth.size]
+    val rail = ResyncColors.Depth[(comment.depth - 1).coerceAtLeast(0) % ResyncColors.Depth.size]
     val indent = INDENT * comment.depth.coerceAtMost(MAX_INDENT_DEPTH)
 
     Column {
@@ -396,7 +396,7 @@ private fun CommentHeader(comment: Comment, collapsed: Boolean, hiddenCount: Int
 @Composable
 private fun MoreRow(more: MoreComments, loading: Boolean, onClick: () -> Unit) {
     val indent = INDENT * more.depth.coerceAtMost(MAX_INDENT_DEPTH)
-    val rail = ResyncColors.Depth[more.depth % ResyncColors.Depth.size]
+    val rail = ResyncColors.Depth[(more.depth - 1).coerceAtLeast(0) % ResyncColors.Depth.size]
     Row(
         Modifier
             .fillMaxWidth()

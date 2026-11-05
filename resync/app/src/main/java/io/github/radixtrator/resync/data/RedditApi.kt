@@ -12,7 +12,7 @@ class RedditApi(private val client: RedditClient) {
         val base = if (subreddit == null) "" else "/r/$subreddit"
         val json = client.get(
             "$base/${sort.path}",
-            mapOf("after" to after, "limit" to "25", "t" to sort.time),
+            mapOf("after" to after, "limit" to "25", "t" to sort.time?.param),
         )
         return Parser.postListing(json)
     }

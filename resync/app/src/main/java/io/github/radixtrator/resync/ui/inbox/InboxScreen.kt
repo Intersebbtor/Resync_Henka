@@ -3,6 +3,24 @@
 package io.github.radixtrator.resync.ui.inbox
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import io.github.radixtrator.resync.ui.common.AppIcons
+import io.github.radixtrator.resync.ui.common.HeaderChip
+import io.github.radixtrator.resync.ui.common.LargeHeader
+import io.github.radixtrator.resync.ui.common.OptionRow
+import io.github.radixtrator.resync.ui.common.SheetTitle
+import io.github.radixtrator.resync.ui.home.HomeTab
+import io.github.radixtrator.resync.ui.home.ShellScaffold
+import io.github.radixtrator.resync.ui.home.quickActions
+import io.github.radixtrator.resync.ui.navigation.InboxRoute
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,24 +34,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -107,37 +116,38 @@ class InboxViewModel(container: AppContainer) : ListingViewModel<InboxItem>(cont
 }
 
 @Composable
-fun InboxScreen(container: AppContainer) {
+fun InboxScreen(route: InboxRoute, container: AppContainer) {
     val nav = LocalNavigator.current
     val vm = viewModel { InboxViewModel(container) }
     val state by vm.state.collectAsStateWithLifecycle()
     val box by vm.box.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val loggedIn = LocalAccount.current != null
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    var boxOpen by rememberSaveable { mutableStateOf(false) }
+    val headerGone by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
 
     MessageEffect(state.message, snackbar, vm::messageShown)
 
-    SwipeBack(enabled = LocalSettings.current.swipeBack, onBack = nav::pop) {
-        Scaffold(
-            snackbarHost = { SnackbarHost(snackbar) },
-            topBar = {
-                TopAppBar(
-                    navigationIcon = { IconButton(onClick = nav::pop) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                    title = { Text("Inbox", fontWeight = FontWeight.SemiBold) },
-                    actions = {
-                        if (loggedIn) IconButton(onClick = vm::markAllRead) { Icon(Icons.Default.Done, "Mark all read") }
-                    },
-                )
-            },
-            floatingActionButton = {
-                if (loggedIn) {
-                    FloatingActionButton(onClick = { nav.push(ComposeRoute(ComposeMode.MESSAGE)) }) { Icon(Icons.Default.Edit, "New message") }
-                }
+    SwipeBack(enabled = !route.home && LocalSettings.current.swipeBack, onBack = nav::pop) {
+        ShellScaffold(
+            container = container,
+            home = route.home,
+            tab = HomeTab.INBOX,
+            smallTitle = "Inbox".takeIf { headerGone },
+            scrollBehavior = scrollBehavior,
+            snackbar = snackbar,
+            quickActions = quickActions(container, onRefresh = vm::refresh),
+            onReselectTab = { scope.launch { listState.animateScrollToItem(0) } },
+            actions = {
+                if (loggedIn) IconButton(onClick = vm::markAllRead) { Icon(AppIcons.DoubleCheck, "Mark all as read") }
             },
         ) { padding ->
             if (!loggedIn) {
                 Column(
-                    Modifier.padding(padding).fillMaxSize(),
+                    Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize(),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -145,35 +155,59 @@ fun InboxScreen(container: AppContainer) {
                     Spacer(Modifier.padding(8.dp))
                     Button(onClick = { nav.push(LoginRoute) }) { Text("Log in") }
                 }
-                return@Scaffold
+                return@ShellScaffold
             }
-            Column(Modifier.padding(padding)) {
-                PrimaryTabRow(selectedTabIndex = box.ordinal) {
-                    InboxBox.entries.forEach { b -> Tab(selected = b == box, onClick = { vm.setBox(b) }, text = { Text(b.label) }) }
+            PullToRefreshBox(
+                isRefreshing = state.refreshing,
+                onRefresh = vm::refresh,
+                modifier = Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize(),
+            ) {
+                PagedList(
+                    state = state,
+                    key = { it.fullname },
+                    onLoadMore = vm::loadMore,
+                    onRetry = vm::retry,
+                    listState = listState,
+                    contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
+                    emptyText = "No messages",
+                    header = {
+                        item(key = "header") {
+                            LargeHeader("Inbox") {
+                                HeaderChip(box.label, Icons.Outlined.Email, { boxOpen = true }, dropdown = true)
+                                HeaderChip("New message", Icons.Outlined.Edit, { nav.push(ComposeRoute(ComposeMode.MESSAGE)) })
+                                HeaderChip("Mark all as read", AppIcons.DoubleCheck, vm::markAllRead)
+                            }
+                        }
+                    },
+                ) { item ->
+                    InboxRow(
+                        item = item,
+                        sent = box == InboxBox.SENT,
+                        onOpen = {
+                            vm.markRead(item)
+                            if (item.isComment && item.postId != null) {
+                                nav.push(PostRoute(item.postId, item.commentId, context = 3))
+                            }
+                        },
+                        onReply = {
+                            vm.markRead(item)
+                            nav.push(ComposeRoute(ComposeMode.REPLY, target = item.fullname, quote = item.body))
+                        },
+                    )
                 }
-                PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
-                    PagedList(
-                        state = state,
-                        key = { it.fullname },
-                        onLoadMore = vm::loadMore,
-                        onRetry = vm::retry,
-                        emptyText = "No messages",
-                    ) { item ->
-                        InboxRow(
-                            item = item,
-                            sent = box == InboxBox.SENT,
-                            onOpen = {
-                                vm.markRead(item)
-                                if (item.isComment && item.postId != null) {
-                                    nav.push(PostRoute(item.postId, item.commentId, context = 3))
-                                }
-                            },
-                            onReply = {
-                                vm.markRead(item)
-                                nav.push(ComposeRoute(ComposeMode.REPLY, target = item.fullname, quote = item.body))
-                            },
-                        )
-                    }
+            }
+        }
+    }
+
+    if (boxOpen) {
+        ModalBottomSheet(onDismissRequest = { boxOpen = false }, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
+            Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
+                SheetTitle("Messages", Modifier.padding(top = 0.dp))
+                InboxBox.entries.forEach { b ->
+                    OptionRow(b.label, icon = null, selected = b == box, onClick = {
+                        boxOpen = false
+                        vm.setBox(b)
+                    })
                 }
             }
         }

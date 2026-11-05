@@ -84,11 +84,14 @@ object Parser {
             linkKarma = d.int("link_karma") ?: 0,
             commentKarma = d.int("comment_karma") ?: 0,
             createdUtc = d.long("created_utc") ?: 0,
-            iconUrl = (d.string("snoovatar_img")?.takeIf { it.isNotBlank() } ?: d.string("icon_img"))
-                ?.takeIf { it.startsWith("http") },
+            iconUrl = userIcon(d),
             description = d.obj("subreddit")?.string("public_description")?.takeIf { it.isNotBlank() },
         )
     }
+
+    /** The avatar on /about and /api/v1/me: the snoovatar if set, else the profile icon. */
+    private fun userIcon(d: JsonObject): String? =
+        (d.string("snoovatar_img")?.takeIf { it.isNotBlank() } ?: d.string("icon_img"))?.takeIf { it.startsWith("http") }
 
     /** User overview/saved listings mix posts (t3) and comments (t1). */
     fun profileListing(root: JsonElement): Listing<ProfileItem> {
@@ -157,7 +160,7 @@ object Parser {
 
     fun me(root: JsonElement): Me {
         val d = root.jsonObject
-        return Me(name = d.string("name").orEmpty(), inboxCount = d.int("inbox_count") ?: 0)
+        return Me(name = d.string("name").orEmpty(), inboxCount = d.int("inbox_count") ?: 0, iconUrl = userIcon(d))
     }
 
     /** api_type=json responses report failures as `json.errors: [[code, message, field], ...]`. */

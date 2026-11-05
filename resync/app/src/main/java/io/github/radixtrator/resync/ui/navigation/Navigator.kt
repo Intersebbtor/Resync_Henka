@@ -26,12 +26,19 @@ class Navigator(
 
     val canPop: Boolean get() = backStack.size > 1
 
+    val top: NavKey get() = backStack.last()
+
     fun push(route: NavKey) {
         backStack.add(route)
     }
 
     fun pop() {
         if (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+    }
+
+    /** Pops while [predicate] holds for the top screen, never past the root. */
+    fun popWhile(predicate: (NavKey) -> Boolean) {
+        while (backStack.size > 1 && predicate(backStack.last())) backStack.removeAt(backStack.lastIndex)
     }
 
     /** Swaps the current screen, e.g. the submit form for the post it created. */

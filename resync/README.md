@@ -40,7 +40,8 @@ data/          ApiConfig, AccountStore (multiple accounts), Settings (JSON in Sh
 ui/navigation  Routes, Navigator (push/pop, in-app link routing, Custom Tabs, media dispatch)
 ui/common      ListingViewModel + PagedList (shared paging), post card/compact rows, actions sheet,
                markdown HTML rendering with tappable spoilers, swipe-to-dismiss / slide-back gestures
-ui/feed        Feed, drawer (accounts, inbox badge, subscriptions), subreddit info sheet
+ui/home        Sync's shell: bottom nav (Posts/Explore/Inbox), Explore sheet, account card, More actions FAB
+ui/feed        Feed with large header and chips, sort sheet (time ranges), subreddit info sheet
 ui/post        Post + threaded comments: rails, collapse, load more, single-thread view, jump buttons
 ui/profile     User profile: karma, tabs (overview/posts/comments/saved/upvoted), sorting
 ui/inbox       Inbox/unread/messages/sent, mark read, reply
@@ -52,7 +53,9 @@ ui/settings    Theme (system/light/dark/black), Material You, layout, NSFW, spoi
 
 ## Features
 
-- Front page, popular, all, subreddits and multis, with every sort; card or compact layout
+- Front page, popular, all, subreddits and multis, with every sort (Top/Controversial by hour…all); card or compact layout
+- Sync-style navigation: bottom nav, Explore sheet to jump between feeds, account switcher under the avatar,
+  More actions grid (toolbar ⋮ or the ⋯ FAB), toolbar/nav/FAB hide on scroll
 - Threaded comments: colored depth rails, tap to collapse, load more, "continue this thread"
   in-app, jump between top-level comments, long-press to reply/vote/copy/share/edit/delete
 - Voting, saving, hiding, deleting, sharing; reddit links (posts, comments, subs, users,

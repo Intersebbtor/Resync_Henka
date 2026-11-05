@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun ResyncNavHost(container: AppContainer) {
-    val backStack = rememberNavBackStack(if (container.isConfigured) FeedRoute() else SetupRoute)
+    val backStack = rememberNavBackStack(if (container.isConfigured) FeedRoute(home = true) else SetupRoute)
     val context = LocalContext.current
     val settings by container.settings.settings.collectAsStateWithLifecycle()
     val username by container.username.collectAsStateWithLifecycle()
@@ -87,16 +87,16 @@ private fun ResyncNavHost(container: AppContainer) {
                         container = container,
                         canGoBack = navigator.canPop,
                         onBack = navigator::pop,
-                        onDone = { navigator.resetTo(FeedRoute()) },
+                        onDone = { navigator.resetTo(FeedRoute(home = true)) },
                     )
                 }
                 entry<LoginRoute> { LoginScreen(container = container, onFinished = navigator::pop) }
-                entry<FeedRoute> { route -> FeedScreen(route.subreddit, container) }
+                entry<FeedRoute> { route -> FeedScreen(route, container) }
                 entry<PostRoute> { route -> PostScreen(route, container) }
                 entry<ImageRoute> { route -> ImageViewerScreen(route.urls, route.start, onClose = navigator::pop) }
                 entry<VideoRoute> { route -> VideoPlayerScreen(route.url, route.loop, onClose = navigator::pop) }
                 entry<UserRoute> { route -> ProfileScreen(route.name, route.tab, container) }
-                entry<InboxRoute> { InboxScreen(container) }
+                entry<InboxRoute> { route -> InboxScreen(route, container) }
                 entry<SearchRoute> { route -> SearchScreen(route.query, route.subreddit, container) }
                 entry<SubmitRoute> { route -> SubmitScreen(route.subreddit, container) }
                 entry<ComposeRoute> { route -> ComposeScreen(route, container) }

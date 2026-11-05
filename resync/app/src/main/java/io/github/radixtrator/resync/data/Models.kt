@@ -76,16 +76,33 @@ data class MoreComments(
 
 data class PostWithComments(val post: Post, val comments: List<CommentNode>)
 
-enum class Sort(val path: String, val label: String, val time: String? = null) {
+/** Listing sorts, as Sync's sort sheet lists them. [timed] sorts take a [TimeRange]. */
+enum class SortKind(val path: String, val label: String, val timed: Boolean = false) {
     BEST("best", "Best"),
     HOT("hot", "Hot"),
     NEW("new", "New"),
     RISING("rising", "Rising"),
-    TOP_DAY("top", "Top: today", "day"),
-    TOP_WEEK("top", "Top: this week", "week"),
-    TOP_MONTH("top", "Top: this month", "month"),
-    TOP_YEAR("top", "Top: this year", "year"),
-    TOP_ALL("top", "Top: all time", "all"),
+    TOP("top", "Top", timed = true),
+    CONTROVERSIAL("controversial", "Controversial", timed = true),
+}
+
+enum class TimeRange(val param: String, val label: String) {
+    HOUR("hour", "Hour"),
+    DAY("day", "Day"),
+    WEEK("week", "Week"),
+    MONTH("month", "Month"),
+    YEAR("year", "Year"),
+    ALL("all", "All"),
+}
+
+data class Sort(val kind: SortKind, val time: TimeRange? = null) {
+    val path: String get() = kind.path
+    val label: String get() = time?.let { "${kind.label} · ${it.label}" } ?: kind.label
+
+    companion object {
+        val BEST = Sort(SortKind.BEST)
+        val HOT = Sort(SortKind.HOT)
+    }
 }
 
 data class Subreddit(
@@ -158,7 +175,7 @@ data class InboxItem(
     val commentId: String?,
 )
 
-data class Me(val name: String, val inboxCount: Int)
+data class Me(val name: String, val inboxCount: Int, val iconUrl: String? = null)
 
 enum class UserWhere(val path: String, val label: String, val ownOnly: Boolean = false) {
     OVERVIEW("overview", "Overview"),
@@ -178,8 +195,11 @@ enum class UserSort(val param: String, val label: String, val time: String? = nu
 enum class InboxBox(val path: String, val label: String) {
     INBOX("inbox", "All"),
     UNREAD("unread", "Unread"),
-    MESSAGES("messages", "Messages"),
+    MESSAGES("messages", "DMs"),
     SENT("sent", "Sent"),
+    COMMENT_REPLIES("comments", "Comment replies"),
+    POST_REPLIES("selfreply", "Post replies"),
+    MENTIONS("mentions", "Mentions"),
 }
 
 enum class SearchSort(val param: String, val label: String, val time: String? = null) {

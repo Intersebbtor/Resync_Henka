@@ -42,6 +42,14 @@ class AppContainer(context: Context) {
     private val _inboxCount = MutableStateFlow(0)
     val inboxCount: StateFlow<Int> = _inboxCount.asStateFlow()
 
+    private val _avatar = MutableStateFlow<String?>(null)
+    /** The active account's avatar URL, for the toolbar's account button. */
+    val avatar: StateFlow<String?> = _avatar.asStateFlow()
+
+    private val _subscriptions = MutableStateFlow<List<String>>(emptyList())
+    /** The active account's subscriptions, shared by every feed and the Explore sheet. */
+    val subscriptions: StateFlow<List<String>> = _subscriptions.asStateFlow()
+
     private val _events = MutableSharedFlow<ContentEvent>(extraBufferCapacity = 16)
     val events: SharedFlow<ContentEvent> = _events.asSharedFlow()
 
@@ -62,7 +70,7 @@ class AppContainer(context: Context) {
         if (name == _username.value) return
         accountStore.activeUsername = name
         accountStore.clearSession()
-        _inboxCount.value = 0
+        clearAccountState()
         _username.value = name
     }
 
@@ -71,13 +79,27 @@ class AppContainer(context: Context) {
         _username.value?.let(accountStore::remove)
         accountStore.clearSession()
         _accounts.value = accountStore.accounts.map { it.username }
-        _inboxCount.value = 0
+        clearAccountState()
         _username.value = null
     }
 
     suspend fun refreshInboxCount() {
-        if (_username.value == null) return
-        runCatching { api.me() }.onSuccess { _inboxCount.value = it.inboxCount }
+        if (_username.value == null) {
+            _avatar.value = null
+            return
+        }
+        runCatching { api.me() }.onSuccess {
+            _inboxCount.value = it.inboxCount
+            _avatar.value = it.iconUrl
+        }
+    }
+
+    suspend fun refreshSubscriptions() {
+        if (_username.value == null) {
+            _subscriptions.value = emptyList()
+            return
+        }
+        runCatching { api.subscriptions() }.onSuccess { _subscriptions.value = it }
     }
 
     fun setInboxCount(count: Int) {
@@ -100,10 +122,16 @@ class AppContainer(context: Context) {
         _username.value = "demo_user"
     }
 
+    private fun clearAccountState() {
+        _inboxCount.value = 0
+        _avatar.value = null
+        _subscriptions.value = emptyList()
+    }
+
     private fun forgetAllAccounts() {
         accountStore.removeAll()
         _accounts.value = emptyList()
-        _inboxCount.value = 0
+        clearAccountState()
         _username.value = null
     }
 }

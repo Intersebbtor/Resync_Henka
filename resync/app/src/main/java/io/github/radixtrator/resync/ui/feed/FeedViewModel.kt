@@ -5,6 +5,7 @@ import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.data.Listing
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.Sort
+import io.github.radixtrator.resync.data.SortKind
 import io.github.radixtrator.resync.data.Subreddit
 import io.github.radixtrator.resync.ui.common.ListingViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,9 +17,6 @@ class FeedViewModel(container: AppContainer, val subreddit: String?) : ListingVi
     private val _sort = MutableStateFlow(defaultSort(container.username.value))
     val sort = _sort.asStateFlow()
 
-    private val _subscriptions = MutableStateFlow<List<String>>(emptyList())
-    val subscriptions = _subscriptions.asStateFlow()
-
     private val _about = MutableStateFlow<Subreddit?>(null)
     val about = _about.asStateFlow()
 
@@ -26,19 +24,21 @@ class FeedViewModel(container: AppContainer, val subreddit: String?) : ListingVi
     val isCommunity = subreddit != null && subreddit.lowercase() !in setOf("all", "popular") && '+' !in subreddit
 
     /** "Best" only exists for the logged-in front page. */
-    val sortOptions: List<Sort>
-        get() = if (subreddit == null && container.username.value != null) Sort.entries else Sort.entries - Sort.BEST
+    val sortOptions: List<SortKind>
+        get() = if (subreddit == null && container.username.value != null) SortKind.entries else SortKind.entries - SortKind.BEST
 
     init {
         viewModelScope.launch {
             // Emits immediately, then on every account switch, so this is also the first load.
             container.username.collect { name ->
-                if (subreddit == null || _sort.value !in sortOptions) _sort.value = defaultSort(name)
+                if (subreddit == null || _sort.value.kind !in sortOptions) _sort.value = defaultSort(name)
                 reload()
-                loadSubscriptions(name)
+                container.refreshSubscriptions()
                 container.refreshInboxCount()
             }
         }
+        // The community header shows the icon and subscriber count, like Sync's.
+        loadAbout(quiet = true)
     }
 
     private fun defaultSort(user: String?) = if (subreddit == null && user != null) Sort.BEST else Sort.HOT
@@ -55,22 +55,13 @@ class FeedViewModel(container: AppContainer, val subreddit: String?) : ListingVi
         reload()
     }
 
-    private fun loadSubscriptions(user: String?) {
-        if (user == null) {
-            _subscriptions.value = emptyList()
-            return
-        }
-        viewModelScope.launch {
-            runCatching { container.api.subscriptions() }.onSuccess { _subscriptions.value = it }
-        }
-    }
-
-    fun loadAbout() {
+    /** [quiet]: the header can do without it, so only an explicit About tap reports failures. */
+    fun loadAbout(quiet: Boolean = false) {
         if (!isCommunity || _about.value != null) return
         viewModelScope.launch {
             runCatching { container.api.subredditAbout(subreddit!!) }
                 .onSuccess { _about.value = it }
-                .onFailure { showMessage("Couldn't load community info: ${it.message}") }
+                .onFailure { if (!quiet) showMessage("Couldn't load community info: ${it.message}") }
         }
     }
 
@@ -80,7 +71,7 @@ class FeedViewModel(container: AppContainer, val subreddit: String?) : ListingVi
         _about.value = sub.copy(isSubscribed = !sub.isSubscribed, subscribers = sub.subscribers + if (sub.isSubscribed) -1 else 1)
         viewModelScope.launch {
             runCatching { container.api.setSubscribed(sub.name, !sub.isSubscribed) }
-                .onSuccess { loadSubscriptions(container.username.value) }
+                .onSuccess { container.refreshSubscriptions() }
                 .onFailure {
                     _about.value = sub
                     showMessage("Couldn't update subscription: ${it.message}")

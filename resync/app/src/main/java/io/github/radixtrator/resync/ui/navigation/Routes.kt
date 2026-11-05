@@ -13,12 +13,17 @@ data object LoginRoute : NavKey
 @Serializable
 data object SettingsRoute : NavKey
 
+/**
+ * [home] screens are the bottom-navigation tabs (Sync's Posts and Inbox): they show the account
+ * avatar instead of a back arrow, plus the navigation bar and the More actions FAB. Feeds picked in
+ * Explore stay [home] too; feeds opened from a link are pushed as ordinary pages.
+ */
 @Serializable
-data object InboxRoute : NavKey
+data class InboxRoute(val home: Boolean = false) : NavKey
 
-/** [subreddit] null = front page. */
+/** [subreddit] null = front page. See [InboxRoute] for [home]. */
 @Serializable
-data class FeedRoute(val subreddit: String? = null) : NavKey
+data class FeedRoute(val subreddit: String? = null, val home: Boolean = false) : NavKey
 
 /** [commentId] opens just that comment's thread, with [context] parent comments above it. */
 @Serializable
