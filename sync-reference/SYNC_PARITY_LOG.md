@@ -442,14 +442,14 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | More actions grid (configurable, 24 actions) | yes | grid of 9 (Search, Profile, About, Submit, Dark mode, Settings, Change view, Refresh, Saved) | ◐ (not configurable) |
 | Post options sheet | ~22 actions incl. Copy…, Filter…, Watch, Explore domain, Add to multi | actions sheet (vote/save/hide/delete/share) | ◐ |
 | Read-state dimming, Hide read | yes | opened posts dim in feeds (local) | ◐ (no Hide read) |
-| Comment rails | 5-color cycle, 16 dp indent | colored rails | ✅ (check palette/indent) |
-| Tap-to-collapse with "+n" pill | yes | tap to collapse | ◐ (count pill?) |
-| Long-press inline comment action bar | 7 buttons | long-press menu | ◐ (bar vs menu) |
-| Comment ⋮: Select text, Tag user, Read aloud, Copy… | yes | copy/share/edit/delete | ◐ |
-| Comment actions grid (Other discussions, View images, Collapse all, Sports mode, Recents, Translate) | yes | jump buttons | ❌ |
-| In-thread comment search | yes | — | ❌ |
+| Comment rails | 5-color cycle, 16 dp indent | Sync's palette, a rail for every ancestor level, 16dp indent | ✅ |
+| Tap-to-collapse with "+n" pill | yes | tap folds the replies, "+N" pill; the comment itself stays readable | ✅ |
+| Long-press inline comment action bar | 7 buttons | ▲ ▼ 🔖 👤 ↩ ^ ⋮ bar under the highlighted comment | ✅ |
+| Comment ⋮: Select text, Tag user, Read aloud, Copy… | yes | Share, Open in browser, Select text, Copy… (text/permalink/username), Edit/Delete | ◐ (no Report, Tag user, Read aloud) |
+| Comment actions grid (Other discussions, View images, Collapse all, Sports mode, Recents, Translate) | yes | Reply, Refresh, Collapse all, Settings, Sort, Search; prev/next buttons as an opt-in setting | ◐ |
+| In-thread comment search | yes | sheet that filters loaded comments and jumps to one | ✅ |
 | Link footnotes + link preview cards in selftext/comments | yes | — | ❌ |
-| "98% upvoted", edited "*" + "(last edited)", OP pill, pinned/mod badges | yes | ? | ◐ |
+| "98% upvoted", edited "*" + "(last edited)", OP pill, pinned/mod badges | yes | upvote %, edited "*", OP pill, MOD and pinned as text | ◐ (text instead of icons; no "(last edited)") |
 | Restore scroll position / collapsed state per post | yes | — | ❌ |
 | Composer formatting bar | 17 tools incl. preview, emoji, drafts, image, spoiler, numbered list | markdown toolbar | ◐ |
 | Image viewer info sheet (download, link info, copy/share/comments) | yes | zoomable viewer | ◐ |

@@ -215,6 +215,7 @@ object Parser {
             flairDarkText = d.string("link_flair_text_color") != "light",
             locked = d.bool("locked"),
             authorFlair = flair(d, "author"),
+            upvoteRatio = (d["upvote_ratio"] as? JsonPrimitive)?.content?.toFloatOrNull(),
         )
     }
 
@@ -287,6 +288,7 @@ object Parser {
                 stickied = d.bool("stickied"),
                 likes = d.boolOrNull("likes"),
                 flair = flair(d, "author"),
+                saved = d.bool("saved"),
             )
             "more" -> MoreComments(
                 id = id,

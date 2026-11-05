@@ -44,6 +44,8 @@ data class Post(
     val flairDarkText: Boolean = true,
     val locked: Boolean = false,
     val authorFlair: String? = null,
+    /** Share of votes that are upvotes, 0..1; null when Reddit didn't say. */
+    val upvoteRatio: Float? = null,
 )
 
 sealed interface CommentNode {
@@ -69,6 +71,7 @@ data class Comment(
     val stickied: Boolean,
     val likes: Boolean?,
     val flair: String?,
+    val saved: Boolean = false,
 ) : CommentNode
 
 /** A "load more comments" stub. Empty [children] means "continue this thread" (needs a new page). */

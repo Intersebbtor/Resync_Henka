@@ -163,6 +163,49 @@ object AppIcons {
         }
     }
 
+    /** Straight vote arrows, as on Sync's comment action bar (chevrons there mean "go to parent"). */
+    val ArrowUp: ImageVector by lazy {
+        outline("ArrowUp") {
+            moveTo(12f, 20f); lineTo(12f, 4f)
+            moveTo(5f, 11f); lineTo(12f, 4f); lineTo(19f, 11f)
+        }
+    }
+
+    val ArrowDown: ImageVector by lazy {
+        outline("ArrowDown") {
+            moveTo(12f, 4f); lineTo(12f, 20f)
+            moveTo(5f, 13f); lineTo(12f, 20f); lineTo(19f, 13f)
+        }
+    }
+
+    val Shield: ImageVector by lazy {
+        outline("Shield") {
+            moveTo(12f, 3f); lineTo(19f, 6f); lineTo(19f, 11f)
+            curveTo(19f, 15.5f, 16f, 19f, 12f, 21f); curveTo(8f, 19f, 5f, 15.5f, 5f, 11f); lineTo(5f, 6f); close()
+        }
+    }
+
+    val Clock: ImageVector by lazy {
+        outline("Clock") {
+            moveTo(12f, 3f); arcTo(9f, 9f, 0f, true, true, 12f, 21f); arcTo(9f, 9f, 0f, true, true, 12f, 3f); close()
+            moveTo(12f, 7f); lineTo(12f, 12f); lineTo(15.5f, 14f)
+        }
+    }
+
+    val CollapseAll: ImageVector by lazy {
+        outline("CollapseAll") {
+            moveTo(7f, 4f); lineTo(12f, 9f); lineTo(17f, 4f)
+            moveTo(7f, 20f); lineTo(12f, 15f); lineTo(17f, 20f)
+        }
+    }
+
+    val Copy: ImageVector by lazy {
+        outline("Copy") {
+            moveTo(9f, 8f); lineTo(19f, 8f); lineTo(19f, 20f); lineTo(9f, 20f); close()
+            moveTo(15f, 8f); lineTo(15f, 4f); lineTo(5f, 4f); lineTo(5f, 16f); lineTo(9f, 16f)
+        }
+    }
+
     val RemoveCircle: ImageVector by lazy {
         outline("RemoveCircle") {
             moveTo(12f, 3f); arcTo(9f, 9f, 0f, true, true, 12f, 21f); arcTo(9f, 9f, 0f, true, true, 12f, 3f); close()

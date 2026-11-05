@@ -33,6 +33,8 @@ data class Settings(
     val swipeBack: Boolean = true,
     val inAppBrowser: Boolean = true,
     val muteVideos: Boolean = false,
+    /** Sync's comment navigation bar: previous/next top-level comment buttons. Off by default, as in Sync. */
+    val commentNavigation: Boolean = false,
     /** Per-feed overrides of [layout], keyed by [feedKey], like Sync's per-subreddit view. */
     val feedLayouts: Map<String, PostLayout> = emptyMap(),
 ) {

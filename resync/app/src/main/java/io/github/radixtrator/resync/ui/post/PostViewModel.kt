@@ -42,6 +42,10 @@ class PostViewModel(
 
     private val _state = MutableStateFlow(State(sort = container.settings.settings.value.commentSort))
     val state = _state.asStateFlow()
+
+    private val _subredditIcon = MutableStateFlow<String?>(null)
+    /** The post's community icon for the toolbar, fetched once the post is known. */
+    val subredditIcon = _subredditIcon.asStateFlow()
     private var loadJob: Job? = null
 
     init {
@@ -58,6 +62,7 @@ class PostViewModel(
                 _state.update {
                     it.copy(post = result.post, comments = result.comments, collapsed = emptySet(), loading = false, refreshing = false)
                 }
+                if (_subredditIcon.value == null) loadSubredditIcon(result.post.subreddit)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -106,6 +111,17 @@ class PostViewModel(
 
     fun toggleCollapsed(comment: Comment) = _state.update {
         it.copy(collapsed = if (comment.id in it.collapsed) it.collapsed - comment.id else it.collapsed + comment.id)
+    }
+
+    /** Sync's "Collapse all": fold every top-level thread down to its first comment. */
+    fun collapseAll() = _state.update { s ->
+        s.copy(collapsed = s.comments.filter { it is Comment && it.depth == 0 }.mapTo(HashSet()) { it.id })
+    }
+
+    private fun loadSubredditIcon(subreddit: String) {
+        viewModelScope.launch {
+            runCatching { container.api.subredditAbout(subreddit) }.onSuccess { _subredditIcon.value = it.iconUrl }
+        }
     }
 
     fun loadMore(more: MoreComments) {
@@ -158,6 +174,17 @@ class PostViewModel(
             runCatching { container.api.vote(comment.fullname, direction) }.onFailure { e ->
                 updateComment(comment.fullname) { it.copy(likes = comment.likes, score = comment.score) }
                 _state.update { it.copy(message = "Vote failed: ${e.message}") }
+            }
+        }
+    }
+
+    fun toggleSaveComment(comment: Comment) {
+        if (!requireLogin()) return
+        updateComment(comment.fullname) { it.copy(saved = !comment.saved) }
+        viewModelScope.launch {
+            runCatching { container.api.setSaved(comment.fullname, !comment.saved) }.onFailure { e ->
+                updateComment(comment.fullname) { it.copy(saved = comment.saved) }
+                _state.update { it.copy(message = "Save failed: ${e.message}") }
             }
         }
     }

@@ -354,10 +354,16 @@ private val RowTitle: TextStyle
 private val RowMeta: TextStyle
     @Composable get() = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 16.sp)
 
-/** The title, dimmed once read, with Sync's pin and lock marks inline. */
+/** The title, dimmed once read (in feeds), with Sync's pin and lock marks inline. */
 @Composable
-fun PostTitle(post: Post, style: TextStyle, modifier: Modifier = Modifier, maxLines: Int = Int.MAX_VALUE) {
-    val read = post.id in LocalVisited.current
+fun PostTitle(
+    post: Post,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    maxLines: Int = Int.MAX_VALUE,
+    dimWhenRead: Boolean = true,
+) {
+    val read = dimWhenRead && post.id in LocalVisited.current
     val accent = MaterialTheme.colorScheme.primary
     val text = buildAnnotatedString {
         append(post.title)
@@ -391,7 +397,14 @@ fun PostTitle(post: Post, style: TextStyle, modifier: Modifier = Modifier, maxLi
 
 /** "worldnews • author [flair] • 4h • thehill", with the sub in the accent color. */
 @Composable
-fun PostMeta(post: Post, showSubreddit: Boolean, modifier: Modifier = Modifier, maxLines: Int = 2, style: TextStyle = CardMeta) {
+fun PostMeta(
+    post: Post,
+    showSubreddit: Boolean,
+    modifier: Modifier = Modifier,
+    maxLines: Int = 2,
+    style: TextStyle = CardMeta,
+    suffix: String? = null,
+) {
     val accent = MaterialTheme.colorScheme.primary
     val flairBg = MaterialTheme.colorScheme.surfaceVariant
     val text = buildAnnotatedString {
@@ -408,6 +421,7 @@ fun PostMeta(post: Post, showSubreddit: Boolean, modifier: Modifier = Modifier, 
         shortDomain(post)?.let { append(" • $it") }
         if (post.over18) withStyle(SpanStyle(color = ResyncColors.Nsfw, fontWeight = FontWeight.Bold)) { append(" • NSFW") }
         if (post.spoiler) withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(" • Spoiler") }
+        suffix?.let { append(" • $it") }
     }
     Text(
         text,
@@ -460,6 +474,9 @@ fun PostStats(post: Post, modifier: Modifier = Modifier, style: TextStyle = Card
 
 private fun points(score: Int) = if (score == 1) "1 point" else "${Format.count(score)} points"
 private fun comments(n: Int) = if (n == 1) "1 comment" else "${Format.count(n)} comments"
+
+/** Whether [CardPreview] has a big image to show (links without one fall back to a link row). */
+fun Post.hasCardPreview(): Boolean = media.cardImage() != null
 
 private fun PostMedia.cardImage(): ImageSource? = when (this) {
     is PostMedia.Image -> preview ?: ImageSource(url, 0, 0)

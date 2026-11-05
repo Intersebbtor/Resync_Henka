@@ -68,7 +68,7 @@ fun SettingsScreen(container: AppContainer) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     Toggle("Material You colors", "Use your wallpaper's colors", settings.dynamicColor) { v -> update { it.copy(dynamicColor = v) } }
                 }
-                Choice("Post layout", PostLayout.entries, settings.layout, PostLayout::label) { v -> update { it.copy(layout = v) } }
+                Choice("Default post layout", PostLayout.entries, settings.layout, PostLayout::label) { v -> update { it.copy(layout = v) } }
 
                 Section("Content")
                 Choice("NSFW posts", NsfwMode.entries, settings.nsfw, NsfwMode::label) { v -> update { it.copy(nsfw = v) } }
@@ -79,6 +79,7 @@ fun SettingsScreen(container: AppContainer) {
                 Section("Behavior")
                 Toggle("Slide to go back", "Drag a page to the right to close it", settings.swipeBack) { v -> update { it.copy(swipeBack = v) } }
                 Toggle("Open links in the app", "Custom Tabs instead of your browser app", settings.inAppBrowser) { v -> update { it.copy(inAppBrowser = v) } }
+                Toggle("Comment navigation buttons", "Jump between top-level comments", settings.commentNavigation) { v -> update { it.copy(commentNavigation = v) } }
 
                 Section("Reddit")
                 ListItem(

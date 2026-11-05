@@ -58,8 +58,9 @@ ui/settings    Theme (system/light/dark/black), Material You, layout, NSFW, spoi
   cards tile into two columns on wide screens; read posts are dimmed
 - Sync-style navigation: bottom nav, Explore sheet to jump between feeds, account switcher under the avatar,
   More actions grid (toolbar ⋮ or the ⋯ FAB), toolbar/nav/FAB hide on scroll
-- Threaded comments: colored depth rails, tap to collapse, load more, "continue this thread"
-  in-app, jump between top-level comments, long-press to reply/vote/copy/share/edit/delete
+- Threaded comments, Sync-style: a rail for every ancestor level, tap to fold replies (with a "+N" pill),
+  long-press for the inline action bar (vote, save, profile, reply, go to parent, options), comment sort
+  sheet, in-thread search, collapse all, load more and "continue this thread" in-app
 - Voting, saving, hiding, deleting, sharing; reddit links (posts, comments, subs, users,
   i.redd.it, v.redd.it, .gifv) open in-app, everything else in Custom Tabs
 - Media: zoomable image and gallery viewer, animated GIFs, v.redd.it/mp4 video, swipe up or down to close
