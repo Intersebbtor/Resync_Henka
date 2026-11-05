@@ -61,6 +61,8 @@ ui/settings    Theme (system/light/dark/black), Material You, layout, NSFW, spoi
 - Threaded comments, Sync-style: a rail for every ancestor level, tap to fold replies (with a "+N" pill),
   long-press for the inline action bar (vote, save, profile, reply, go to parent, options), comment sort
   sheet, in-thread search, collapse all, load more and "continue this thread" in-app
+- Sync's extended swipe on posts and comments: drag left, further for the next of three configurable
+  actions (defaults: upvote/downvote/hide on posts, upvote/save/reply on comments)
 - Voting, saving, hiding, deleting, sharing; reddit links (posts, comments, subs, users,
   i.redd.it, v.redd.it, .gifv) open in-app, everything else in Custom Tabs
 - Media: zoomable image and gallery viewer, animated GIFs, v.redd.it/mp4 video, swipe up or down to close

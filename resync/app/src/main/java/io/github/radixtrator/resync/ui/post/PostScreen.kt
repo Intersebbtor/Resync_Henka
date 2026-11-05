@@ -99,6 +99,7 @@ import io.github.radixtrator.resync.data.CommentTree
 import io.github.radixtrator.resync.data.MoreComments
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostMedia
+import io.github.radixtrator.resync.data.SwipeAction
 import io.github.radixtrator.resync.data.VisibleNode
 import io.github.radixtrator.resync.ui.common.AppIcons
 import io.github.radixtrator.resync.ui.common.CardPreview
@@ -115,6 +116,7 @@ import io.github.radixtrator.resync.ui.common.PostTitle
 import io.github.radixtrator.resync.ui.common.QuickAction
 import io.github.radixtrator.resync.ui.common.QuickActionGrid
 import io.github.radixtrator.resync.ui.common.SheetTitle
+import io.github.radixtrator.resync.ui.common.SwipeActions
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.common.TopSheet
 import io.github.radixtrator.resync.ui.common.hasCardPreview
@@ -296,6 +298,7 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
                                 onReply = { reply(node.fullname, node.body) },
                                 onParent = { scrollToComment(node.parentId) },
                                 onMore = { optionsFor = node },
+                                onShare = { nav.share("https://www.reddit.com${post.permalink}${node.id}/", post.title) },
                             )
                             is MoreComments -> MoreRow(
                                 more = node,
@@ -454,24 +457,44 @@ private fun CommentRow(
     onReply: () -> Unit,
     onParent: () -> Unit,
     onMore: () -> Unit,
+    onShare: () -> Unit,
 ) {
     val depth = comment.depth.coerceAtMost(MAX_DEPTH)
+    val nav = LocalNavigator.current
+    val settings = LocalSettings.current
     Column {
         if (separated) Box(Modifier.fillMaxWidth().height(8.dp).background(MaterialTheme.colorScheme.background))
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .background(if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent)
-                .combinedClickable(onClick = onToggle, onLongClick = onSelect)
-                .rails(depth)
-                .padding(start = contentStart(depth), end = 16.dp, top = 12.dp, bottom = 12.dp),
+        SwipeActions(
+            stages = settings.commentSwipeStages,
+            enabled = settings.commentSwipe,
+            onAction = { action ->
+                when (action) {
+                    SwipeAction.UPVOTE -> onVote(if (comment.likes == true) 0 else 1)
+                    SwipeAction.DOWNVOTE -> onVote(if (comment.likes == false) 0 else -1)
+                    SwipeAction.SAVE -> onToggleSave()
+                    SwipeAction.PROFILE -> if (comment.author != "[deleted]") nav.push(UserRoute(comment.author))
+                    SwipeAction.SHARE -> onShare()
+                    SwipeAction.REPLY -> onReply()
+                    SwipeAction.HIDE, SwipeAction.MARK_READ -> Unit
+                }
+            },
         ) {
-            CommentHeader(comment, collapsed, hiddenCount)
-            // Collapsing a reply chain keeps the comment itself readable (Sync's default); a lone
-            // comment folds to its header.
-            if (!collapsed || hiddenCount > 0) {
-                Spacer(Modifier.height(6.dp))
-                Text(rememberRedditHtml(comment.bodyHtml), style = CommentBody)
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    // Opaque, so the swipe panel only shows where the row has moved away.
+                    .background(if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerLow)
+                    .combinedClickable(onClick = onToggle, onLongClick = onSelect)
+                    .rails(depth)
+                    .padding(start = contentStart(depth), end = 16.dp, top = 12.dp, bottom = 12.dp),
+            ) {
+                CommentHeader(comment, collapsed, hiddenCount)
+                // Collapsing a reply chain keeps the comment itself readable (Sync's default); a lone
+                // comment folds to its header.
+                if (!collapsed || hiddenCount > 0) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(rememberRedditHtml(comment.bodyHtml), style = CommentBody)
+                }
             }
         }
         if (selected) {

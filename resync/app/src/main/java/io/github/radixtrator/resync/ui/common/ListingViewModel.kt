@@ -144,6 +144,8 @@ abstract class ListingViewModel<T>(protected val container: AppContainer) : View
         }
     }
 
+    fun markRead(post: Post) = container.visited.mark(post.id)
+
     fun delete(post: Post) {
         viewModelScope.launch {
             runCatching { container.api.delete(post.fullname) }

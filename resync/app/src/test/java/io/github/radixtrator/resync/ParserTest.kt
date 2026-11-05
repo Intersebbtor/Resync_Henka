@@ -11,6 +11,8 @@ import io.github.radixtrator.resync.data.MoreComments
 import io.github.radixtrator.resync.data.NsfwMode
 import io.github.radixtrator.resync.data.Parser
 import io.github.radixtrator.resync.data.PostLayout
+import io.github.radixtrator.resync.data.SwipeAction
+import io.github.radixtrator.resync.ui.common.armedStage
 import io.github.radixtrator.resync.data.PostMedia
 import io.github.radixtrator.resync.data.ProfileItem
 import io.github.radixtrator.resync.data.RedditClient
@@ -274,8 +276,25 @@ class ParserTest {
         assertEquals(PostLayout.SLIDES, custom.layoutFor(null))
         assertEquals(PostLayout.SMALL_CARDS, custom.layoutFor("Pics"))
         assertEquals(PostLayout.COMPACT, custom.layoutFor("aww"))
+
+        // Swipe stages round-trip, and a damaged list falls back to Sync's defaults.
+        val swipes = Settings(postSwipeActions = listOf(SwipeAction.SAVE, SwipeAction.SHARE, SwipeAction.MARK_READ))
+        assertEquals(swipes, json.decodeFromString(Settings.serializer(), json.encodeToString(Settings.serializer(), swipes)))
+        assertEquals(listOf(SwipeAction.SAVE, SwipeAction.SHARE, SwipeAction.MARK_READ), swipes.postSwipeStages)
+        assertEquals(Settings.DEFAULT_COMMENT_SWIPES, Settings(commentSwipeActions = listOf(SwipeAction.HIDE)).commentSwipeStages)
         // Old or partial blobs load with defaults for anything missing.
         assertEquals(Settings(theme = ThemeMode.DARK), json.decodeFromString(Settings.serializer(), """{"theme":"DARK","removedField":1}"""))
+    }
+
+    @Test
+    fun `swipe stages arm at Sync's distances`() {
+        val thresholds = listOf(72f, 144f, 216f)
+        assertEquals(-1, armedStage(60f, thresholds, 3))
+        assertEquals(0, armedStage(80f, thresholds, 3))
+        assertEquals(1, armedStage(155f, thresholds, 3))
+        assertEquals(2, armedStage(400f, thresholds, 3))
+        // With a stage dropped (no Hide on this list), the second is as far as it goes.
+        assertEquals(1, armedStage(400f, thresholds, 2))
     }
 
     @Test

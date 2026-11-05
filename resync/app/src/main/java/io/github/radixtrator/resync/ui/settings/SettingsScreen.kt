@@ -42,6 +42,7 @@ import io.github.radixtrator.resync.BuildConfig
 import io.github.radixtrator.resync.data.CommentSort
 import io.github.radixtrator.resync.data.NsfwMode
 import io.github.radixtrator.resync.data.PostLayout
+import io.github.radixtrator.resync.data.SwipeAction
 import io.github.radixtrator.resync.data.ThemeMode
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
@@ -76,6 +77,16 @@ fun SettingsScreen(container: AppContainer) {
                 Choice("Default comment sort", CommentSort.entries, settings.commentSort, CommentSort::label) { v -> update { it.copy(commentSort = v) } }
                 Toggle("Start videos muted", null, settings.muteVideos) { v -> update { it.copy(muteVideos = v) } }
 
+                Section("Swipe actions")
+                Toggle("Swipe posts", "Drag a post left; drag further for the next action", settings.postSwipe) { v -> update { it.copy(postSwipe = v) } }
+                if (settings.postSwipe) {
+                    SwipeStageChoices(settings.postSwipeStages, SwipeAction.entries.filter { it.posts }) { stages -> update { it.copy(postSwipeActions = stages) } }
+                }
+                Toggle("Swipe comments", "Drag a comment left; drag further for the next action", settings.commentSwipe) { v -> update { it.copy(commentSwipe = v) } }
+                if (settings.commentSwipe) {
+                    SwipeStageChoices(settings.commentSwipeStages, SwipeAction.entries.filter { it.comments }) { stages -> update { it.copy(commentSwipeActions = stages) } }
+                }
+
                 Section("Behavior")
                 Toggle("Slide to go back", "Drag a page to the right to close it", settings.swipeBack) { v -> update { it.copy(swipeBack = v) } }
                 Toggle("Open links in the app", "Custom Tabs instead of your browser app", settings.inAppBrowser) { v -> update { it.copy(inAppBrowser = v) } }
@@ -92,6 +103,16 @@ fun SettingsScreen(container: AppContainer) {
                     supportingContent = { Text(BuildConfig.VERSION_NAME) },
                 )
             }
+        }
+    }
+}
+
+/** Sync's "First / Second / Third swipe action" rows. */
+@Composable
+private fun SwipeStageChoices(stages: List<SwipeAction>, options: List<SwipeAction>, onChange: (List<SwipeAction>) -> Unit) {
+    listOf("First", "Second", "Third").forEachIndexed { i, name ->
+        Choice("$name swipe action", options, stages[i], SwipeAction::label) { v ->
+            onChange(stages.toMutableList().also { it[i] = v })
         }
     }
 }

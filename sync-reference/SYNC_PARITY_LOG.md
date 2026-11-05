@@ -427,7 +427,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Area | Sync | Resync | |
 |---|---|---|---|
 | Navigation shell | Bottom nav Posts / Explore / Inbox + avatar account card + FAB (drawer is an option; nav rail in tablet mode) | bottom nav, account card, ⋯ FAB (tap: More actions, long-press: Explore search), hide on scroll | ✅ (no drawer option / rail) |
-| Swipe actions on posts/comments | extended 3-stage, configurable, colored panels | slide-to-go-back only | ❌ |
+| Swipe actions on posts/comments | extended 3-stage, configurable, colored panels | extended swipe (72/144/216dp stages), Sync's colors and defaults, haptic ticks, configurable in Settings | ✅ (no swipe-to-hide mode, no forced vibration) |
 | Swipe mode (one post per page, horizontal) | yes | — | ❌ |
 | Submit | Text / Link / Photo, flair, rules, spoiler, NSFW, replies toggle | text + link posts | ◐ (no photo, flair, rules?) |
 | Light theme + Monet palette, AMOLED, extra-colorful tweaks | yes | Sync's sampled Monet palette (light + dark) as the default theme, black, Material You, Dark mode quick toggle | ◐ (no tweaks/manual seed) |

@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import io.github.radixtrator.resync.data.NsfwMode
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostLayout
+import io.github.radixtrator.resync.data.SwipeAction
 import io.github.radixtrator.resync.ui.navigation.ComposeMode
 import io.github.radixtrator.resync.ui.navigation.ComposeRoute
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
@@ -53,6 +54,7 @@ class PostCallbacks(
     val onToggleSave: (Post) -> Unit,
     val onHide: ((Post) -> Unit)?,
     val onDelete: (Post) -> Unit,
+    val onMarkRead: (Post) -> Unit,
 )
 
 fun ListingViewModel<*>.postCallbacks(allowHide: Boolean = true) = PostCallbacks(
@@ -60,6 +62,7 @@ fun ListingViewModel<*>.postCallbacks(allowHide: Boolean = true) = PostCallbacks
     onToggleSave = ::toggleSave,
     onHide = if (allowHide) ::hide else null,
     onDelete = ::delete,
+    onMarkRead = ::markRead,
 )
 
 /** Applies the NSFW "hide" setting to a list of posts. */
@@ -92,8 +95,28 @@ fun PostListItem(
             onToggleSave = { callbacks.onToggleSave(post) },
         )
     }
+    val settings = LocalSettings.current
     val margins = if (standalone) Modifier.padding(horizontal = layout.gutter, vertical = layout.spacing / 2) else Modifier
-    Box(margins) { PostLayoutItem(layout, post, showSubreddit, actions) }
+    // Hide only exists where the list can drop the post (not on profiles' own lists, for instance).
+    val stages = settings.postSwipeStages.filter { it != SwipeAction.HIDE || callbacks.onHide != null }
+    SwipeActions(
+        stages = stages,
+        enabled = settings.postSwipe,
+        shape = layout.swipeShape,
+        modifier = margins,
+        onAction = { action ->
+            when (action) {
+                SwipeAction.UPVOTE -> callbacks.onVote(post, if (post.likes == true) 0 else 1)
+                SwipeAction.DOWNVOTE -> callbacks.onVote(post, if (post.likes == false) 0 else -1)
+                SwipeAction.SAVE -> callbacks.onToggleSave(post)
+                SwipeAction.PROFILE -> nav.push(UserRoute(post.author))
+                SwipeAction.SHARE -> nav.share("https://www.reddit.com${post.permalink}", post.title)
+                SwipeAction.HIDE -> callbacks.onHide?.invoke(post)
+                SwipeAction.MARK_READ -> callbacks.onMarkRead(post)
+                SwipeAction.REPLY -> Unit
+            }
+        },
+    ) { PostLayoutItem(layout, post, showSubreddit, actions) }
     if (sheetOpen) {
         PostActionsSheet(
             post = post,

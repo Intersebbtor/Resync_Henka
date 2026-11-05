@@ -95,6 +95,14 @@ val PostLayout.spacing: Dp
         PostLayout.SMALLER_CARDS, PostLayout.SMALL_CARDS, PostLayout.CARD -> 16.dp
     }
 
+/** The item's outline, so the swipe panel behind a card has the card's corners. */
+val PostLayout.swipeShape: Shape
+    get() = when (this) {
+        PostLayout.CARD, PostLayout.SMALL_CARDS -> RoundedCornerShape(8.dp)
+        PostLayout.SMALLER_CARDS -> RoundedCornerShape(10.dp)
+        PostLayout.LIST, PostLayout.COMPACT, PostLayout.SLIDES -> RectangleShape
+    }
+
 /** Cards and small cards tile into columns on wide screens, as on Sync's foldable cover screen. */
 fun PostLayout.columns(widthDp: Int): Int = when (this) {
     PostLayout.CARD, PostLayout.SMALL_CARDS -> when {
@@ -194,7 +202,12 @@ private fun StatsFooter(post: Post, onMore: () -> Unit) {
 private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, flushThumbnail: Boolean, inCard: Boolean) {
     var expanded by rememberSaveable(post.fullname) { mutableStateOf(false) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    Column(Modifier.combinedClickable(onClick = actions.onOpen, onLongClick = actions.onMore)) {
+    Column(
+        Modifier
+            // Opaque so a swipe's action panel shows only where the row has slid away.
+            .background(if (inCard) Color.Transparent else MaterialTheme.colorScheme.background)
+            .combinedClickable(onClick = actions.onOpen, onLongClick = actions.onMore),
+    ) {
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
             if (flushThumbnail) {
                 Thumbnail(post, 72.dp, RectangleShape, onClick = actions.onMedia)
