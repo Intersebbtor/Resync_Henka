@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -46,12 +46,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.data.PostLayout
+import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.data.Sort
 import io.github.radixtrator.resync.data.SortKind
 import io.github.radixtrator.resync.data.Subreddit
@@ -62,7 +64,10 @@ import io.github.radixtrator.resync.ui.common.HeaderChip
 import io.github.radixtrator.resync.ui.common.LargeHeader
 import io.github.radixtrator.resync.ui.common.MessageEffect
 import io.github.radixtrator.resync.ui.common.OptionRow
-import io.github.radixtrator.resync.ui.common.PagedList
+import io.github.radixtrator.resync.ui.common.PagedGrid
+import io.github.radixtrator.resync.ui.common.columns
+import io.github.radixtrator.resync.ui.common.gutter
+import io.github.radixtrator.resync.ui.common.spacing
 import io.github.radixtrator.resync.ui.common.PostListItem
 import io.github.radixtrator.resync.ui.common.SheetTitle
 import io.github.radixtrator.resync.ui.common.SwipeBack
@@ -89,7 +94,10 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     val about by vm.about.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    val listState = rememberLazyListState()
+    val gridState = rememberLazyStaggeredGridState()
+    val settings = LocalSettings.current
+    val layout = settings.layoutFor(subreddit)
+    val columns = layout.columns(LocalConfiguration.current.screenWidthDp)
     val scope = rememberCoroutineScope()
     var sortOpen by rememberSaveable { mutableStateOf(false) }
     var viewOpen by rememberSaveable { mutableStateOf(false) }
@@ -98,7 +106,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     val posts = state.items.visiblePosts { it }
     val title = feedTitle(subreddit)
     // The toolbar shows the title only once the big header has scrolled away.
-    val headerGone by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+    val headerGone by remember { derivedStateOf { gridState.firstVisibleItemIndex > 0 } }
     val openAbout = {
         vm.loadAbout()
         aboutOpen = true
@@ -121,7 +129,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
                 onAbout = if (vm.isCommunity) openAbout else null,
                 onChangeView = { viewOpen = true },
             ),
-            onReselectTab = { scope.launch { listState.animateScrollToItem(0) } },
+            onReselectTab = { scope.launch { gridState.animateScrollToItem(0) } },
             actions = {
                 IconButton(onClick = { nav.push(SearchRoute(subreddit = subreddit.takeIf { vm.isCommunity })) }) {
                     Icon(Icons.Outlined.Search, "Search")
@@ -134,37 +142,38 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
                 onRefresh = vm::refresh,
                 modifier = Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize(),
             ) {
-                PagedList(
+                PagedGrid(
                     state = state.copy(items = posts),
                     key = { it.fullname },
                     onLoadMore = vm::loadMore,
                     onRetry = vm::retry,
-                    listState = listState,
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = padding.calculateBottomPadding()),
+                    columns = columns,
+                    gutter = layout.gutter,
+                    spacing = layout.spacing,
+                    gridState = gridState,
+                    bottomPadding = padding.calculateBottomPadding(),
                     emptyText = "No posts here",
                     header = {
-                        item(key = "header") {
-                            FeedHeader(
-                                title = title,
-                                about = about.takeIf { vm.isCommunity },
-                                sort = sort,
-                                isCommunity = vm.isCommunity,
-                                onSort = { sortOpen = true },
-                                onChangeView = { viewOpen = true },
-                                onJoin = vm::toggleSubscribe,
-                                onAbout = openAbout,
-                            )
-                        }
+                        FeedHeader(
+                            title = title,
+                            about = about.takeIf { vm.isCommunity },
+                            sort = sort,
+                            isCommunity = vm.isCommunity,
+                            onSort = { sortOpen = true },
+                            onChangeView = { viewOpen = true },
+                            onJoin = vm::toggleSubscribe,
+                            onAbout = openAbout,
+                        )
                     },
                 ) { post ->
-                    PostListItem(post, showSubreddit = !vm.isCommunity, callbacks = callbacks)
+                    PostListItem(post, showSubreddit = !vm.isCommunity, callbacks = callbacks, layout = layout, standalone = false)
                 }
             }
         }
     }
 
     if (sortOpen) SortSheet(current = sort, options = vm.sortOptions, onDismiss = { sortOpen = false }, onPick = vm::setSort)
-    if (viewOpen) ChangeViewSheet(container, onDismiss = { viewOpen = false })
+    if (viewOpen) ChangeViewSheet(container, subreddit, current = layout, onDismiss = { viewOpen = false })
     if (aboutOpen) {
         SubredditInfoSheet(
             about = about,
@@ -283,9 +292,9 @@ private fun SortSheet(current: Sort, options: List<SortKind>, onDismiss: () -> U
     }
 }
 
+/** Sync's Change view: picks this feed's layout (other feeds keep theirs). */
 @Composable
-private fun ChangeViewSheet(container: AppContainer, onDismiss: () -> Unit) {
-    val current = LocalSettings.current.layout
+private fun ChangeViewSheet(container: AppContainer, subreddit: String?, current: PostLayout, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
             SheetTitle("Change view", Modifier.padding(top = 0.dp))
@@ -294,7 +303,7 @@ private fun ChangeViewSheet(container: AppContainer, onDismiss: () -> Unit) {
                     label = layout.label,
                     icon = null,
                     onClick = {
-                        container.settings.update { it.copy(layout = layout) }
+                        container.settings.update { it.copy(feedLayouts = it.feedLayouts + (Settings.feedKey(subreddit) to layout)) }
                         onDismiss()
                     },
                     radio = layout == current,

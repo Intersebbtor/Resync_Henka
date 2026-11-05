@@ -434,14 +434,14 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Mod tools (modqueue, reports, spam, edited, unmoderated) | yes | — | ❌ |
 | Tablet mode (nav rail, dual pane, tabbed comments) | yes (off here) | — | ❌ |
 | Collapsing large title + chip row | everywhere | feeds (sort, Join, About, Change view) and inbox; small title returns on scroll-up | ◐ (profile, search pending; no Random/Wiki/Flairs/Watch chips) |
-| Feed view modes | 6 (List, Compact, Smaller cards, Small cards, Cards, Slides), per feed, 2-col staggered grid on wide screens | Cards, Compact (global) | ◐ |
+| Feed view modes | 6 (List, Compact, Smaller cards, Small cards, Cards, Slides), per feed, 2-col staggered grid on wide screens | all 6, per feed, staggered 2 columns from 480dp; list rows expand inline | ✅ (no Customize view screen) |
 | Customize view | per-mode toggles, fonts, live preview | — | ❌ |
 | Feed sorts | Best/Hot/New/Rising/Top×6/Controversial×6/Comments | Best/Hot/New/Rising/Top×6/Controversial×6 in Sync's top sheet | ✅ (no "Comments" sort) |
 | Comment sorts | Top/Best/New/Old/Controversial/Q&A | same | ✅ |
 | Search sorts | Relevance/New/Hot/Top/Comments + search modes (sub, multi, subs, profile, domain) | Relevance/Hot/New/Top×2/Comments, sub scope | ◐ |
 | More actions grid (configurable, 24 actions) | yes | grid of 9 (Search, Profile, About, Submit, Dark mode, Settings, Change view, Refresh, Saved) | ◐ (not configurable) |
 | Post options sheet | ~22 actions incl. Copy…, Filter…, Watch, Explore domain, Add to multi | actions sheet (vote/save/hide/delete/share) | ◐ |
-| Read-state dimming, Hide read | yes | — | ❌ |
+| Read-state dimming, Hide read | yes | opened posts dim in feeds (local) | ◐ (no Hide read) |
 | Comment rails | 5-color cycle, 16 dp indent | colored rails | ✅ (check palette/indent) |
 | Tap-to-collapse with "+n" pill | yes | tap to collapse | ◐ (count pill?) |
 | Long-press inline comment action bar | 7 buttons | long-press menu | ◐ (bar vs menu) |

@@ -93,5 +93,8 @@ class Navigator(
 val LocalNavigator = staticCompositionLocalOf<Navigator> { error("No Navigator provided") }
 val LocalSettings = compositionLocalOf { Settings() }
 
+/** Ids of posts the user has opened, for dimming them in feeds. */
+val LocalVisited = compositionLocalOf<Set<String>> { emptySet() }
+
 /** Active account name, or null when logged out. */
 val LocalAccount = compositionLocalOf<String?> { null }

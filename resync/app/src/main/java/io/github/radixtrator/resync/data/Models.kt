@@ -38,6 +38,12 @@ data class Post(
     val saved: Boolean,
     val flair: String?,
     val media: PostMedia,
+    /** The flair's own background (ARGB), or null for a neutral chip. */
+    val flairColor: Int? = null,
+    /** Reddit's flair text color: dark text on a light chip, or light text on a dark one. */
+    val flairDarkText: Boolean = true,
+    val locked: Boolean = false,
+    val authorFlair: String? = null,
 )
 
 sealed interface CommentNode {

@@ -9,6 +9,7 @@ import io.github.radixtrator.resync.data.Comment
 import io.github.radixtrator.resync.data.RedditApi
 import io.github.radixtrator.resync.data.RedditClient
 import io.github.radixtrator.resync.data.SettingsStore
+import io.github.radixtrator.resync.data.VisitedStore
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -28,6 +29,7 @@ class AppContainer(context: Context) {
     private val prefs = context.getSharedPreferences("resync", Context.MODE_PRIVATE)
     val configStore = ApiConfigStore(prefs)
     val settings = SettingsStore(prefs)
+    val visited = VisitedStore(prefs)
     private val accountStore = AccountStore(prefs)
     val client = RedditClient(configStore, accountStore, context.assets)
     val api = RedditApi(client)

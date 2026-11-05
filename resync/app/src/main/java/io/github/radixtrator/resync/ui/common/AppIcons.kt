@@ -123,6 +123,46 @@ object AppIcons {
         }
     }
 
+    val Pin: ImageVector by lazy {
+        outline("Pin") {
+            moveTo(9f, 3.5f); lineTo(15f, 3.5f)
+            moveTo(10f, 3.5f); lineTo(10f, 9.5f); lineTo(6.5f, 13.5f); lineTo(17.5f, 13.5f); lineTo(14f, 9.5f); lineTo(14f, 3.5f)
+            moveTo(12f, 13.5f); lineTo(12f, 20.5f)
+        }
+    }
+
+    /** Content-type marks for list rows: image, video, link, text. */
+    val Image: ImageVector by lazy {
+        outline("Image") {
+            moveTo(4f, 4f); lineTo(20f, 4f); lineTo(20f, 20f); lineTo(4f, 20f); close()
+            moveTo(4f, 17f); lineTo(9f, 12f); lineTo(13f, 16f); lineTo(16f, 13f); lineTo(20f, 17f)
+        }
+    }
+
+    val PlayCircle: ImageVector by lazy {
+        outline("PlayCircle") {
+            moveTo(12f, 3f); arcTo(9f, 9f, 0f, true, true, 12f, 21f); arcTo(9f, 9f, 0f, true, true, 12f, 3f); close()
+            moveTo(10f, 8.5f); lineTo(15.5f, 12f); lineTo(10f, 15.5f); close()
+        }
+    }
+
+    val Link: ImageVector by lazy {
+        outline("Link") {
+            moveTo(10f, 7f); lineTo(7f, 7f); arcTo(5f, 5f, 0f, false, false, 7f, 17f); lineTo(10f, 17f)
+            moveTo(14f, 7f); lineTo(17f, 7f); arcTo(5f, 5f, 0f, false, true, 17f, 17f); lineTo(14f, 17f)
+            moveTo(8f, 12f); lineTo(16f, 12f)
+        }
+    }
+
+    val Text: ImageVector by lazy {
+        outline("Text") {
+            moveTo(5f, 6f); lineTo(19f, 6f)
+            moveTo(5f, 10f); lineTo(19f, 10f)
+            moveTo(5f, 14f); lineTo(19f, 14f)
+            moveTo(5f, 18f); lineTo(13f, 18f)
+        }
+    }
+
     val RemoveCircle: ImageVector by lazy {
         outline("RemoveCircle") {
             moveTo(12f, 3f); arcTo(9f, 9f, 0f, true, true, 12f, 21f); arcTo(9f, 9f, 0f, true, true, 12f, 3f); close()

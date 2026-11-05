@@ -14,6 +14,11 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -27,7 +32,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
@@ -86,7 +93,7 @@ fun <T> PagedList(
 }
 
 @Composable
-private fun EmptyState(state: ListingState<*>, emptyText: String, onRetry: () -> Unit) {
+internal fun EmptyState(state: ListingState<*>, emptyText: String, onRetry: () -> Unit) {
     when {
         state.loading || state.refreshing -> CircularProgressIndicator()
         state.error != null -> Column(
@@ -102,6 +109,69 @@ private fun EmptyState(state: ListingState<*>, emptyText: String, onRetry: () ->
         }
         else -> Text(emptyText, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(32.dp))
     }
+}
+
+/**
+ * [PagedList] as a staggered grid, for feeds: Sync's card layouts tile into [columns], row layouts use
+ * one column. [header] spans every column and ignores the [gutter], so it lines up with the toolbar.
+ */
+@Composable
+fun <T> PagedGrid(
+    state: ListingState<T>,
+    key: (T) -> String,
+    onLoadMore: () -> Unit,
+    onRetry: () -> Unit,
+    columns: Int,
+    gutter: Dp,
+    spacing: Dp,
+    gridState: LazyStaggeredGridState,
+    modifier: Modifier = Modifier,
+    bottomPadding: Dp = 0.dp,
+    emptyText: String = "Nothing here yet",
+    header: @Composable () -> Unit,
+    item: @Composable (T) -> Unit,
+) {
+    val nearEnd by remember {
+        derivedStateOf {
+            val info = gridState.layoutInfo
+            (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 6
+        }
+    }
+    LaunchedEffect(nearEnd, state.items.size) { if (nearEnd && state.items.isNotEmpty()) onLoadMore() }
+
+    LazyVerticalStaggeredGrid(
+        columns = StaggeredGridCells.Fixed(columns),
+        state = gridState,
+        contentPadding = PaddingValues(start = gutter, end = gutter, bottom = bottomPadding),
+        horizontalArrangement = Arrangement.spacedBy(gutter),
+        verticalItemSpacing = spacing,
+        modifier = modifier.fillMaxSize(),
+    ) {
+        item(key = "header", span = StaggeredGridItemSpan.FullLine) { Box(Modifier.fullBleed(gutter)) { header() } }
+        items(state.items, key = key) { item(it) }
+        item(key = "footer", span = StaggeredGridItemSpan.FullLine) {
+            Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                if (state.items.isEmpty()) {
+                    EmptyState(state, emptyText, onRetry)
+                } else when {
+                    state.loading -> CircularProgressIndicator()
+                    state.error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(state.error, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                        TextButton(onClick = onRetry) { Text("Retry") }
+                    }
+                    state.endReached -> Text("You've reached the end", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+/** Widens an item by [gutter] on both sides, cancelling the grid's content padding. */
+private fun Modifier.fullBleed(gutter: Dp) = layout { measurable, constraints ->
+    val extra = gutter.roundToPx() * 2
+    val width = constraints.maxWidth + extra
+    val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+    layout(constraints.maxWidth, placeable.height) { placeable.place(-extra / 2, 0) }
 }
 
 /** Shows a view model's one-shot [ListingState.message] as a snackbar. */

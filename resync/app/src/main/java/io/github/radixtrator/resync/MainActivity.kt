@@ -31,6 +31,7 @@ import io.github.radixtrator.resync.ui.navigation.InboxRoute
 import io.github.radixtrator.resync.ui.navigation.LocalAccount
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
+import io.github.radixtrator.resync.ui.navigation.LocalVisited
 import io.github.radixtrator.resync.ui.navigation.LoginRoute
 import io.github.radixtrator.resync.ui.navigation.Navigator
 import io.github.radixtrator.resync.ui.navigation.PostRoute
@@ -65,6 +66,7 @@ private fun ResyncNavHost(container: AppContainer) {
     val context = LocalContext.current
     val settings by container.settings.settings.collectAsStateWithLifecycle()
     val username by container.username.collectAsStateWithLifecycle()
+    val visited by container.visited.ids.collectAsStateWithLifecycle()
     val currentSettings by rememberUpdatedState(settings)
     val navigator = remember(backStack) { Navigator(context, backStack) { currentSettings } }
 
@@ -73,6 +75,7 @@ private fun ResyncNavHost(container: AppContainer) {
         LocalUriHandler provides navigator,
         LocalSettings provides settings,
         LocalAccount provides username,
+        LocalVisited provides visited,
     ) {
         NavDisplay(
             backStack = backStack,

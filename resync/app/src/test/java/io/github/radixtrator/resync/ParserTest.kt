@@ -202,6 +202,27 @@ class ParserTest {
     }
 
     @Test
+    fun `flair colors, locks and author flair parse`() {
+        val colored = Parser.post(
+            RedditClient.JSON.parseToJsonElement(
+                """{"id":"p2","title":"t","link_flair_text":"OC","link_flair_background_color":"#0dd3bb",
+                   "link_flair_text_color":"light","locked":true,"author_flair_text":"SeraBeeves"}""",
+            ).jsonObject,
+        )
+        assertEquals(0xFF0DD3BB.toInt(), colored.flairColor)
+        assertEquals(false, colored.flairDarkText)
+        assertTrue(colored.locked)
+        assertEquals("SeraBeeves", colored.authorFlair)
+
+        // Unset colors come through as "" (or "transparent"), which means a neutral chip.
+        val plain = Parser.post(
+            RedditClient.JSON.parseToJsonElement("""{"id":"p3","title":"t","link_flair_background_color":""}""").jsonObject,
+        )
+        assertEquals(null, plain.flairColor)
+        assertTrue(!plain.locked)
+    }
+
+    @Test
     fun `api errors surface as exceptions and posted comments parse`() {
         val error = RedditClient.JSON.parseToJsonElement(
             """{"json":{"errors":[["SUBREDDIT_NOEXIST","that community doesn't exist","sr"]]}}""",
@@ -240,9 +261,19 @@ class ParserTest {
         assertTrue(!hasSpoiler("<p>No secrets here</p>"))
 
         val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
-        val custom = Settings(theme = ThemeMode.BLACK, layout = PostLayout.COMPACT, nsfw = NsfwMode.HIDE, commentSort = CommentSort.NEW)
+        val custom = Settings(
+            theme = ThemeMode.BLACK,
+            layout = PostLayout.COMPACT,
+            nsfw = NsfwMode.HIDE,
+            commentSort = CommentSort.NEW,
+            feedLayouts = mapOf("" to PostLayout.SLIDES, "pics" to PostLayout.SMALL_CARDS),
+        )
         val text = json.encodeToString(Settings.serializer(), custom)
         assertEquals(custom, json.decodeFromString(Settings.serializer(), text))
+        // Each feed keeps its own view; others fall back to the global layout.
+        assertEquals(PostLayout.SLIDES, custom.layoutFor(null))
+        assertEquals(PostLayout.SMALL_CARDS, custom.layoutFor("Pics"))
+        assertEquals(PostLayout.COMPACT, custom.layoutFor("aww"))
         // Old or partial blobs load with defaults for anything missing.
         assertEquals(Settings(theme = ThemeMode.DARK), json.decodeFromString(Settings.serializer(), """{"theme":"DARK","removedField":1}"""))
     }

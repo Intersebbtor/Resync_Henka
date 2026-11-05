@@ -211,7 +211,17 @@ object Parser {
             saved = d.bool("saved"),
             flair = flair(d, "link"),
             media = media(d),
+            flairColor = flairColor(d.string("link_flair_background_color")),
+            flairDarkText = d.string("link_flair_text_color") != "light",
+            locked = d.bool("locked"),
+            authorFlair = flair(d, "author"),
         )
+    }
+
+    /** "#46d160" → opaque ARGB; "" or "transparent" (no color set) → null. */
+    private fun flairColor(hex: String?): Int? {
+        val digits = hex?.removePrefix("#")?.takeIf { it.length == 6 } ?: return null
+        return digits.toLongOrNull(16)?.let { (0xFF000000 or it).toInt() }
     }
 
     fun comments(root: JsonElement): PostWithComments {

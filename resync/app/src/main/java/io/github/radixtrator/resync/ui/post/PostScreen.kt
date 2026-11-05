@@ -105,6 +105,7 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
 
     MessageEffect(state.message, snackbar, vm::messageShown)
     LaunchedEffect(state.postDeleted) { if (state.postDeleted) nav.pop() }
+    LaunchedEffect(route.postId) { container.visited.mark(route.postId) }
 
     fun reply(target: String, quote: String) {
         if (vm.requireLogin()) nav.push(ComposeRoute(ComposeMode.REPLY, target = target, quote = quote))

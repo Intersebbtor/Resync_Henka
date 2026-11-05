@@ -38,7 +38,7 @@ JSON in `app/src/debug/assets/demo/` (generated; the unit tests use the same fil
 data/          ApiConfig, AccountStore (multiple accounts), Settings (JSON in SharedPreferences),
                RedditClient (OAuth + HTTP), RedditApi (endpoints), Parser, CommentTree, DemoWrites
 ui/navigation  Routes, Navigator (push/pop, in-app link routing, Custom Tabs, media dispatch)
-ui/common      ListingViewModel + PagedList (shared paging), post card/compact rows, actions sheet,
+ui/common      ListingViewModel + PagedList/PagedGrid (shared paging), the six post layouts, actions sheet,
                markdown HTML rendering with tappable spoilers, swipe-to-dismiss / slide-back gestures
 ui/home        Sync's shell: bottom nav (Posts/Explore/Inbox), Explore sheet, account card, More actions FAB
 ui/feed        Feed with large header and chips, sort sheet (time ranges), subreddit info sheet
@@ -53,7 +53,9 @@ ui/settings    Theme (system/light/dark/black), Material You, layout, NSFW, spoi
 
 ## Features
 
-- Front page, popular, all, subreddits and multis, with every sort (Top/Controversial by hour…all); card or compact layout
+- Front page, popular, all, subreddits and multis, with every sort (Top/Controversial by hour…all)
+- Sync's six feed layouts (List, Compact, Smaller cards, Small cards, Cards, Slides), chosen per feed;
+  cards tile into two columns on wide screens; read posts are dimmed
 - Sync-style navigation: bottom nav, Explore sheet to jump between feeds, account switcher under the avatar,
   More actions grid (toolbar ⋮ or the ⋯ FAB), toolbar/nav/FAB hide on scroll
 - Threaded comments: colored depth rails, tap to collapse, load more, "continue this thread"
