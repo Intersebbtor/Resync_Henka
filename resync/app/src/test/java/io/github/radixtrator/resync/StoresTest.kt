@@ -62,7 +62,7 @@ class StoresTest {
         val reloaded = ExploreStore(prefs).state.value
         assertTrue(reloaded.isFavorite("PICS"))
         assertTrue(reloaded.isDefault("pics"))
-        assertEquals(setOf(ExploreSection.MOST_VISITED), reloaded.hidden)
+        assertEquals(setOf(ExploreSection.FEEDS, ExploreSection.MOST_VISITED), reloaded.hidden)
 
         store.setDefault("")
         assertNull(store.state.value.defaultFeed)

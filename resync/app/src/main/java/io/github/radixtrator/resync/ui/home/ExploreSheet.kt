@@ -2,18 +2,25 @@
 
 package io.github.radixtrator.resync.ui.home
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -31,7 +38,6 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -40,11 +46,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,9 +65,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -77,17 +90,25 @@ import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.SearchRoute
 import io.github.radixtrator.resync.ui.navigation.SubmitRoute
 import io.github.radixtrator.resync.ui.navigation.UserRoute
+import java.util.Locale
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** BROWSE opens on the feed lists (Explore tab); SEARCH focuses the field and shows recents (search button, FAB long-press). */
 enum class ExploreMode { BROWSE, SEARCH }
 
+// Sync's measurements (sync-reference dumps 36–40): 42dp rows with 14sp names, 51dp section headers.
+private val ROW_HEIGHT = 42.dp
+private val HEADER_HEIGHT = 51.dp
+private val FrontpageOrange = Color(0xFFFF4500)
+private const val TAG = "ResyncExplore"
+
 /**
  * Sync's Explore: a sheet to jump between feeds (sync-reference/SYNC_PARITY_LOG.md §3.11).
- * Empty query shows Favorites, Feeds, Subscriptions, Moderated and Most visited (or, from search,
- * "Recently searched & visited"); typing filters subscriptions, suggests communities and offers
- * Open r/…, Open u/… and a full search. Each row's ⋮ favorites it, makes it the default, and so on.
+ * Empty query shows Favorites, Subscriptions, Moderated and Top (Feeds is opt-in), or, from search,
+ * "Recently searched & visited"; typing filters subscriptions, suggests communities and offers
+ * Open u/…, Open r/… and a full search. Each row's ⋮ favorites it, makes it the default, and so on.
  */
 @Composable
 fun ExploreSheet(
@@ -106,6 +127,7 @@ fun ExploreSheet(
     val icons by container.subredditIcons.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     var folded by rememberSaveable { mutableStateOf(emptySet<String>()) }
+    val folds = Folds(folded) { title -> folded = if (title in folded) folded - title else folded + title }
     var suggestions by remember { mutableStateOf<List<Subreddit>>(emptyList()) }
     var aboutFor by remember { mutableStateOf<String?>(null) }
     val focus = remember { FocusRequester() }
@@ -117,7 +139,9 @@ fun ExploreSheet(
         suggestions = emptyList()
         if (q.length < 2) return@LaunchedEffect
         delay(300) // debounce typing
-        runCatching { container.api.searchSubreddits(q, after = null) }.onSuccess { suggestions = it.items.take(10) }
+        runCatching { container.api.searchSubreddits(q, after = null) }
+            .onSuccess { suggestions = it.items.take(10) }
+            .onFailure { if (it !is CancellationException) Log.w(TAG, "Community suggestions for \"$q\" failed", it) }
     }
 
     fun close(action: () -> Unit) {
@@ -142,9 +166,7 @@ fun ExploreSheet(
 
     fun LazyListScope.section(section: ExploreSection, names: List<String>, label: (String) -> String = Format::feedName) {
         if (section in explore.hidden || names.isEmpty()) return
-        val open = section.name !in folded
-        header(section.label, expanded = open) { folded = if (open) folded + section.name else folded - section.name }
-        if (open) {
+        group(section.header, folds) {
             items(names, key = { "${section.name}:$it" }) { name ->
                 FeedRow(name, label(name), icons[name.lowercase()], explore.isDefault(name), rowMenu, section) { onOpenFeed(name.ifEmpty { null }) }
             }
@@ -155,6 +177,7 @@ fun ExploreSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        dragHandle = { SheetHandle() },
     ) {
         SearchField(
             value = query,
@@ -163,20 +186,29 @@ fun ExploreSheet(
             menu = { ExploreOptionsMenu(container, explore) },
             modifier = Modifier.padding(horizontal = 16.dp).focusRequester(focus),
         )
-        LazyColumn(Modifier.navigationBarsPadding().imePadding().padding(top = 8.dp)) {
+        HorizontalDivider(Modifier.padding(top = 16.dp))
+        // Always full height, so the sheet doesn't jump as results come and go while typing.
+        LazyColumn(Modifier.fillMaxSize().navigationBarsPadding().imePadding()) {
+            // The list keeps its place by the first visible item; anchoring on this one keeps a
+            // section that appears at the top (a first favorite) in view instead of just above it.
+            item(key = "top") { Spacer(Modifier.height(1.dp)) }
             when {
                 q.isNotEmpty() -> searchResults(
-                    q, subscriptions, suggestions, icons, explore, rowMenu, onOpenFeed,
+                    q, subscriptions, suggestions, icons, rowMenu, folds, onOpenFeed,
                     subreddit = subreddit,
                     onSearch = { inSub -> close { nav.push(SearchRoute(query = q, subreddit = inSub)) } },
+                    onSearchCommunities = { close { nav.push(SearchRoute(query = q, communities = true)) } },
                     onOpenUser = { close { nav.push(UserRoute(q)) } },
                 )
-                mode == ExploreMode.SEARCH && explore.recents.isNotEmpty() -> {
-                    header("Recently searched & visited")
+                mode == ExploreMode.SEARCH && explore.recents.isNotEmpty() -> group("Recently searched & visited", folds) {
                     items(explore.recents, key = { "recent:${it.subreddit}:${it.query}" }) { recent ->
-                        RecentRow(recent, icons) {
-                            if (recent.query == null) onOpenFeed(recent.subreddit?.ifEmpty { null })
-                            else close { nav.push(SearchRoute(recent.query, recent.subreddit)) }
+                        val name = recent.subreddit.orEmpty()
+                        if (recent.query == null) {
+                            FeedRow(name, Format.feedName(name), icons[name.lowercase()], isDefault = false, rowMenu, null) {
+                                onOpenFeed(name.ifEmpty { null })
+                            }
+                        } else {
+                            QueryRow(recent, icons[name.lowercase()]) { close { nav.push(SearchRoute(recent.query, recent.subreddit)) } }
                         }
                     }
                 }
@@ -224,46 +256,90 @@ private fun LazyListScope.searchResults(
     subscriptions: List<String>,
     suggestions: List<Subreddit>,
     icons: Map<String, String>,
-    explore: ExploreState,
     rowMenu: RowMenu,
+    folds: Folds,
     onOpenFeed: (String?) -> Unit,
     subreddit: String?,
     onSearch: (String?) -> Unit,
+    onSearchCommunities: () -> Unit,
     onOpenUser: () -> Unit,
 ) {
-    item {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = { onSearch(null) }, modifier = Modifier.weight(1f)) { Text("Search all") }
-            if (subreddit != null) {
-                Button(
-                    onClick = { onSearch(subreddit) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    ),
-                    modifier = Modifier.weight(1f),
-                ) { Text("Search $subreddit", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+    item(key = "search-buttons") {
+        Column {
+            Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SearchButton("Search all", Modifier.weight(1f)) { onSearch(null) }
+                if (subreddit != null) SearchButton("Search r/$subreddit", Modifier.weight(1f)) { onSearch(subreddit) }
             }
+            HorizontalDivider()
         }
     }
     val subscribed = subscriptions.filter { it.contains(q, ignoreCase = true) }
     if (subscribed.isNotEmpty()) {
-        header("Subscribed")
-        items(subscribed, key = { "mine:$it" }) { name ->
-            FeedRow(name, name, icons[name.lowercase()], explore.isDefault(name), rowMenu, null) { onOpenFeed(name) }
-        }
-    }
-    if (suggestions.isNotEmpty()) {
-        header("Suggested subreddit results")
-        items(suggestions, key = { "suggest:${it.name}" }) { sub ->
-            FeedRow(sub.name, sub.name, sub.iconUrl, explore.isDefault(sub.name), rowMenu, null, trailing = "${Format.count(sub.subscribers)} subs") {
-                onOpenFeed(sub.name)
+        group("Subscribed", folds) {
+            items(subscribed, key = { "mine:$it" }) { name ->
+                FeedRow(name, name, icons[name.lowercase()], isDefault = false, rowMenu, null, match = q) { onOpenFeed(name) }
             }
         }
     }
-    header("Actions")
-    item { ActionRow("Open r/$q", AppIcons.Compass) { onOpenFeed(q) } }
-    item { ActionRow("Open u/$q", Icons.Outlined.Person, onOpenUser) }
+    if (suggestions.isNotEmpty()) {
+        group("Suggested subreddit results", folds, action = "Search all subs" to onSearchCommunities) {
+            items(suggestions, key = { "suggest:${it.name}" }) { sub ->
+                FeedRow(sub.name, sub.name, sub.iconUrl, isDefault = false, rowMenu, null, match = q, trailing = "${subscriberCount(sub.subscribers)} subs") {
+                    onOpenFeed(sub.name)
+                }
+            }
+        }
+    }
+    group("Actions", folds) {
+        item(key = "open-user") { ActionRow("Open u/$q", Icons.Outlined.Person, onOpenUser) }
+        item(key = "open-sub") { ActionRow("Open r/$q", AppIcons.Compass) { onOpenFeed(q) } }
+    }
+}
+
+/** Sync's subscriber counts: "9664", "152k", "33.58m". */
+private fun subscriberCount(n: Int): String = when {
+    n < 10_000 -> n.toString()
+    n < 1_000_000 -> "${n / 1_000}k"
+    else -> String.format(Locale.ROOT, "%.2fm", n / 1_000_000.0)
+}
+
+/** Which headers are folded, by title; kept for as long as the sheet is open. */
+private class Folds(val folded: Set<String>, val toggle: (String) -> Unit)
+
+/** A header with Sync's fold arrow, then [content] while it's open. [action] is a link at the header's end. */
+private fun LazyListScope.group(
+    title: String,
+    folds: Folds,
+    action: Pair<String, () -> Unit>? = null,
+    content: LazyListScope.() -> Unit,
+) {
+    val open = title !in folds.folded
+    item(key = "header:$title") { SectionHeader(title, open, action) { folds.toggle(title) } }
+    if (open) content()
+}
+
+@Composable
+private fun SectionHeader(title: String, open: Boolean, action: Pair<String, () -> Unit>?, onToggle: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().height(HEADER_HEIGHT).clickable(onClick = onToggle).padding(start = 16.dp, end = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        action?.let { (label, onClick) ->
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.fillMaxHeight().clickable(onClick = onClick).wrapContentHeight().padding(horizontal = 8.dp),
+            )
+        }
+        Icon(
+            if (open) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+            if (open) "Collapse $title" else "Expand $title",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 7.dp).size(18.dp),
+        )
+    }
 }
 
 /** What a row's ⋮ can do; built once per sheet. */
@@ -277,7 +353,10 @@ private class RowMenu(
     val onResetVisits: (String) -> Unit,
 )
 
-/** A feed or community row: icon, name, optional "Default" tag or count, and Sync's ⋮ menu. */
+/**
+ * A feed or community row: icon, name, optional "Default" tag or count, and Sync's ⋮ menu.
+ * [match] is bolded in the name, as in Sync's search results.
+ */
 @Composable
 private fun FeedRow(
     name: String,
@@ -286,39 +365,38 @@ private fun FeedRow(
     isDefault: Boolean,
     menu: RowMenu,
     section: ExploreSection?,
+    match: String? = null,
     trailing: String? = null,
     onClick: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val isCommunity = name.lowercase() !in setOf("", "popular", "all")
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+        Modifier.fillMaxWidth().height(ROW_HEIGHT).clickable(onClick = onClick).padding(start = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FeedIcon(name, iconUrl)
         Spacer(Modifier.width(16.dp))
-        Text(label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        if (isDefault) {
-            Text(
-                "Default",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(MaterialTheme.colorScheme.secondaryContainer)
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
-            )
-        }
-        trailing?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp)) }
+        Text(
+            emphasize(label, match),
+            style = MaterialTheme.typography.bodyMedium,
+            // Sync's "Highlight default": the default feed reads in the accent color.
+            color = if (isDefault) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        val note = if (isDefault) "Default" else trailing
+        note?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp)) }
         Box {
-            IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, "Options for ${Format.feedName(name)}") }
+            RowMenuButton("Options for ${Format.feedName(name)}") { menuOpen = true }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 val pick = { action: () -> Unit -> menuOpen = false; action() }
                 DropdownMenuItem(
                     text = { Text(if (menu.state.isFavorite(name)) "Unfavorite" else "Favorite") },
                     onClick = { pick { menu.onToggleFavorite(name) } },
                 )
-                if (!isDefault) DropdownMenuItem(text = { Text("Set as default") }, onClick = { pick { menu.onSetDefault(name) } })
+                if (!menu.state.isDefault(name)) DropdownMenuItem(text = { Text("Set as default") }, onClick = { pick { menu.onSetDefault(name) } })
                 if (isCommunity) DropdownMenuItem(text = { Text("About") }, onClick = { pick { menu.onAbout(name) } })
                 if (isCommunity && menu.subscribed.any { it.equals(name, ignoreCase = true) }) {
                     DropdownMenuItem(text = { Text("Unsubscribe") }, onClick = { pick { menu.onUnsubscribe(name) } })
@@ -331,33 +409,54 @@ private fun FeedRow(
     }
 }
 
+private fun emphasize(label: String, match: String?): AnnotatedString = buildAnnotatedString {
+    append(label)
+    val at = if (match.isNullOrEmpty()) -1 else label.indexOf(match, ignoreCase = true)
+    if (at >= 0) addStyle(SpanStyle(fontWeight = FontWeight.Bold), at, at + match!!.length)
+}
+
+/**
+ * Sync's row ⋮: a small gray 18dp glyph in a 42dp square, under Material's 48dp minimum, which
+ * would make every row taller.
+ */
 @Composable
-private fun RecentRow(recent: Recent, icons: Map<String, String>, onClick: () -> Unit) {
-    val name = recent.subreddit.orEmpty()
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (recent.query != null) {
-            Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Search, null) }
-        } else {
-            FeedIcon(name, icons[name.lowercase()])
+private fun RowMenuButton(description: String, onClick: () -> Unit) {
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+        IconButton(onClick = onClick, modifier = Modifier.size(ROW_HEIGHT)) {
+            Icon(Icons.Default.MoreVert, description, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
         }
-        Spacer(Modifier.width(16.dp))
-        val text = when {
-            recent.query == null -> Format.feedName(name)
-            recent.subreddit != null -> "\"${recent.query}\" in r/${recent.subreddit}"
-            else -> "\"${recent.query}\""
-        }
-        Text(text, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
-/** The front page, Popular and All get glyphs; communities their icon or a lettered circle. */
+/** A past search: `"voice" in /r/ObsidianMD` with the community's icon, or a search glyph for all of Reddit. */
+@Composable
+private fun QueryRow(recent: Recent, iconUrl: String?, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().height(ROW_HEIGHT).clickable(onClick = onClick).padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val sub = recent.subreddit
+        if (sub == null) Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Search, null) } else FeedIcon(sub, iconUrl)
+        Spacer(Modifier.width(16.dp))
+        Text(
+            if (sub == null) "\"${recent.query}\"" else "\"${recent.query}\" in /r/$sub",
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** The front page gets Sync's white house on Reddit orange, Popular and All glyphs, communities their icon or a lettered circle. */
 @Composable
 private fun FeedIcon(name: String, iconUrl: String?) {
+    if (name.isEmpty()) {
+        Box(Modifier.size(32.dp).clip(CircleShape).background(FrontpageOrange), contentAlignment = Alignment.Center) {
+            Icon(Icons.Outlined.Home, null, tint = Color.White, modifier = Modifier.size(20.dp))
+        }
+        return
+    }
     val glyph: ImageVector? = when (name.lowercase()) {
-        "" -> Icons.Outlined.Home
         "popular" -> AppIcons.TrendingUp
         "all" -> AppIcons.Bars
         else -> null
@@ -407,6 +506,18 @@ private fun ExploreOptionsMenu(container: AppContainer, state: ExploreState) {
     }
 }
 
+/** Sync's handle sits closer to the edge than Material's, putting the search field 24dp below the sheet's top. */
+@Composable
+private fun SheetHandle() {
+    Box(
+        Modifier
+            .padding(top = 12.dp, bottom = 8.dp)
+            .size(width = 32.dp, height = 4.dp)
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
+    )
+}
+
 @Composable
 private fun SearchField(
     value: String,
@@ -418,14 +529,15 @@ private fun SearchField(
     Row(
         modifier
             .fillMaxWidth()
+            .height(48.dp)
             .clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(start = 16.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(Icons.Outlined.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(16.dp))
-        Box(Modifier.weight(1f).padding(vertical = 14.dp)) {
+        Box(Modifier.weight(1f)) {
             if (value.isEmpty()) Text("Search...", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
             BasicTextField(
                 value = value,
@@ -442,35 +554,29 @@ private fun SearchField(
     }
 }
 
-private fun LazyListScope.header(title: String, expanded: Boolean? = null, onToggle: (() -> Unit)? = null) {
-    item(key = "header:$title") {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .then(if (onToggle != null) Modifier.clickable(onClick = onToggle) else Modifier)
-                .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-            if (expanded != null) {
-                Icon(
-                    if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    if (expanded) "Collapse" else "Expand",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
+/** Sync's tonal dialog button (#293040 on the dark sheet): the FAB tone at half strength. */
+@Composable
+private fun SearchButton(label: String, modifier: Modifier, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.small,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        modifier = modifier.height(40.dp),
+    ) { Text(label, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
 }
 
 @Composable
 private fun ActionRow(label: String, icon: ImageVector, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        Modifier.fillMaxWidth().height(ROW_HEIGHT).clickable(onClick = onClick).padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) { Icon(icon, null) }
         Spacer(Modifier.width(16.dp))
-        Text(label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(label, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

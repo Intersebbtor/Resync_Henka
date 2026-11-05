@@ -13,6 +13,7 @@ import io.github.radixtrator.resync.data.Parser
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.SwipeAction
 import io.github.radixtrator.resync.ui.common.armedStage
+import io.github.radixtrator.resync.ui.common.firstParagraph
 import io.github.radixtrator.resync.ui.common.footnoteLinks
 import io.github.radixtrator.resync.ui.common.isImageLink
 import androidx.compose.ui.text.LinkAnnotation
@@ -310,6 +311,13 @@ class ParserTest {
         assertTrue(isImageLink("https://i.imgur.com/a.jpg"))
         assertTrue(isImageLink("https://preview.redd.it/x.jpeg?width=627&format=pjpg"))
         assertTrue(!isImageLink("https://example.com/page"))
+    }
+
+    @Test
+    fun `selftext previews stop after the first paragraph`() {
+        assertEquals("And the winners are...\n…", firstParagraph("And the winners are...\n\ndrumroll\n\n☆ Night Sky"))
+        assertEquals("Just one line", firstParagraph("  Just one line \n\n"))
+        assertEquals(null, firstParagraph(" \n "))
     }
 
     @Test

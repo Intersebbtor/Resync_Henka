@@ -8,13 +8,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-/** Explore's sections, in the order the sheet shows them. */
-enum class ExploreSection(val label: String) {
+/** Explore's sections, in the order the sheet shows them. [header] is the sheet's heading, [label] the options menu's. */
+enum class ExploreSection(val label: String, val header: String = label) {
     FAVORITES("Favorites"),
     FEEDS("Feeds"),
     SUBSCRIPTIONS("Subscriptions"),
     MODERATED("Moderated"),
-    MOST_VISITED("Most visited"),
+    MOST_VISITED("Most visited", header = "Top"),
 }
 
 /** A feed opened (`query` null) or a search run (`subreddit` null = all of Reddit), for "Recently searched & visited". */
@@ -37,7 +37,8 @@ data class ExploreState(
     val recents: List<Recent> = emptyList(),
     /** Opened at launch instead of the front page; null = front page. */
     val defaultFeed: String? = null,
-    val hidden: Set<ExploreSection> = emptySet(),
+    /** Sync starts with Feeds off: the front page shows up under Top, and r/all and r/popular are a search away. */
+    val hidden: Set<ExploreSection> = setOf(ExploreSection.FEEDS),
     /** Also list favorites in Subscriptions (Sync's "Duplicate favs"). */
     val duplicateFavorites: Boolean = false,
 ) {

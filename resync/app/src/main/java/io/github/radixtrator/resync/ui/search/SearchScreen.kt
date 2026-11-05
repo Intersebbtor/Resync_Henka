@@ -143,7 +143,7 @@ class SearchCommunitiesViewModel(container: AppContainer, query: String) : Listi
 }
 
 @Composable
-fun SearchScreen(initialQuery: String, subreddit: String?, container: AppContainer) {
+fun SearchScreen(initialQuery: String, subreddit: String?, container: AppContainer, communitiesTab: Boolean = false) {
     val nav = LocalNavigator.current
     val posts = viewModel(key = "posts") { SearchPostsViewModel(container, initialQuery, subreddit) }
     val communities = viewModel(key = "communities") { SearchCommunitiesViewModel(container, initialQuery) }
@@ -151,7 +151,7 @@ fun SearchScreen(initialQuery: String, subreddit: String?, container: AppContain
     val communityState by communities.state.collectAsStateWithLifecycle()
     val restrict by posts.restrict.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf(initialQuery) }
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tab by rememberSaveable { mutableIntStateOf(if (communitiesTab) 1 else 0) }
     val focus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val snackbar = remember { SnackbarHostState() }

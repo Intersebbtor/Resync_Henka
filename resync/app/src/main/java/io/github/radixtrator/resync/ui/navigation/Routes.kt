@@ -38,8 +38,9 @@ data class VideoRoute(val url: String, val loop: Boolean = false) : NavKey
 @Serializable
 data class UserRoute(val name: String, val tab: UserWhere = UserWhere.OVERVIEW) : NavKey
 
+/** [communities] opens on the Communities tab (Explore's "Search all subs"). */
 @Serializable
-data class SearchRoute(val query: String = "", val subreddit: String? = null) : NavKey
+data class SearchRoute(val query: String = "", val subreddit: String? = null, val communities: Boolean = false) : NavKey
 
 @Serializable
 data class SubmitRoute(val subreddit: String? = null) : NavKey

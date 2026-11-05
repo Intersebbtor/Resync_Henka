@@ -110,3 +110,10 @@ private fun superscript(n: Int): String = n.toString().map { "⁰¹²³⁴⁵⁶
 
 /** True if the HTML has spoiler markup; used by tests and to decide on reveal affordances. */
 fun hasSpoiler(html: String) = SPOILER.containsMatchIn(html)
+
+/** The first non-blank line of [text], with "\n…" when more follows (Sync's selftext previews); null if blank. */
+fun firstParagraph(text: String): String? {
+    val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+    val first = lines.firstOrNull() ?: return null
+    return if (lines.size > 1) "$first\n…" else first
+}

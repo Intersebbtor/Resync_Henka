@@ -130,7 +130,7 @@ Settings = PreferencesActivity (root + 25 subscreens)
   - Footer: "10.6k points" over "154 comments" (2 lines, left) and a ⋮ (right).
 - **Media badges** sit in a translucent circle centered on the preview: a gallery icon for galleries, "reddit ▶" for v.redd.it.
   Videos **autoplay muted inline** in the feed.
-- **Text posts:** a selftext preview under the title (bordered by default; see the customize options).
+- **Text posts:** a selftext preview under the title (bordered by default; see the customize options): the first paragraph as plain text, then "…" on its own line when there's more.
 - The FAB "⋯" appears bottom-right.
 
 ### 3.2 Sort sheet (top sheet)
@@ -455,8 +455,8 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Image viewer info sheet (download, link info, copy/share/comments) | yes | zoomable viewer | ◐ |
 | Video player: HD toggle, speed, download, mute | yes | Media3 player | ◐ |
 | Galleries | broken in Sync | gallery viewer | ✅ (better) |
-| Explore sheet: Favorites / Subscriptions / Moderated / Most visited (+counts) / Follows, per-sub menu | yes | Favorites, Feeds, Subscriptions (with icons), Moderated, Most visited (counts, Default tag), row ⋮ (favorite, set as default, about, unsubscribe, reset viewed), options ⋮ (section visibility, duplicate favorites, reload, clear) | ◐ (no Follows/Custom feeds sections, no favorite reordering) |
-| Recently searched & visited | yes | toolbar search opens Explore with recent feeds and searches; "Search r/<sub>" inside a community | ✅ |
+| Explore sheet: Favorites / Subscriptions / Moderated / Most visited (+counts) / Follows, per-sub menu | yes | Favorites, Subscriptions (with icons), Moderated, Top (counts, Default tag, default in accent), opt-in Feeds; Sync's 42 dp rows and 51 dp headers; row ⋮ (favorite, set as default, about, unsubscribe, reset viewed), options ⋮ (section visibility, duplicate favorites, reload, clear) | ◐ (no Follows/Custom feeds sections, no favorite reordering) |
+| Recently searched & visited | yes | toolbar search opens Explore with recent feeds and searches; typing shows Search all (+ "Search r/<sub>"), bolded matches, suggested communities with "Search all subs", Open u/ and r/ | ✅ |
 | Subreddit header chips: Join, About, Wiki, Flairs, Watch, Favorite | yes | info sheet with join/leave + sidebar | ◐ |
 | Wiki viewer | yes | — | ❌ |
 | Inbox sections | 9 (incl. DMs, comment/post replies, mentions, mod) | All, Unread, DMs, Sent, Comment replies, Post replies, Mentions | ◐ (no mod boxes) |

@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,11 +49,13 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -149,9 +152,9 @@ private fun CardPost(post: Post, showSubreddit: Boolean, actions: PostActions) {
                     Spacer(Modifier.height(8.dp))
                     FlairChip(post)
                 }
-                if (post.isSelf && post.selfText.isNotBlank()) {
+                selfTextPreview(post)?.let {
                     Spacer(Modifier.height(8.dp))
-                    Text(post.selfText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 6, overflow = TextOverflow.Ellipsis)
+                    Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 6, overflow = TextOverflow.Ellipsis)
                 }
             }
             StatsFooter(post, actions.onMore)
@@ -246,7 +249,11 @@ private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, fl
             if (post.thumbnail() != null && !post.isSelf) {
                 CardPreview(post, onClick = actions.onMedia, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).clip(RoundedCornerShape(8.dp)))
             } else if (post.selfText.isNotBlank()) {
-                Text(post.selfText, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp))
+                Text(
+                    post.selfTextHtml?.let { rememberRedditHtml(it) } ?: AnnotatedString(post.selfText),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                )
             }
         }
         if (!inCard) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -290,9 +297,9 @@ private fun SlidePost(post: Post, actions: PostActions) {
             // Slides crop media to a fixed band, unlike the full-height cards.
             height = 220.dp,
         )
-        if (post.isSelf && post.selfText.isNotBlank()) {
+        selfTextPreview(post)?.let {
             Text(
-                post.selfText,
+                it,
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 8,
                 overflow = TextOverflow.Ellipsis,
@@ -391,7 +398,7 @@ fun PostTitle(
     }
     val marks = mapOf(
         "pin" to InlineTextContent(Placeholder(1.em, 1.em, PlaceholderVerticalAlign.TextCenter)) {
-            Icon(AppIcons.Pin, "Pinned", tint = ResyncColors.Moderator)
+            Icon(AppIcons.Pin, "Pinned", tint = accent)
         },
         "lock" to InlineTextContent(Placeholder(0.9.em, 0.9.em, PlaceholderVerticalAlign.TextCenter)) {
             Icon(Icons.Default.Lock, "Locked", tint = accent)
@@ -616,5 +623,14 @@ private fun LetterAvatar(name: String, size: Dp) {
         contentAlignment = Alignment.Center,
     ) {
         Text(name.take(1).uppercase(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
+    }
+}
+
+/** Sync's feed preview of a text post: its first paragraph as plain text, then "…" on a line of its own if there's more. */
+@Composable
+private fun selfTextPreview(post: Post): String? {
+    if (!post.isSelf) return null
+    return remember(post.selfTextHtml, post.selfText) {
+        firstParagraph(post.selfTextHtml?.let { AnnotatedString.fromHtml(it).text } ?: post.selfText)
     }
 }
