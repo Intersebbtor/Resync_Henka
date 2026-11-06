@@ -14,6 +14,7 @@ import io.github.radixtrator.resync.data.MediaDownloads
 import io.github.radixtrator.resync.data.NotifiedMessages
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostMemoryStore
+import io.github.radixtrator.resync.data.RecentPostsStore
 import io.github.radixtrator.resync.data.RedditApi
 import io.github.radixtrator.resync.data.RedditClient
 import io.github.radixtrator.resync.data.ReportReason
@@ -54,6 +55,7 @@ class AppContainer(context: Context) {
     val notifiedMessages = NotifiedMessages(prefs)
     val tags = UserTags(prefs)
     val filters = FilterStore(prefs)
+    val recentPosts = RecentPostsStore(prefs)
     val readAloud = ReadAloud(context)
     private val appContext = context.applicationContext
     private val accountStore = AccountStore(prefs)

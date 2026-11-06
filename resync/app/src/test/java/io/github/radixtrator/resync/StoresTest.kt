@@ -9,6 +9,8 @@ import io.github.radixtrator.resync.data.NotifiedMessages
 import io.github.radixtrator.resync.data.Parser
 import io.github.radixtrator.resync.data.PostMemoryStore
 import io.github.radixtrator.resync.data.Recent
+import io.github.radixtrator.resync.data.RecentPost
+import io.github.radixtrator.resync.data.RecentPostsStore
 import io.github.radixtrator.resync.data.RedditClient
 import io.github.radixtrator.resync.data.UserTags
 import io.github.radixtrator.resync.data.VisitedStore
@@ -181,6 +183,27 @@ class StoresTest {
         visited.mark("p1")
         visited.mark("p2")
         assertEquals(setOf("p1", "p2"), VisitedStore(prefs).ids.value)
+    }
+
+    @Test
+    fun `recent posts put the latest first, move reopened ones up and keep fifty`() {
+        val prefs = FakePrefs()
+        val store = RecentPostsStore(prefs)
+        val post = Parser.post(RedditClient.JSON.parseToJsonElement("""{"id":"p1","title":"Hello","subreddit":"pics"}""").jsonObject)
+        store.record(post)
+        store.record(RecentPost("p2", "Second", "gifs"))
+        store.record(post) // reopened: back to the top, not twice
+        assertEquals(listOf("p1", "p2"), RecentPostsStore(prefs).posts.value.map { it.id })
+        assertEquals(RecentPost("p1", "Hello", "pics"), RecentPostsStore(prefs).posts.value.first())
+
+        repeat(60) { store.record(RecentPost("n$it", "t$it", "s")) }
+        val kept = RecentPostsStore(prefs).posts.value
+        assertEquals(RecentPostsStore.MAX, kept.size)
+        assertEquals("n59", kept.first().id)
+        assertEquals("n10", kept.last().id)
+
+        store.clear()
+        assertTrue(RecentPostsStore(prefs).posts.value.isEmpty())
     }
 }
 
