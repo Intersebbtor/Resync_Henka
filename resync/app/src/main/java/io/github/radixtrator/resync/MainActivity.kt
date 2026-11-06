@@ -47,6 +47,7 @@ import io.github.radixtrator.resync.ui.login.LoginScreen
 import io.github.radixtrator.resync.ui.media.ImageViewerScreen
 import io.github.radixtrator.resync.ui.media.VideoPlayerScreen
 import io.github.radixtrator.resync.ui.navigation.ComposeRoute
+import io.github.radixtrator.resync.ui.navigation.CustomizeViewRoute
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.ImageRoute
 import io.github.radixtrator.resync.ui.navigation.InboxRoute
@@ -73,6 +74,7 @@ import io.github.radixtrator.resync.ui.navigation.VideoRoute
 import io.github.radixtrator.resync.ui.post.PostScreen
 import io.github.radixtrator.resync.ui.profile.ProfileScreen
 import io.github.radixtrator.resync.ui.search.SearchScreen
+import io.github.radixtrator.resync.ui.settings.CustomizeViewScreen
 import io.github.radixtrator.resync.ui.settings.SettingsScreen
 import io.github.radixtrator.resync.ui.setup.SetupScreen
 import io.github.radixtrator.resync.data.savedBaseFontScale
@@ -164,6 +166,8 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
                 entry<ComposeRoute> { route -> ComposeScreen(route, container) }
                 // Sync's settings don't shrink with its base font size.
                 entry<SettingsRoute> { FullSizeText { SettingsScreen(container) } }
+                // Its preview stays at feed size; the screen sizes its own option rows like the settings.
+                entry<CustomizeViewRoute> { route -> CustomizeViewScreen(route.layout, container) }
             },
         )
         LaunchedEffect(backStack.size) { SwipeBackState.popping = false }

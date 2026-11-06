@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -94,6 +95,7 @@ import io.github.radixtrator.resync.ui.common.visiblePosts
 import io.github.radixtrator.resync.ui.home.HomeTab
 import io.github.radixtrator.resync.ui.home.ShellScaffold
 import io.github.radixtrator.resync.ui.home.quickActions
+import io.github.radixtrator.resync.ui.navigation.CustomizeViewRoute
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
@@ -404,9 +406,13 @@ private fun SortSheet(current: Sort, options: List<SortKind>, onDismiss: () -> U
     }
 }
 
-/** Sync's Change view: picks this feed's layout (other feeds keep theirs). */
+/**
+ * Sync's Change view: picks this feed's layout (other feeds keep theirs). Cancel | Customize view sit under the
+ * rows; Customize view opens the View type screen on the current layout.
+ */
 @Composable
 private fun ChangeViewSheet(container: AppContainer, subreddit: String?, current: PostLayout, onDismiss: () -> Unit) {
+    val nav = LocalNavigator.current
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, dragHandle = { SheetHandle() }) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
             SheetTitle("Change view", topPadding = 0.dp)
@@ -421,8 +427,18 @@ private fun ChangeViewSheet(container: AppContainer, subreddit: String?, current
                     radio = layout == current,
                 )
             }
-            OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text("Cancel")
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("Cancel") }
+                FilledTonalButton(
+                    onClick = {
+                        onDismiss()
+                        nav.push(CustomizeViewRoute(current))
+                    },
+                    modifier = Modifier.weight(1f),
+                ) { Text("Customize view") }
             }
         }
     }

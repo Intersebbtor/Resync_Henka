@@ -1,6 +1,7 @@
 package io.github.radixtrator.resync.ui.navigation
 
 import androidx.navigation3.runtime.NavKey
+import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.UserWhere
 import kotlinx.serialization.Serializable
 
@@ -12,6 +13,10 @@ data object LoginRoute : NavKey
 
 @Serializable
 data object SettingsRoute : NavKey
+
+/** Sync's Customize view ("View type" settings), opened on [layout]'s options. */
+@Serializable
+data class CustomizeViewRoute(val layout: PostLayout = PostLayout.CARD) : NavKey
 
 /**
  * [home] screens are the bottom-navigation tabs (Sync's Posts and Inbox): they show the account

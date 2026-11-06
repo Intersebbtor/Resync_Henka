@@ -72,8 +72,10 @@ import io.github.radixtrator.resync.data.ImageSource
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.PostMedia
+import io.github.radixtrator.resync.data.ViewOptions
 import io.github.radixtrator.resync.ui.navigation.LocalAccount
 import io.github.radixtrator.resync.ui.navigation.LocalUserTagColors
+import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import io.github.radixtrator.resync.ui.navigation.LocalUserTags
 import io.github.radixtrator.resync.ui.navigation.LocalVisited
 import io.github.radixtrator.resync.ui.theme.ResyncColors
@@ -125,17 +127,19 @@ fun PostLayout.columns(widthDp: Int): Int = when (this) {
     else -> 1
 }
 
+/** [post] drawn in [layout], honoring that layout's Customize view options ([ViewOptions]) from [LocalSettings]. */
 @Composable
 fun PostLayoutItem(layout: PostLayout, post: Post, showSubreddit: Boolean, actions: PostActions) {
+    val options = LocalSettings.current.viewOptionsFor(layout)
     when (layout) {
-        PostLayout.LIST -> RowPost(post, showSubreddit, actions, flushThumbnail = true, inCard = false)
-        PostLayout.COMPACT -> RowPost(post, showSubreddit, actions, flushThumbnail = false, inCard = false)
+        PostLayout.LIST -> RowPost(post, showSubreddit, actions, options, flushThumbnail = true, inCard = false)
+        PostLayout.COMPACT -> RowPost(post, showSubreddit, actions, options, flushThumbnail = false, inCard = false)
         PostLayout.SMALLER_CARDS -> SyncCard(RoundedCornerShape(10.dp)) {
-            RowPost(post, showSubreddit, actions, flushThumbnail = false, inCard = true)
+            RowPost(post, showSubreddit, actions, options, flushThumbnail = false, inCard = true)
         }
-        PostLayout.SMALL_CARDS -> SmallCardPost(post, showSubreddit, actions)
-        PostLayout.CARD -> CardPost(post, showSubreddit, actions)
-        PostLayout.SLIDES -> SlidePost(post, actions)
+        PostLayout.SMALL_CARDS -> SmallCardPost(post, showSubreddit, actions, options)
+        PostLayout.CARD -> CardPost(post, showSubreddit, actions, options)
+        PostLayout.SLIDES -> SlidePost(post, actions, options)
     }
 }
 
@@ -148,11 +152,12 @@ private fun SyncCard(shape: Shape, content: @Composable ColumnScope.() -> Unit) 
 
 // --- Cards ---
 
+/** Sync's Cards. [options]: image above or below the title (`card_image_above`), selftext previews. */
 @Composable
-private fun CardPost(post: Post, showSubreddit: Boolean, actions: PostActions) {
+private fun CardPost(post: Post, showSubreddit: Boolean, actions: PostActions, options: ViewOptions) {
     SyncCard(RoundedCornerShape(8.dp)) {
         Column(Modifier.combinedClickable(onClick = actions.onOpen, onLongClick = actions.onMore)) {
-            CardPreview(post, onClick = actions.onMedia)
+            if (options.imageAboveTitle) CardPreview(post, onClick = actions.onMedia)
             Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
                 PostTitle(post, CardTitle)
                 Spacer(Modifier.height(4.dp))
@@ -161,21 +166,30 @@ private fun CardPost(post: Post, showSubreddit: Boolean, actions: PostActions) {
                     Spacer(Modifier.height(8.dp))
                     FlairChip(post)
                 }
-                selfTextPreview(post)?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 6, overflow = TextOverflow.Ellipsis)
+                if (options.selftextPreviews) {
+                    selfTextPreview(post)?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 6, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
+            if (!options.imageAboveTitle) CardPreview(post, onClick = actions.onMedia, modifier = Modifier.padding(top = 12.dp))
             StatsFooter(post, actions.onMore)
         }
     }
 }
 
+/** Sync's Small cards. [options]: the thumbnail top-right, or top-left (`small_cards_thumbnail_align_left`). */
 @Composable
-private fun SmallCardPost(post: Post, showSubreddit: Boolean, actions: PostActions) {
+private fun SmallCardPost(post: Post, showSubreddit: Boolean, actions: PostActions, options: ViewOptions) {
     SyncCard(RoundedCornerShape(8.dp)) {
         Column(Modifier.combinedClickable(onClick = actions.onOpen, onLongClick = actions.onMore)) {
             Row(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
+                val hasThumbnail = post.thumbnail() != null
+                if (hasThumbnail && options.thumbnailLeft) {
+                    Thumbnail(post, 64.dp, RoundedCornerShape(8.dp), onClick = actions.onMedia)
+                    Spacer(Modifier.width(12.dp))
+                }
                 Column(Modifier.weight(1f)) {
                     PostTitle(post, CardTitle, maxLines = 5)
                     Spacer(Modifier.height(4.dp))
@@ -185,7 +199,7 @@ private fun SmallCardPost(post: Post, showSubreddit: Boolean, actions: PostActio
                         FlairChip(post)
                     }
                 }
-                if (post.thumbnail() != null) {
+                if (hasThumbnail && !options.thumbnailLeft) {
                     Spacer(Modifier.width(12.dp))
                     Thumbnail(post, 64.dp, RoundedCornerShape(8.dp), onClick = actions.onMedia)
                 }
@@ -209,9 +223,10 @@ private fun StatsFooter(post: Post, onMore: () -> Unit) {
 /**
  * Sync's List ([flushThumbnail]: square thumbnail against the left edge) and Compact (inset rounded
  * thumbnail) rows; Smaller cards wraps the compact row in a card. ⌄ expands the media or text inline.
+ * [options]: thumbnails, the type indicator and a one-line title, as Sync's List/Compact/Smaller cards screens offer.
  */
 @Composable
-private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, flushThumbnail: Boolean, inCard: Boolean) {
+private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, options: ViewOptions, flushThumbnail: Boolean, inCard: Boolean) {
     var expanded by rememberSaveable(post.fullname) { mutableStateOf(false) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Column(
@@ -221,13 +236,15 @@ private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, fl
             .combinedClickable(onClick = actions.onOpen, onLongClick = actions.onMore),
     ) {
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-            if (flushThumbnail) {
-                Thumbnail(post, 72.dp, RectangleShape, onClick = actions.onMedia)
-            } else {
-                Thumbnail(post, 64.dp, RoundedCornerShape(8.dp), onClick = actions.onMedia, modifier = Modifier.padding(start = 8.dp, top = 8.dp))
+            if (options.thumbnails) {
+                if (flushThumbnail) {
+                    Thumbnail(post, 72.dp, RectangleShape, onClick = actions.onMedia)
+                } else {
+                    Thumbnail(post, 64.dp, RoundedCornerShape(8.dp), onClick = actions.onMedia, modifier = Modifier.padding(start = 8.dp, top = 8.dp))
+                }
             }
             Column(Modifier.weight(1f).padding(start = 12.dp, top = 8.dp, bottom = 10.dp, end = 4.dp)) {
-                PostTitle(post, RowTitle, maxLines = 4)
+                PostTitle(post, RowTitle, maxLines = if (options.singleLineTitle) 1 else 4)
                 PostMeta(post, showSubreddit, maxLines = 1, style = RowMeta)
                 Text(
                     "${points(post.score)} • ${comments(post.numComments)}",
@@ -246,10 +263,14 @@ private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, fl
             }
             val type = @Composable { Icon(typeIcon(post), null, tint = muted, modifier = Modifier.padding(8.dp).size(20.dp)) }
             if (flushThumbnail) {
-                Row(Modifier.fillMaxHeight().padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) { expand(); type() }
+                Row(Modifier.fillMaxHeight().padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    expand()
+                    if (options.typeIndicators) type()
+                }
             } else {
                 Column(Modifier.fillMaxHeight().padding(end = 4.dp), verticalArrangement = Arrangement.SpaceBetween, horizontalAlignment = Alignment.CenterHorizontally) {
-                    type()
+                    // Without the type icon, ⌄ still sits at the bottom.
+                    if (options.typeIndicators) type() else Spacer(Modifier.weight(1f))
                     expand()
                 }
             }
@@ -271,9 +292,12 @@ private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, fl
 
 // --- Slides ---
 
-/** Sync's Slides: a full-width post with the sub on top, big media, and vote/comment pills. */
+/**
+ * Sync's Slides: a full-width post with the sub on top, big media, and vote/comment pills. [options]: image and
+ * selftext previews, the subreddit icon, and the border around selftext.
+ */
 @Composable
-private fun SlidePost(post: Post, actions: PostActions) {
+private fun SlidePost(post: Post, actions: PostActions, options: ViewOptions) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Column(
         Modifier
@@ -283,8 +307,10 @@ private fun SlidePost(post: Post, actions: PostActions) {
             .padding(top = 16.dp, bottom = 8.dp),
     ) {
         Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            LetterAvatar(post.subreddit, 32.dp)
-            Spacer(Modifier.width(12.dp))
+            if (options.subredditIcons) {
+                LetterAvatar(post.subreddit, 32.dp)
+                Spacer(Modifier.width(12.dp))
+            }
             Column {
                 Text(
                     buildAnnotatedString {
@@ -299,14 +325,17 @@ private fun SlidePost(post: Post, actions: PostActions) {
         }
         PostTitle(post, CardTitle.copy(fontSize = 15.sp), modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp))
         if (post.flair != null) FlairChip(post, Modifier.padding(start = 16.dp, top = 8.dp))
-        CardPreview(
-            post,
-            onClick = actions.onMedia,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp).clip(RoundedCornerShape(12.dp)),
-            // Slides crop media to a fixed band, unlike the full-height cards.
-            height = 220.dp,
-        )
-        selfTextPreview(post)?.let {
+        if (options.imagePreviews) {
+            CardPreview(
+                post,
+                onClick = actions.onMedia,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp).clip(RoundedCornerShape(12.dp)),
+                // Slides crop media to a fixed band, unlike the full-height cards.
+                height = 220.dp,
+            )
+        }
+        val selftext = if (options.selftextPreviews) selfTextPreview(post) else null
+        selftext?.let {
             Text(
                 it,
                 style = MaterialTheme.typography.bodyMedium,
@@ -315,8 +344,13 @@ private fun SlidePost(post: Post, actions: PostActions) {
                 modifier = Modifier
                     .padding(start = 16.dp, end = 16.dp, top = 12.dp)
                     .fillMaxWidth()
-                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(8.dp))
-                    .padding(12.dp),
+                    .then(
+                        if (options.selftextBorder) {
+                            Modifier
+                                .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(8.dp))
+                                .padding(12.dp)
+                        } else Modifier,
+                    ),
             )
         }
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {

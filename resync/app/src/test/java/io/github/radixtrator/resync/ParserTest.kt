@@ -31,6 +31,7 @@ import io.github.radixtrator.resync.data.RedditClient
 import io.github.radixtrator.resync.data.RedditException
 import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.data.ThemeMode
+import io.github.radixtrator.resync.data.ViewOptions
 import io.github.radixtrator.resync.data.DashTracks
 import io.github.radixtrator.resync.data.dashTracks
 import io.github.radixtrator.resync.data.fileName
@@ -391,6 +392,12 @@ class ParserTest {
         assertEquals(swipes, json.decodeFromString(Settings.serializer(), json.encodeToString(Settings.serializer(), swipes)))
         assertEquals(listOf(SwipeAction.SAVE, SwipeAction.SHARE, SwipeAction.MARK_READ), swipes.postSwipeStages)
         assertEquals(Settings.DEFAULT_COMMENT_SWIPES, Settings(commentSwipeActions = listOf(SwipeAction.HIDE)).commentSwipeStages)
+        // Customize view options round-trip per layout; untouched layouts get the defaults.
+        val views = Settings(viewOptions = mapOf(PostLayout.LIST to ViewOptions(thumbnails = false, singleLineTitle = true)))
+        assertEquals(views, json.decodeFromString(Settings.serializer(), json.encodeToString(Settings.serializer(), views)))
+        assertEquals(false, views.viewOptionsFor(PostLayout.LIST).thumbnails)
+        assertEquals(ViewOptions(), views.viewOptionsFor(PostLayout.COMPACT))
+
         // Old or partial blobs load with defaults for anything missing.
         assertEquals(Settings(theme = ThemeMode.DARK), json.decodeFromString(Settings.serializer(), """{"theme":"DARK","removedField":1}"""))
     }

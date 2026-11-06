@@ -70,6 +70,7 @@ import io.github.radixtrator.resync.notify.InboxWorker
 import io.github.radixtrator.resync.notify.Notifications
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.home.QUICK_ACTION_LABELS
+import io.github.radixtrator.resync.ui.navigation.CustomizeViewRoute
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.SetupRoute
 import io.github.radixtrator.resync.watch.WatchWorker
@@ -129,6 +130,11 @@ fun SettingsScreen(container: AppContainer) {
                 }
                 Toggle("Tablet mode", "On wide screens, a navigation rail replaces the bottom bar", settings.tabletMode) { v -> update { it.copy(tabletMode = v) } }
                 Choice("Default post layout", PostLayout.entries, settings.layout, PostLayout::label) { v -> update { it.copy(layout = v) } }
+                ListItem(
+                    headlineContent = { Text("View type") },
+                    supportingContent = { Text("Customize how posts look") },
+                    modifier = Modifier.clickable { nav.push(CustomizeViewRoute(settings.layout)) },
+                )
 
                 Section("Content")
                 Choice("NSFW posts", NsfwMode.entries, settings.nsfw, NsfwMode::label) { v -> update { it.copy(nsfw = v) } }
@@ -292,8 +298,9 @@ private fun SwipeStageChoices(stages: List<SwipeAction>, options: List<SwipeActi
     }
 }
 
+/** A settings group heading in the accent color, under a divider. */
 @Composable
-private fun Section(title: String) {
+internal fun Section(title: String) {
     HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
     Text(
         title,
@@ -303,8 +310,9 @@ private fun Section(title: String) {
     )
 }
 
+/** A switch row; tapping anywhere on it flips the switch. */
 @Composable
-private fun Toggle(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun Toggle(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = subtitle?.let { { Text(it) } },
