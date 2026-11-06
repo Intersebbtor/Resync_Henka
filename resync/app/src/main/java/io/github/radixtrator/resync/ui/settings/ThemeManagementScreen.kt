@@ -38,6 +38,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -51,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -65,13 +67,15 @@ import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.theme.LocalDarkTheme
 import io.github.radixtrator.resync.ui.theme.THEME_SEEDS
 import io.github.radixtrator.resync.ui.theme.resyncColorScheme
+import kotlin.math.roundToInt
 
 /**
- * Sync's Theme management (Settings › Appearance): light and dark mini-phone previews of the theme in use, then
- * the mode and accent pickers (applied at once, like Sync's), Extra colorful, the user's saved themes (tap to
- * apply, share, delete), and Sync's Extra rows "Share theme" / "Load theme", which pass a theme around as one
- * line of text ([ThemeCode]). Sync's Monet "Automatic" mode is Material You here; its colour intensity slider,
- * text colour overrides and dark overlay aren't.
+ * Sync's Theme management (Settings › Appearance): light and dark mini-phone previews of the theme in use, Sync's
+ * Automatic / Manual selection buttons (Automatic is Material You where Android has it, else the default palette),
+ * then the mode and accent pickers (applied at once, like Sync's), Color intensity and Extra colorful for a picked
+ * accent, Dark tweaks' Dark overlay, the user's saved themes (tap to apply, share, delete), and Sync's Extra rows
+ * "View palette", "Share theme" / "Load theme", which pass a theme around as one line of text ([ThemeCode]). Sync's
+ * text colour overrides aren't here.
  */
 @Composable
 fun ThemeManagementScreen(container: AppContainer) {
@@ -83,6 +87,7 @@ fun ThemeManagementScreen(container: AppContainer) {
     var saving by rememberSaveable { mutableStateOf(false) }
     var loading by rememberSaveable { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<SavedTheme?>(null) }
+    var viewingPalette by rememberSaveable { mutableStateOf(false) }
 
     SwipeBack(enabled = settings.swipeBack, onBack = nav::pop) {
         Scaffold(
@@ -102,14 +107,39 @@ fun ThemeManagementScreen(container: AppContainer) {
                     MiniPhone(previewScheme(settings, dark = false), "Light", Modifier.weight(1f))
                     MiniPhone(previewScheme(settings, dark = true), if (settings.theme == ThemeMode.BLACK) "Black" else "Dark", Modifier.weight(1f))
                 }
-                if (dynamic) {
-                    Text(
-                        "Material You colors are on, so the app follows your wallpaper. Pick a color below to use it instead.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                // Sync's Automatic / Manual selection buttons. Automatic is Material You where Android has it, else
+                // Resync's default palette; Manual is a hand-picked accent (the swatches below), with Color intensity.
+                val canDynamic = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                val manual = !dynamic && settings.seedColor != null
+                val automatic = if (canDynamic) dynamic else settings.seedColor == null
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = automatic,
+                        onClick = { update { it.copy(dynamicColor = canDynamic, seedColor = null) } },
+                        label = { Text("Automatic") },
+                        modifier = Modifier.weight(1f),
+                    )
+                    FilterChip(
+                        selected = manual,
+                        onClick = { update { it.copy(dynamicColor = false, seedColor = it.seedColor ?: THEME_SEEDS.first()) } },
+                        label = { Text("Manual selection") },
+                        modifier = Modifier.weight(1f),
                     )
                 }
+                Text(
+                    when {
+                        dynamic -> "Following your wallpaper's colors (Material You). Pick a color below to use it instead."
+                        manual -> "Using the color you picked below."
+                        canDynamic -> "Using Resync's default palette. Automatic follows your wallpaper's colors instead."
+                        else -> "Using Resync's default palette: this Android version has no wallpaper colors."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
 
                 Section("Mode")
                 Row(
@@ -133,19 +163,27 @@ fun ThemeManagementScreen(container: AppContainer) {
                 ) {
                     (listOf<Int?>(null) + THEME_SEEDS).forEach { seed ->
                         ThemeSwatch(
-                            scheme = resyncColorScheme(swatchDark, black = settings.theme == ThemeMode.BLACK, seed = seed, extra = settings.extraColorful),
+                            scheme = resyncColorScheme(swatchDark, black = settings.theme == ThemeMode.BLACK, seed = seed, extra = settings.extraColorful, intensity = settings.colorIntensity),
                             selected = !dynamic && settings.seedColor == seed,
                             description = seed?.let { "Theme color ${hex(it)}" } ?: "Default theme color",
                             onClick = { update { it.copy(seedColor = seed, dynamicColor = false) } },
                         )
                     }
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    Toggle("Material You colors", "Use your wallpaper's colors", settings.dynamicColor) { v -> update { it.copy(dynamicColor = v) } }
-                }
-                if (settings.seedColor != null && !dynamic) {
+                if (manual) {
+                    // Sync's Manual setup › Color intensity: 0–2 in steps of 0.2.
+                    ThemeValueSlider(
+                        title = "Color intensity",
+                        valueLabel = "%.1f×".format(settings.colorIntensity),
+                        value = settings.colorIntensity,
+                        range = 0f..Settings.COLOR_INTENSITY_MAX,
+                        steps = 9,
+                    ) { v -> update { it.copy(colorIntensity = v) } }
                     Toggle("Extra colorful", "Tint backgrounds and cards with the accent too", settings.extraColorful) { v -> update { it.copy(extraColorful = v) } }
                 }
+
+                Section("Dark tweaks")
+                DarkOverlayRows(settings, update)
 
                 Section("Saved themes")
                 if (settings.savedThemes.isEmpty()) {
@@ -190,6 +228,11 @@ fun ThemeManagementScreen(container: AppContainer) {
                 )
 
                 Section("Extra")
+                ListItem(
+                    headlineContent = { Text("View palette") },
+                    supportingContent = { Text("The colors the theme in use is built from") },
+                    modifier = Modifier.clickable { viewingPalette = true },
+                )
                 ListItem(
                     headlineContent = { Text("Share theme") },
                     supportingContent = { Text("Send the theme you're using as a code to paste") },
@@ -298,11 +341,109 @@ fun ThemeManagementScreen(container: AppContainer) {
             dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
         )
     }
+
+    if (viewingPalette) {
+        // Sync's "Visualise monet palette": here, the main roles of the scheme the app is drawn with right now.
+        val scheme = MaterialTheme.colorScheme
+        AlertDialog(
+            onDismissRequest = { viewingPalette = false },
+            title = { Text("Palette") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    paletteRoles(scheme).forEach { (name, color) -> PaletteRow(name, color) }
+                }
+            },
+            confirmButton = { TextButton(onClick = { viewingPalette = false }) { Text("Close") } },
+        )
+    }
+}
+
+/** The color roles the palette view lists, in the order Material describes them. */
+private fun paletteRoles(scheme: ColorScheme): List<Pair<String, Color>> = listOf(
+    "Primary" to scheme.primary,
+    "On primary" to scheme.onPrimary,
+    "Primary container" to scheme.primaryContainer,
+    "On primary container" to scheme.onPrimaryContainer,
+    "Secondary" to scheme.secondary,
+    "Secondary container" to scheme.secondaryContainer,
+    "Tertiary" to scheme.tertiary,
+    "Tertiary container" to scheme.tertiaryContainer,
+    "Background" to scheme.background,
+    "Surface" to scheme.surface,
+    "Surface container low" to scheme.surfaceContainerLow,
+    "Surface container" to scheme.surfaceContainer,
+    "Surface container high" to scheme.surfaceContainerHigh,
+    "Surface container highest" to scheme.surfaceContainerHighest,
+    "Surface variant" to scheme.surfaceVariant,
+    "On surface" to scheme.onSurface,
+    "On surface variant" to scheme.onSurfaceVariant,
+    "Outline" to scheme.outline,
+    "Outline variant" to scheme.outlineVariant,
+)
+
+/** One palette swatch: the color in a rounded square, its role and its hex value. */
+@Composable
+private fun PaletteRow(name: String, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(
+            Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(color)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)),
+        )
+        Column {
+            Text(name, style = MaterialTheme.typography.bodyMedium)
+            Text(hex(color.toArgb()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/**
+ * Sync's "Dark overlay" switch, and with it on, how dark it makes the app. Shared by Theme management's Dark tweaks
+ * and Settings › Appearance.
+ */
+@Composable
+internal fun DarkOverlayRows(settings: Settings, update: ((Settings) -> Settings) -> Unit) {
+    Toggle("Dark overlay", "Dim the whole app, for reading at night", settings.darkOverlay) { v -> update { it.copy(darkOverlay = v) } }
+    if (settings.darkOverlay) {
+        ThemeValueSlider(
+            title = "Overlay darkness",
+            valueLabel = "${(settings.darkOverlayLevel * 100).roundToInt()}%",
+            value = settings.darkOverlayLevel,
+            range = Settings.DARK_OVERLAY_MIN..Settings.DARK_OVERLAY_MAX,
+            steps = 11,
+        ) { v -> update { it.copy(darkOverlayLevel = v) } }
+    }
+}
+
+/** A titled slider with its value on the right, like Sync's MonetSlider rows. [steps] are the stops between the ends. */
+@Composable
+private fun ThemeValueSlider(
+    title: String,
+    valueLabel: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    onChange: (Float) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Text(valueLabel, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Slider(
+            value = value.coerceIn(range.start, range.endInclusive),
+            onValueChange = onChange,
+            valueRange = range,
+            steps = steps,
+        )
+    }
 }
 
 /** The preview for one side: Resync's palette for [settings], black in dark when the mode is Black. */
 private fun previewScheme(settings: Settings, dark: Boolean): ColorScheme =
-    resyncColorScheme(dark, black = settings.theme == ThemeMode.BLACK, seed = settings.seedColor, extra = settings.extraColorful)
+    resyncColorScheme(dark, black = settings.theme == ThemeMode.BLACK, seed = settings.seedColor, extra = settings.extraColorful, intensity = settings.colorIntensity)
 
 private fun hex(argb: Int) = "#%06X".format(argb and 0xFFFFFF)
 

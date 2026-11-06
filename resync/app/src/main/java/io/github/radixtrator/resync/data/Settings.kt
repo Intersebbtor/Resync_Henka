@@ -131,6 +131,15 @@ data class Settings(
     val seedColor: Int? = null,
     /** Sync's "extra colorful" tweak: backgrounds and cards take more of the accent's hue. */
     val extraColorful: Boolean = false,
+    /**
+     * Theme management › "Color intensity" (`monet_color_intensity`, 0–2 in 0.2 steps): scales the hand-picked
+     * accent's saturation, so 0 is grey and 2 twice as vivid. Only applies with a [seedColor] (Sync's Manual mode).
+     */
+    val colorIntensity: Float = 1.0f,
+    /** Sync's "Dark overlay" (`dark_overlay`): a black layer over the whole app, a night-reading dimmer. */
+    val darkOverlay: Boolean = false,
+    /** How dark [darkOverlay] makes the app: the black layer's alpha, [DARK_OVERLAY_MIN]–[DARK_OVERLAY_MAX]. */
+    val darkOverlayLevel: Float = 0.4f,
     val layout: PostLayout = PostLayout.CARD,
     val nsfw: NsfwMode = NsfwMode.BLUR,
     val blurSpoilers: Boolean = true,
@@ -251,6 +260,12 @@ data class Settings(
          * post. Most portrait tablets (600-839 dp) clear it, for "Dual pane (portrait)"; phones only do held sideways.
          */
         const val DUAL_PANE_MIN_WIDTH_DP = 720
+
+        const val DARK_OVERLAY_MIN = 0.1f
+        const val DARK_OVERLAY_MAX = 0.7f
+
+        /** Sync's Color intensity slider range. */
+        const val COLOR_INTENSITY_MAX = 2.0f
     }
 }
 

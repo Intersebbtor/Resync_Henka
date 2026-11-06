@@ -152,15 +152,17 @@ private val Typographies by lazy {
 
 /**
  * Tints [base] from a hand-picked [seed], standing in for Monet's tonal palettes: accents take the seed's hue at
- * the tones Sync uses for each role, neutrals take it at low saturation ([extra]: a lot more of it).
+ * the tones Sync uses for each role, neutrals take it at low saturation ([extra]: a lot more of it). [intensity]
+ * is Sync's Color intensity: it scales every saturation, 0 giving greys and 2 twice the usual colour.
  */
-private fun ColorScheme.tintedBy(seed: Color, dark: Boolean, extra: Boolean): ColorScheme {
+private fun ColorScheme.tintedBy(seed: Color, dark: Boolean, extra: Boolean, intensity: Float): ColorScheme {
     val hsv = FloatArray(3)
     android.graphics.Color.colorToHSV(seed.toArgb(), hsv)
     val hue = hsv[0]
-    val sat = hsv[1].coerceIn(0.25f, 0.9f)
-    fun accent(l: Float, s: Float = sat) = Color.hsl(hue, s, l)
-    val neutralSat = if (extra) 0.22f else 0.06f
+    val scale = intensity.coerceIn(0f, Settings.COLOR_INTENSITY_MAX)
+    val sat = (hsv[1].coerceIn(0.25f, 0.9f) * scale).coerceIn(0f, 1f)
+    fun accent(l: Float, s: Float = sat) = Color.hsl(hue, s.coerceIn(0f, 1f), l)
+    val neutralSat = ((if (extra) 0.22f else 0.06f) * scale).coerceIn(0f, 0.5f)
     fun neutral(l: Float) = Color.hsl(hue, neutralSat, l)
     return if (dark) {
         copy(
@@ -203,12 +205,12 @@ private fun ColorScheme.blackened() = copy(
 
 /**
  * Resync's own palette (not Material You): Sync's sampled Monet colors, tinted from [seed] (ARGB) when one is
- * picked, [extra] colorful or not, and pure black when [black] (dark only). Theme management draws its previews
- * with this too.
+ * picked, [extra] colorful or not, at Color [intensity], and pure black when [black] (dark only). Theme management
+ * draws its previews with this too.
  */
-fun resyncColorScheme(dark: Boolean, black: Boolean, seed: Int?, extra: Boolean): ColorScheme {
+fun resyncColorScheme(dark: Boolean, black: Boolean, seed: Int?, extra: Boolean, intensity: Float = 1f): ColorScheme {
     val base = if (dark) DarkColors else LightColors
-    val tinted = if (seed != null) base.tintedBy(Color(seed), dark, extra) else base
+    val tinted = if (seed != null) base.tintedBy(Color(seed), dark, extra, intensity) else base
     return if (black && dark) tinted.blackened() else tinted
 }
 
@@ -243,7 +245,7 @@ fun ResyncTheme(settings: Settings, content: @Composable () -> Unit) {
         val dynamic = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         if (black) dynamic.blackened() else dynamic
     } else {
-        resyncColorScheme(dark, black, settings.seedColor, settings.extraColorful)
+        resyncColorScheme(dark, black, settings.seedColor, settings.extraColorful, settings.colorIntensity)
     }
     CompositionLocalProvider(LocalDarkTheme provides dark) {
         MaterialTheme(

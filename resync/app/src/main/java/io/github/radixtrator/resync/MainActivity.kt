@@ -89,6 +89,12 @@ import io.github.radixtrator.resync.ui.settings.FilterEditorScreen
 import io.github.radixtrator.resync.ui.settings.SettingsScreen
 import io.github.radixtrator.resync.ui.settings.ThemeManagementScreen
 import io.github.radixtrator.resync.ui.setup.SetupScreen
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Color
+import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.data.savedBaseFontScale
 import io.github.radixtrator.resync.ui.theme.LocalBaseFontScale
 import io.github.radixtrator.resync.ui.theme.FullSizeText
@@ -112,7 +118,21 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings by container.settings.settings.collectAsStateWithLifecycle()
             CompositionLocalProvider(LocalBaseFontScale provides settings.baseFontSize.scale) {
-                ResyncTheme(settings) { ResyncNavHost(container, openRoute, onRouteOpened = { openRoute = null }) }
+                ResyncTheme(settings) {
+                    // Sync's "Dark overlay": a black layer drawn over everything after it, so it dims without
+                    // taking touches. Dialogs and sheets are their own windows and stay undimmed.
+                    Box(
+                        Modifier.fillMaxSize().drawWithContent {
+                            drawContent()
+                            if (settings.darkOverlay) {
+                                val alpha = settings.darkOverlayLevel.coerceIn(Settings.DARK_OVERLAY_MIN, Settings.DARK_OVERLAY_MAX)
+                                drawRect(Color.Black.copy(alpha = alpha))
+                            }
+                        },
+                    ) {
+                        ResyncNavHost(container, openRoute, onRouteOpened = { openRoute = null })
+                    }
+                }
             }
         }
     }
