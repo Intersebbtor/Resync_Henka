@@ -58,6 +58,7 @@ import io.github.radixtrator.resync.data.VideoQuality
 import io.github.radixtrator.resync.notify.InboxWorker
 import io.github.radixtrator.resync.notify.Notifications
 import io.github.radixtrator.resync.ui.common.SwipeBack
+import io.github.radixtrator.resync.ui.home.QUICK_ACTION_LABELS
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.SetupRoute
 import io.github.radixtrator.resync.watch.WatchWorker
@@ -194,6 +195,13 @@ fun SettingsScreen(container: AppContainer) {
                 }
                 filters.users.sorted().forEach { name -> FilterRow("u/$name", "Posts hidden from feeds") { container.filters.filterUser(name, false) } }
                 filters.domains.sorted().forEach { domain -> FilterRow(domain, "Links hidden from feeds") { container.filters.filterDomain(domain, false) } }
+
+                Section("Action visibility")
+                QUICK_ACTION_LABELS.forEach { label ->
+                    Toggle(label, null, label !in settings.hiddenActions) { on ->
+                        update { it.copy(hiddenActions = if (on) it.hiddenActions - label else it.hiddenActions + label) }
+                    }
+                }
 
                 Section("Swipe actions")
                 Toggle("Swipe posts", "Drag a post left; drag further for the next action", settings.postSwipe) { v -> update { it.copy(postSwipe = v) } }

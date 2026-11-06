@@ -68,6 +68,8 @@ data class Settings(
     val commentSort: CommentSort = CommentSort.BEST,
     val postMediaPreview: MediaPreviewSize = MediaPreviewSize.CROPPED,
     val swipeBack: Boolean = true,
+    /** Sync's "Action visibility": labels of More actions buttons switched off. */
+    val hiddenActions: Set<String> = emptySet(),
     val inAppBrowser: Boolean = true,
     val muteVideos: Boolean = false,
     val hdVideo: VideoQuality = VideoQuality.NEVER,

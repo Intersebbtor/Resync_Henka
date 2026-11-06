@@ -92,6 +92,9 @@ import io.github.radixtrator.resync.ui.common.SheetTitle
 import io.github.radixtrator.resync.ui.common.TopSheet
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.InboxRoute
+import io.github.radixtrator.resync.ui.navigation.LocalSettings
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.filled.Check
 import io.github.radixtrator.resync.ui.navigation.LocalAccount
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LoginRoute
@@ -261,9 +264,13 @@ fun quickActions(
     val nav = LocalNavigator.current
     val me = LocalAccount.current
     val dark = LocalDarkTheme.current
+    val settings = LocalSettings.current
     return buildList {
         add(QuickAction("Search", Icons.Outlined.Search) { nav.push(SearchRoute(subreddit = subreddit)) })
         if (me != null) add(QuickAction("Profile", Icons.Outlined.Person) { nav.push(UserRoute(me)) })
+        add(QuickAction("Hide read", Icons.Default.Check, active = settings.hideRead) {
+            container.settings.update { it.copy(hideRead = !it.hideRead) }
+        })
         onAbout?.let { add(QuickAction("About", Icons.Outlined.Info, onClick = it)) }
         add(QuickAction("Submit", Icons.Outlined.Create) { nav.push(SubmitRoute(subreddit)) })
         add(QuickAction("Random", AppIcons.Dice) { nav.openRandomCommunity(container.subscriptions.value) })
@@ -274,8 +281,17 @@ fun quickActions(
         onChangeView?.let { add(QuickAction("Change view", AppIcons.ViewStack, onClick = it)) }
         add(QuickAction("Refresh", Icons.Outlined.Refresh, onClick = onRefresh))
         if (me != null) add(QuickAction("Saved", AppIcons.Bookmark) { nav.push(UserRoute(me, UserWhere.SAVED)) })
-    }
+        if (me != null) add(QuickAction("Inbox", Icons.Outlined.Email) { nav.push(InboxRoute()) })
+        add(QuickAction("Filters", AppIcons.Filter) { nav.push(SettingsRoute) })
+        add(QuickAction("Watched", Icons.Outlined.Notifications) { nav.push(SettingsRoute) })
+    }.filterNot { it.label in settings.hiddenActions }
 }
+
+/** Every More actions button that "Action visibility" in Settings can switch off, in grid order. */
+val QUICK_ACTION_LABELS = listOf(
+    "Search", "Profile", "Hide read", "About", "Submit", "Random", "Dark mode", "Settings",
+    "Change view", "Refresh", "Saved", "Inbox", "Filters", "Watched",
+)
 
 @Composable
 private fun HomeNavigationBar(
