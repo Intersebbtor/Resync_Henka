@@ -41,6 +41,7 @@ private val SPOILER = Regex("""<span class="md-spoiler-text">(.*?)</span>""", Re
  * through [RedditBodyText] just shows a blank line there.
  */
 const val RULE = '\u2063'
+private val RELATIVE_LINK = Regex("""<a href="(/[^"]*)"([^>]*)>(.*?)</a>""", RegexOption.DOT_MATCHES_ALL)
 private val RULE_GAP = Regex("<p>$RULE</p><br>(?=<p>$RULE</p>)")
 
 /**
@@ -81,7 +82,14 @@ fun redditHtml(
 /** Reddit's HTML rewritten for fromHtml, which knows nothing of rules, spoilers or site-relative links. */
 fun redditMarkup(html: String, revealSpoilers: Boolean): String {
     // Reddit emits site-relative links (/r/foo, /u/bar) that no URI handler can open as-is.
-    var source = html.replace("href=\"/", "href=\"https://www.reddit.com/")
+    // Sync spells out where such a link goes, "(/wiki/)", unless the text already is the path (/r/foo, u/bar).
+    var source = RELATIVE_LINK.replace(html) { m ->
+        val path = m.groupValues[1]
+        val label = m.groupValues[3].replace(Regex("<[^>]*>"), "").trim()
+        val spelled = label.startsWith("/") || label.startsWith("r/") || label.startsWith("u/") || label.isEmpty()
+        val link = "<a href=\"https://www.reddit.com$path\"${m.groupValues[2]}>${m.groupValues[3]}</a>"
+        if (spelled || path.startsWith("//")) link else "$link ($path)"
+    }.replace("href=\"/", "href=\"https://www.reddit.com/")
     source = HORIZONTAL_RULE.replace(source, "<p>$RULE</p>")
     source = flattenLists(source)
     // fromHtml runs paragraphs together, and headings into what follows; Reddit (and Sync) leave a blank

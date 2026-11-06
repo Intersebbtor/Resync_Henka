@@ -496,6 +496,20 @@ class ParserTest {
     }
 }
 
+class RelativeLinkTest {
+    @org.junit.Test
+    fun `relative links spell out their target unless the text is the path`() {
+        org.junit.Assert.assertEquals(
+            "<a href=\"https://www.reddit.com/wiki/\">the wiki</a> (/wiki/)",
+            redditMarkup("<a href=\"/wiki/\">the wiki</a>", revealSpoilers = true),
+        )
+        org.junit.Assert.assertEquals(
+            "<a href=\"https://www.reddit.com/r/pics\">/r/pics</a>",
+            redditMarkup("<a href=\"/r/pics\">/r/pics</a>", revealSpoilers = true),
+        )
+    }
+}
+
 class WikiTest {
     @org.junit.Test
     fun `parses wiki links`() {
