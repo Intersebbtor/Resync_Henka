@@ -77,6 +77,10 @@ enum class SwipeAction(val label: String, val posts: Boolean, val comments: Bool
 data class Settings(
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = false,
+    /** A hand-picked accent (ARGB) the whole palette is tinted from, instead of Sync's blue. Ignored with Material You colors. */
+    val seedColor: Int? = null,
+    /** Sync's "extra colorful" tweak: backgrounds and cards take more of the accent's hue. */
+    val extraColorful: Boolean = false,
     val layout: PostLayout = PostLayout.CARD,
     val nsfw: NsfwMode = NsfwMode.BLUR,
     val blurSpoilers: Boolean = true,

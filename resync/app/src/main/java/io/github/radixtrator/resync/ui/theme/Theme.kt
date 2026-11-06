@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.Font
@@ -149,6 +150,47 @@ private val Typographies by lazy {
     )
 }
 
+/**
+ * Tints [base] from a hand-picked [seed], standing in for Monet's tonal palettes: accents take the seed's hue at
+ * the tones Sync uses for each role, neutrals take it at low saturation ([extra]: a lot more of it).
+ */
+private fun ColorScheme.tintedBy(seed: Color, dark: Boolean, extra: Boolean): ColorScheme {
+    val hsv = FloatArray(3)
+    android.graphics.Color.colorToHSV(seed.toArgb(), hsv)
+    val hue = hsv[0]
+    val sat = hsv[1].coerceIn(0.25f, 0.9f)
+    fun accent(l: Float, s: Float = sat) = Color.hsl(hue, s, l)
+    val neutralSat = if (extra) 0.22f else 0.06f
+    fun neutral(l: Float) = Color.hsl(hue, neutralSat, l)
+    return if (dark) {
+        copy(
+            primary = accent(0.75f), onPrimary = accent(0.15f), primaryContainer = accent(0.30f), onPrimaryContainer = accent(0.90f),
+            secondary = accent(0.80f, sat * 0.4f), onSecondary = accent(0.18f, sat * 0.4f),
+            secondaryContainer = accent(0.28f, sat * 0.4f), onSecondaryContainer = accent(0.90f, sat * 0.4f),
+            tertiary = Color.hsl((hue + 60f) % 360f, sat * 0.5f, 0.80f), tertiaryContainer = Color.hsl((hue + 60f) % 360f, sat * 0.4f, 0.28f),
+            background = neutral(0.07f), surface = neutral(0.07f), surfaceContainerLowest = neutral(0.07f),
+            surfaceContainerLow = neutral(0.10f), surfaceContainer = neutral(0.14f), surfaceContainerHigh = neutral(0.17f),
+            surfaceContainerHighest = neutral(0.20f), surfaceVariant = neutral(0.16f), outlineVariant = neutral(0.20f),
+        )
+    } else {
+        copy(
+            primary = accent(0.38f), onPrimary = Color.White, primaryContainer = accent(0.38f), onPrimaryContainer = Color.White,
+            secondary = accent(0.40f, sat * 0.4f), onSecondary = Color.White,
+            secondaryContainer = accent(0.84f, sat * 0.4f), onSecondaryContainer = accent(0.12f, sat * 0.4f),
+            tertiary = Color.hsl((hue + 60f) % 360f, sat * 0.4f, 0.40f), tertiaryContainer = Color.hsl((hue + 60f) % 360f, sat * 0.6f, 0.90f),
+            background = neutral(0.94f), surface = neutral(0.94f), surfaceContainerLowest = neutral(0.94f),
+            surfaceContainerLow = neutral(0.99f), surfaceContainer = neutral(0.90f), surfaceContainerHigh = neutral(0.88f),
+            surfaceContainerHighest = neutral(0.86f), surfaceVariant = neutral(0.95f), outlineVariant = neutral(0.80f),
+        )
+    }
+}
+
+/** The accent choices offered in Settings › Theme color, after "Default" (ARGB). */
+val THEME_SEEDS = listOf(
+    0xFF4484F6.toInt(), 0xFF9C27B0.toInt(), 0xFFE91E63.toInt(), 0xFFE5484D.toInt(),
+    0xFFFF9800.toInt(), 0xFF4CAF50.toInt(), 0xFF009688.toInt(), 0xFF795548.toInt(),
+)
+
 /** Pure black surfaces for OLED screens; cards stay a hair lighter so they still read as cards. */
 private fun ColorScheme.blackened() = copy(
     background = Color.Black,
@@ -190,6 +232,9 @@ fun ResyncTheme(settings: Settings, content: @Composable () -> Unit) {
             if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         dark -> DarkColors
         else -> LightColors
+    }.let { scheme ->
+        val seeded = settings.seedColor != null && !(settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+        if (seeded) scheme.tintedBy(Color(settings.seedColor!!), dark, settings.extraColorful) else scheme
     }
     CompositionLocalProvider(LocalDarkTheme provides dark) {
         MaterialTheme(

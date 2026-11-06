@@ -483,7 +483,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Multis: add to multi, custom feeds section | yes | multis listed | ◐ |
 | Settings breadth | ~350 keys / 25 screens | theme, layout, NSFW, spoilers, behavior | ◐ (see catalogue) |
 | Typeface choices (Product Sans, Roboto variants…) | yes | Roboto bundled and used everywhere, like Sync's default; all text at Sync's "Smaller" base size | ◐ (Settings › Typeface (Roboto, system sans/serif/monospace) and Base font size (Smallest…Largest) added, unverified on device; Product Sans can't be bundled) |
-| Monet theme + theme management | yes | Material You toggle | ◐ |
+| Monet theme + theme management | yes | Material You toggle; Settings › Theme color (8 seeds, HSL-tinted palette, not true Monet) and Extra colorful (unverified on device) | ◐ (no theme management screen) |
 
 ---
 
