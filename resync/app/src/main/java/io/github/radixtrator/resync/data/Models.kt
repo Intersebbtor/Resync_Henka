@@ -246,6 +246,8 @@ enum class InboxBox(val path: String, val label: String) {
     COMMENT_REPLIES("comments", "Comment replies"),
     POST_REPLIES("selfreply", "Post replies"),
     MENTIONS("mentions", "Mentions"),
+    MOD("moderator", "Mod"),
+    MOD_UNREAD("moderator/unread", "Mod unread"),
 }
 
 enum class SearchSort(val param: String, val label: String, val time: String? = null) {
