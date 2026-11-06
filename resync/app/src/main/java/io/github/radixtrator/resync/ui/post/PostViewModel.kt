@@ -16,6 +16,7 @@ import io.github.radixtrator.resync.ui.common.likesFor
 import io.github.radixtrator.resync.ui.common.voteValue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -40,7 +41,13 @@ class PostViewModel(
         val error: String? = null,
         val message: String? = null,
         val postDeleted: Boolean = false,
+        /** Sports mode: comments reload by themselves every [SPORTS_REFRESH_MS]. */
+        val sportsMode: Boolean = false,
     )
+
+    companion object {
+        const val SPORTS_REFRESH_MS = 30_000L
+    }
 
     private val _state = MutableStateFlow(State(sort = container.settings.settings.value.commentSort))
     val state = _state.asStateFlow()
@@ -61,9 +68,10 @@ class PostViewModel(
         viewModelScope.launch { container.events.collect(::onEvent) }
     }
 
-    fun load(refresh: Boolean) {
+    /** [quiet]: a background refresh (sports mode) that shows no spinner and keeps quiet about failures. */
+    fun load(refresh: Boolean, quiet: Boolean = false) {
         loadJob?.cancel()
-        _state.update { it.copy(loading = !refresh, refreshing = refresh, error = null) }
+        _state.update { it.copy(loading = !refresh, refreshing = refresh && !quiet, error = if (quiet) it.error else null) }
         loadJob = viewModelScope.launch {
             try {
                 val result = container.api.comments(postId, _state.value.sort, focusCommentId, context)
@@ -81,10 +89,37 @@ class PostViewModel(
                 }
                 if (_subredditIcon.value == null) loadSubredditIcon(result.post.subreddit)
                 loadAvatars(result.comments)
+                container.recentPosts.record(result.post)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _state.update { it.copy(loading = false, refreshing = false, error = e.message ?: "Something went wrong") }
+                if (quiet) {
+                    _state.update { it.copy(loading = false, refreshing = false) }
+                } else {
+                    _state.update { it.copy(loading = false, refreshing = false, error = e.message ?: "Something went wrong") }
+                }
+            }
+        }
+    }
+
+    private var sportsJob: Job? = null
+
+    /**
+     * Sync's "Sports mode" (live threads): sort by New and reload the comments every [SPORTS_REFRESH_MS]
+     * until it's turned off. Rows are keyed by comment id, so the list stays on what the user was reading.
+     */
+    fun setSportsMode(on: Boolean) {
+        if (on == _state.value.sportsMode) return
+        sportsJob?.cancel()
+        sportsJob = null
+        _state.update { it.copy(sportsMode = on) }
+        if (!on) return
+        if (_state.value.sort != CommentSort.NEW) setSort(CommentSort.NEW)
+        sportsJob = viewModelScope.launch {
+            while (true) {
+                delay(SPORTS_REFRESH_MS)
+                // Don't cut off a load the user started (pull to refresh, a sort change).
+                if (loadJob?.isActive != true) load(refresh = true, quiet = true)
             }
         }
     }
