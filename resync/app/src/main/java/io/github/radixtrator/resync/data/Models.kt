@@ -124,6 +124,9 @@ data class Sort(val kind: SortKind, val time: TimeRange? = null) {
     }
 }
 
+/** Something to report a post or comment for: one of the community's rules, or one of Reddit's own. */
+data class ReportReason(val text: String, val siteRule: Boolean)
+
 /** One of a community's rules: its short name and, when it has one, the longer explanation. */
 data class SubredditRule(val name: String, val descriptionHtml: String?)
 

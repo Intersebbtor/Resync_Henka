@@ -10,6 +10,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.UriHandler
 import androidx.core.net.toUri
 import androidx.navigation3.runtime.NavKey
+import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostMedia
 import io.github.radixtrator.resync.data.Settings
@@ -101,6 +102,12 @@ val LocalSettings = compositionLocalOf { Settings() }
 
 /** Ids of posts the user has opened, for dimming them in feeds. */
 val LocalVisited = compositionLocalOf<Set<String>> { emptySet() }
+
+/** The app's container, for shared sheets that load or send things themselves (reporting, tagging). */
+val LocalContainer = staticCompositionLocalOf<AppContainer> { error("No AppContainer provided") }
+
+/** Your tags for users (Sync's "Tag user"), by lowercase name. */
+val LocalUserTags = compositionLocalOf<Map<String, String>> { emptyMap() }
 
 /** Active account name, or null when logged out. */
 val LocalAccount = compositionLocalOf<String?> { null }

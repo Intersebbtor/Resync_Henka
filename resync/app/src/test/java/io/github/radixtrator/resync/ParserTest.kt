@@ -12,6 +12,7 @@ import io.github.radixtrator.resync.data.MoreComments
 import io.github.radixtrator.resync.data.NsfwMode
 import io.github.radixtrator.resync.data.Parser
 import io.github.radixtrator.resync.data.PostLayout
+import io.github.radixtrator.resync.data.ReportReason
 import io.github.radixtrator.resync.data.SwipeAction
 import io.github.radixtrator.resync.ui.common.armedStage
 import io.github.radixtrator.resync.ui.common.firstParagraph
@@ -292,6 +293,20 @@ class ParserTest {
             ),
         )
         assertEquals(mapOf("t2_a" to "https://styles.redditmedia.com/a.png"), avatars)
+    }
+
+    @Test
+    fun `report reasons follow the rule kinds, then Reddit's rules`() {
+        val json = RedditClient.JSON.parseToJsonElement(
+            """{"rules":[{"kind":"link","short_name":"No screenshots","violation_reason":"Screenshot"},
+                {"kind":"comment","short_name":"Be civil"},{"kind":"all","short_name":"No spam","violation_reason":"Spam"}],
+               "site_rules":["Spam","Personal information"]}""",
+        )
+        assertEquals(
+            listOf(ReportReason("Be civil", false), ReportReason("Spam", false), ReportReason("Personal information", true)),
+            Parser.reportReasons(json, comment = true),
+        )
+        assertEquals(listOf("Screenshot", "Spam", "Personal information"), Parser.reportReasons(json, comment = false).map { it.text })
     }
 
     @Test

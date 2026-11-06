@@ -2,6 +2,7 @@
 
 package io.github.radixtrator.resync.ui.post
 
+import android.text.Html
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -126,20 +127,25 @@ import io.github.radixtrator.resync.ui.common.PostTitle
 import io.github.radixtrator.resync.ui.common.QuickAction
 import io.github.radixtrator.resync.ui.common.QuickActionGrid
 import io.github.radixtrator.resync.ui.common.RedditBodyText
+import io.github.radixtrator.resync.ui.common.ReportSheet
 import io.github.radixtrator.resync.ui.common.SheetHandle
 import io.github.radixtrator.resync.ui.common.SheetTitle
 import io.github.radixtrator.resync.ui.common.SwipeActions
 import io.github.radixtrator.resync.ui.common.SwipeBack
+import io.github.radixtrator.resync.ui.common.TagUserDialog
 import io.github.radixtrator.resync.ui.common.TopSheet
 import io.github.radixtrator.resync.ui.common.distinguishedMarks
 import io.github.radixtrator.resync.ui.common.hasCardPreview
 import io.github.radixtrator.resync.ui.common.rememberRedditText
+import io.github.radixtrator.resync.ui.common.userTagStyle
 import io.github.radixtrator.resync.ui.navigation.ComposeMode
 import io.github.radixtrator.resync.ui.navigation.ComposeRoute
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.LocalAccount
+import io.github.radixtrator.resync.ui.navigation.LocalContainer
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
+import io.github.radixtrator.resync.ui.navigation.LocalUserTags
 import io.github.radixtrator.resync.ui.navigation.PostRoute
 import io.github.radixtrator.resync.ui.navigation.SettingsRoute
 import io.github.radixtrator.resync.ui.navigation.UserRoute
@@ -567,8 +573,14 @@ private fun CommentHeader(comment: Comment, avatarUrl: String?, collapsed: Boole
     val opPill = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
     val flairBackground = MaterialTheme.colorScheme.surfaceVariant
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    val tag = LocalUserTags.current[comment.author.lowercase()]
+    val tagStyle = userTagStyle()
     val text = buildAnnotatedString {
         withStyle(SpanStyle(color = nameColor)) { append(comment.author) }
+        tag?.let {
+            append(" ")
+            withStyle(tagStyle) { append(" $it ") }
+        }
         // Sync's marks: OP (a person speaking), the moderator shield, the pin. A thin space keeps the OP
         // pill off the first mark.
         if (comment.isSubmitter) {
@@ -769,7 +781,7 @@ private fun CommentSortSheet(current: CommentSort, onDismiss: () -> Unit, onPick
     }
 }
 
-/** Sync's "Comment options": share, open, select or copy text, plus edit/delete on your own. */
+/** Sync's "Comment options": share, open, select or copy text, report, tag, read aloud, plus edit/delete on your own. */
 @Composable
 private fun CommentOptionsSheet(comment: Comment, post: Post, onDismiss: () -> Unit, onDelete: () -> Unit) {
     val nav = LocalNavigator.current
@@ -779,10 +791,24 @@ private fun CommentOptionsSheet(comment: Comment, post: Post, onDismiss: () -> U
     var copying by remember { mutableStateOf(false) }
     var selecting by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var reporting by remember { mutableStateOf(false) }
+    var tagging by remember { mutableStateOf(false) }
+    val readAloud = LocalContainer.current.readAloud
+    val speaking by readAloud.speaking.collectAsStateWithLifecycle()
 
     fun act(block: () -> Unit) {
         onDismiss()
         block()
+    }
+
+    // Both replace this sheet; closing either closes the lot.
+    if (reporting) {
+        ReportSheet(comment.fullname, post.subreddit, comment = true, onDismiss = onDismiss)
+        return
+    }
+    if (tagging) {
+        TagUserDialog(comment.author, onDismiss = onDismiss)
+        return
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, dragHandle = { SheetHandle() }) {
@@ -798,6 +824,17 @@ private fun CommentOptionsSheet(comment: Comment, post: Post, onDismiss: () -> U
                 OptionRow("Open in browser", AppIcons.OpenExternal, onClick = { act { nav.openExternal(permalink) } })
                 OptionRow("Select text", AppIcons.Text, onClick = { selecting = true })
                 OptionRow("Copy...", AppIcons.Copy, onClick = { copying = true })
+                if (!isOwn) OptionRow("Report", AppIcons.Report, onClick = { reporting = true })
+                OptionRow("Tag user", AppIcons.TagUser, onClick = { tagging = true })
+                OptionRow(if (speaking) "Stop reading" else "Read aloud", AppIcons.VolumeOn, onClick = {
+                    act {
+                        if (speaking) {
+                            readAloud.stop()
+                        } else {
+                            readAloud.speak(Html.fromHtml(comment.bodyHtml, Html.FROM_HTML_MODE_COMPACT).toString().ifBlank { comment.body })
+                        }
+                    }
+                })
                 if (isOwn) {
                     OptionRow("Edit", Icons.Outlined.Edit, onClick = {
                         act { nav.push(ComposeRoute(ComposeMode.EDIT, target = comment.fullname, quote = post.title, initial = comment.body)) }

@@ -9,6 +9,13 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
+    <!-- Read aloud finds the device's text-to-speech engine. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <application
         android:name=".ResyncApp"
         android:allowBackup="false"

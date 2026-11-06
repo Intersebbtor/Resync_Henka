@@ -56,8 +56,8 @@ import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
@@ -70,6 +70,7 @@ import io.github.radixtrator.resync.data.ImageSource
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.PostMedia
+import io.github.radixtrator.resync.ui.navigation.LocalUserTags
 import io.github.radixtrator.resync.ui.navigation.LocalVisited
 import io.github.radixtrator.resync.ui.theme.ResyncColors
 import kotlin.math.min
@@ -435,12 +436,18 @@ fun PostMeta(
 ) {
     val accent = MaterialTheme.colorScheme.primary
     val flairBg = MaterialTheme.colorScheme.surfaceVariant
+    val tag = LocalUserTags.current[post.author.lowercase()]
+    val tagStyle = userTagStyle()
     val text = buildAnnotatedString {
         if (showSubreddit) {
             withStyle(SpanStyle(color = accent)) { append(post.subreddit) }
             append(" • ")
         }
         append(post.author)
+        tag?.let {
+            append(" ")
+            withStyle(tagStyle) { append(" $it ") }
+        }
         post.distinguished?.takeIf { it in DISTINGUISHED }?.let {
             append(" ")
             appendInlineContent(it, "[$it]")
@@ -468,6 +475,10 @@ fun PostMeta(
 }
 
 private val DISTINGUISHED = setOf("moderator", "admin")
+
+/** Your tag for a user (Sync's "Tag user"): a tinted label after their name. */
+@Composable
+fun userTagStyle() = SpanStyle(background = MaterialTheme.colorScheme.tertiaryContainer, color = MaterialTheme.colorScheme.onTertiaryContainer)
 
 /** Inline content for [DISTINGUISHED] ids: Sync's shield, in the accent color (red for admins). */
 @Composable

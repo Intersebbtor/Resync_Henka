@@ -233,6 +233,22 @@ object Parser {
         SubredditRule(name, d.string("description_html")?.takeIf { it.isNotBlank() })
     }
 
+    /**
+     * /r/sub/about/rules as report reasons: the community's rules that apply to [comment]s or posts, then
+     * Reddit's site-wide ones.
+     */
+    fun reportReasons(root: JsonElement, comment: Boolean): List<ReportReason> {
+        val data = root.jsonObject
+        val kind = if (comment) "comment" else "link"
+        val rules = data.arr("rules").orEmpty().mapNotNull { element ->
+            val d = element as? JsonObject ?: return@mapNotNull null
+            if (d.string("kind").let { it != null && it != "all" && it != kind }) return@mapNotNull null
+            (d.string("violation_reason") ?: d.string("short_name"))?.trim()?.takeIf { it.isNotEmpty() }?.let { ReportReason(it, siteRule = false) }
+        }
+        val site = data.arr("site_rules").orEmpty().mapNotNull { (it as? JsonPrimitive)?.content?.takeIf(String::isNotBlank)?.let { r -> ReportReason(r, siteRule = true) } }
+        return (rules + site).distinctBy { it.text }
+    }
+
     /** /r/sub/about/moderators: the moderators' names, in Reddit's order (longest serving first). */
     fun moderators(root: JsonElement): List<String> =
         root.jsonObject.obj("data")?.arr("children").orEmpty().mapNotNull { (it as? JsonObject)?.string("name") }

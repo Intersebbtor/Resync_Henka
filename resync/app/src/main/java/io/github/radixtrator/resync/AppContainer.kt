@@ -1,6 +1,7 @@
 package io.github.radixtrator.resync
 
 import android.content.Context
+import android.widget.Toast
 import io.github.radixtrator.resync.data.Account
 import io.github.radixtrator.resync.data.AccountStore
 import io.github.radixtrator.resync.data.ApiConfig
@@ -13,17 +14,23 @@ import io.github.radixtrator.resync.data.NotifiedMessages
 import io.github.radixtrator.resync.data.PostMemoryStore
 import io.github.radixtrator.resync.data.RedditApi
 import io.github.radixtrator.resync.data.RedditClient
+import io.github.radixtrator.resync.data.ReportReason
 import io.github.radixtrator.resync.data.SettingsStore
 import io.github.radixtrator.resync.data.Subreddit
+import io.github.radixtrator.resync.data.UserTags
 import io.github.radixtrator.resync.data.VisitedStore
 import io.github.radixtrator.resync.data.WatchStore
 import io.github.radixtrator.resync.watch.WatchWorker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 /** Things one screen changes that others showing the same content should reflect. */
 sealed interface ContentEvent {
@@ -43,6 +50,8 @@ class AppContainer(context: Context) {
     val downloads = MediaDownloads(context)
     val watch = WatchStore(prefs)
     val notifiedMessages = NotifiedMessages(prefs)
+    val tags = UserTags(prefs)
+    val readAloud = ReadAloud(context)
     private val appContext = context.applicationContext
     private val accountStore = AccountStore(prefs)
     val client = RedditClient(configStore, accountStore, context.assets)
@@ -78,6 +87,16 @@ class AppContainer(context: Context) {
     val events: SharedFlow<ContentEvent> = _events.asSharedFlow()
 
     val isConfigured: Boolean get() = configStore.load() != null || configStore.demoMode
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    /** Reports [fullname] in the background (the sheet that asked is gone by then) and says how it went. */
+    fun report(fullname: String, reason: ReportReason?, other: String? = null) {
+        scope.launch {
+            val result = runCatching { api.report(fullname, reason, other) }
+            Toast.makeText(appContext, result.fold({ "Reported" }, { "Couldn't report: ${it.message}" }), Toast.LENGTH_SHORT).show()
+        }
+    }
 
     /** Sync's Watch: notify about [community]'s posts from now on, keeping the hourly check scheduled only while needed. */
     fun setWatching(community: String, on: Boolean) {

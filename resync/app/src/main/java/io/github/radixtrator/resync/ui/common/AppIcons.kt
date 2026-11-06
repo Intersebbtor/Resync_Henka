@@ -245,6 +245,22 @@ object AppIcons {
         }
     }
 
+    // Comment and post options: Report, Tag user.
+    val Report: ImageVector by lazy {
+        outline("Report") {
+            moveTo(12f, 3f); arcTo(9f, 9f, 0f, true, true, 12f, 21f); arcTo(9f, 9f, 0f, true, true, 12f, 3f); close()
+            moveTo(12f, 7.5f); lineTo(12f, 13f)
+            moveTo(12f, 16f); lineTo(12f, 16.5f)
+        }
+    }
+
+    val TagUser: ImageVector by lazy {
+        outline("TagUser") {
+            moveTo(5f, 20f); lineTo(12f, 4f); lineTo(19f, 20f)
+            moveTo(8f, 14f); lineTo(16f, 14f)
+        }
+    }
+
     // Community header chips: Join, Wiki, Flairs, Random.
     val PlaylistAdd: ImageVector by lazy {
         outline("PlaylistAdd") {

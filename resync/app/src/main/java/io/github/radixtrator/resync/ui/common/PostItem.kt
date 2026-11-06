@@ -144,6 +144,7 @@ fun PostActionsSheet(
     val permalink = "https://www.reddit.com${post.permalink}"
     var copying by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var reporting by remember { mutableStateOf(false) }
 
     fun act(block: () -> Unit) {
         onDismiss()
@@ -151,6 +152,11 @@ fun PostActionsSheet(
     }
 
     fun copy(text: String) = act { clipboard.setText(AnnotatedString(text)) }
+
+    if (reporting) {
+        ReportSheet(post.fullname, post.subreddit, comment = false, onDismiss = onDismiss)
+        return
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, dragHandle = { SheetHandle() }) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 8.dp)) {
@@ -165,6 +171,7 @@ fun PostActionsSheet(
                 onHide?.let { hide -> OptionRow("Hide", Icons.Default.Close, onClick = { act(hide) }) }
                 onMarkRead?.let { markRead -> OptionRow("Mark as read", Icons.Default.Check, onClick = { act(markRead) }) }
                 OptionRow("Share", Icons.Outlined.Share, onClick = { act { nav.share(permalink, post.title) } })
+                if (!isOwn) OptionRow("Report", AppIcons.Report, onClick = { reporting = true })
                 HorizontalDivider()
                 OptionRow("/u/${post.author}", Icons.Outlined.AccountCircle, onClick = { act { nav.push(UserRoute(post.author)) } })
                 OptionRow("/r/${post.subreddit}", AppIcons.Compass, onClick = { act { nav.push(FeedRoute(post.subreddit)) } })

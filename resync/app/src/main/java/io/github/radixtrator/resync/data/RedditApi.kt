@@ -109,6 +109,20 @@ class RedditApi(private val client: RedditClient) {
 
     suspend fun rules(subreddit: String): List<SubredditRule> = Parser.rules(client.get("/r/$subreddit/about/rules"))
 
+    suspend fun reportReasons(subreddit: String, comment: Boolean): List<ReportReason> =
+        Parser.reportReasons(client.get("/r/$subreddit/about/rules"), comment)
+
+    /** Reports [fullname] for [reason], or for [other] (free text) when there's no listed reason. */
+    suspend fun report(fullname: String, reason: ReportReason?, other: String? = null) {
+        val params = mutableMapOf("api_type" to "json", "thing_id" to fullname)
+        when {
+            reason == null -> params += mapOf("reason" to "other", "other_reason" to other.orEmpty())
+            reason.siteRule -> params += mapOf("reason" to reason.text, "site_reason" to reason.text)
+            else -> params += mapOf("reason" to reason.text, "rule_reason" to reason.text)
+        }
+        Parser.checkErrors(client.post("/api/report", params))
+    }
+
     suspend fun moderators(subreddit: String): List<String> = Parser.moderators(client.get("/r/$subreddit/about/moderators"))
 
     suspend fun subredditAbout(name: String): Subreddit {

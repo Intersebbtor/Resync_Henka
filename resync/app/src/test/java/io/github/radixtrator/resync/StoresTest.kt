@@ -7,6 +7,7 @@ import io.github.radixtrator.resync.data.InboxItem
 import io.github.radixtrator.resync.data.NotifiedMessages
 import io.github.radixtrator.resync.data.PostMemoryStore
 import io.github.radixtrator.resync.data.Recent
+import io.github.radixtrator.resync.data.UserTags
 import io.github.radixtrator.resync.data.VisitedStore
 import io.github.radixtrator.resync.data.WatchStore
 import io.github.radixtrator.resync.data.WatchedCommunity
@@ -73,6 +74,16 @@ class StoresTest {
         assertTrue(store.state.value.isDefault(""))
         store.toggleFavorite("Pics")
         assertTrue(store.state.value.favorites.isEmpty())
+    }
+
+    @Test
+    fun `user tags ignore case, drop blanks and survive a reload`() {
+        val prefs = FakePrefs()
+        val tags = UserTags(prefs)
+        tags.set("Spez", "  admin  ")
+        assertEquals("admin", UserTags(prefs).tagOf("spez"))
+        tags.set("spez", " ")
+        assertNull(UserTags(prefs).tagOf("SPEZ"))
     }
 
     @Test

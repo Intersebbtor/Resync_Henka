@@ -455,13 +455,13 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Comment sorts | Top/Best/New/Old/Controversial/Q&A | same | ✅ |
 | Search sorts | Relevance/New/Hot/Top/Comments + search modes (sub, multi, subs, profile, domain) | Relevance/Hot/New/Top×2/Comments, sub scope | ◐ |
 | More actions grid (configurable, 24 actions) | yes | grid of 9 (Search, Profile, About, Submit, Dark mode, Settings, Change view, Refresh, Saved) | ◐ (not configurable) |
-| Post options sheet | ~22 actions incl. Copy…, Filter…, Watch, Explore domain, Add to multi | Sync's layout and order: Hide, Mark as read, Share / u, r, Open in browser / Copy… (title, permalink, link, username), Edit, Delete | ◐ (no Watch, Report, Explore domain, Filter…, Add to multi, share-type ⋮) |
+| Post options sheet | ~22 actions incl. Copy…, Filter…, Watch, Explore domain, Add to multi | Sync's layout and order: Hide, Mark as read, Share, Report / u, r, Open in browser / Copy… (title, permalink, link, username), Edit, Delete | ◐ (no Watch, Explore domain, Filter…, Add to multi, share-type ⋮) |
 | Read-state dimming, Hide read | yes | opened posts dim in feeds (local) | ◐ (no Hide read) |
 | Comment rails | 5-color cycle, 16 dp indent | Sync's palette, a rail for every ancestor level, 16dp indent | ✅ |
 | Comment profile pictures ("Show profile pictures") | yes | authors' avatars from Reddit's account data, fetched in batches as comments load; NSFW ones and missing ones fall back to the initial; setting to turn off | ✅ |
 | Tap-to-collapse with "+n" pill | yes | tap folds the replies, "+N" pill; the comment itself stays readable | ✅ |
 | Long-press inline comment action bar | 7 buttons | ▲ ▼ 🔖 👤 ↩ ^ ⋮ bar under the highlighted comment | ✅ |
-| Comment ⋮: Select text, Tag user, Read aloud, Copy… | yes | Share, Open in browser, Select text, Copy… (text/permalink/username), Edit/Delete | ◐ (no Report, Tag user, Read aloud) |
+| Comment ⋮: Select text, Tag user, Read aloud, Copy… | yes | Share, Open in browser, Select text, Copy… (text/permalink/username), Report (the community's rules for comments, Reddit's rules, Other; confirmed before sending), Tag user (local tags shown beside names in comments and post meta), Read aloud (text-to-speech, "Stop reading" while it talks), Edit/Delete | ✅ (tags have no colors) |
 | Comment actions grid (Other discussions, View images, Collapse all, Sports mode, Recents, Translate) | yes | Reply, Refresh, Collapse all, Settings, Sort, Search; prev/next buttons as an opt-in setting | ◐ |
 | In-thread comment search | yes | sheet that filters loaded comments and jumps to one | ✅ |
 | Link footnotes + link preview cards in selftext/comments | yes | superscript numbers on off-Reddit links, "(n) url" cards with image thumbnails, larger links, blank line between paragraphs | ✅ (no "(/path)" sources for relative links) |

@@ -37,8 +37,10 @@ import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.ImageRoute
 import io.github.radixtrator.resync.ui.navigation.InboxRoute
 import io.github.radixtrator.resync.ui.navigation.LocalAccount
+import io.github.radixtrator.resync.ui.navigation.LocalContainer
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
+import io.github.radixtrator.resync.ui.navigation.LocalUserTags
 import io.github.radixtrator.resync.ui.navigation.LocalVisited
 import io.github.radixtrator.resync.ui.navigation.LoginRoute
 import io.github.radixtrator.resync.ui.navigation.Navigator
@@ -92,6 +94,7 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
     val settings by container.settings.settings.collectAsStateWithLifecycle()
     val username by container.username.collectAsStateWithLifecycle()
     val visited by container.visited.ids.collectAsStateWithLifecycle()
+    val tags by container.tags.tags.collectAsStateWithLifecycle()
     val currentSettings by rememberUpdatedState(settings)
     val navigator = remember(backStack) { Navigator(context, backStack) { currentSettings } }
     LaunchedEffect(openRoute) {
@@ -105,6 +108,8 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
         LocalSettings provides settings,
         LocalAccount provides username,
         LocalVisited provides visited,
+        LocalUserTags provides tags,
+        LocalContainer provides container,
     ) {
         NavDisplay(
             backStack = backStack,
