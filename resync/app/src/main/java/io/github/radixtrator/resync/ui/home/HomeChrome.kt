@@ -109,6 +109,11 @@ import io.github.radixtrator.resync.ui.common.SheetHandle
 import io.github.radixtrator.resync.ui.common.SheetTitle
 import io.github.radixtrator.resync.ui.common.TopSheet
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
+import io.github.radixtrator.resync.ui.navigation.PostRoute
+import io.github.radixtrator.resync.ui.post.RecentsSheet
+import io.github.radixtrator.resync.data.NsfwMode
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import io.github.radixtrator.resync.ui.navigation.InboxRoute
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import androidx.compose.material.icons.outlined.Notifications
@@ -162,6 +167,15 @@ fun ShellScaffold(
     var moreOpen by rememberSaveable { mutableStateOf(false) }
     var fabMoreOpen by rememberSaveable { mutableStateOf(false) }
     var explore by rememberSaveable { mutableStateOf<ExploreMode?>(null) }
+    var recentsOpen by rememberSaveable { mutableStateOf(false) }
+    // Explore and Recently viewed open sheets this shell owns.
+    val moreActions = quickActions.map { action ->
+        when (action.label) {
+            ACTION_EXPLORE -> QuickAction(action.label, action.icon, action.active) { explore = ExploreMode.BROWSE }
+            ACTION_RECENTLY_VIEWED -> QuickAction(action.label, action.icon, action.active) { recentsOpen = true }
+            else -> action
+        }
+    }
     // The nav bar and FAB slide away with the toolbar, as Sync's autohide does.
     val hidden = scrollBehavior.state.collapsedFraction
     // Tablet mode: on a wide screen the Posts / Explore / Inbox bar becomes a rail down the left edge.
@@ -320,16 +334,27 @@ fun ShellScaffold(
     if (moreOpen) {
         TopSheet(onDismiss = { moreOpen = false }) {
             SheetTitle("More actions")
-            QuickActionGrid(quickActions, onPicked = { moreOpen = false })
+            QuickActionGrid(moreActions, onPicked = { moreOpen = false })
         }
     }
     if (fabMoreOpen) {
         ModalBottomSheet(onDismissRequest = { fabMoreOpen = false }, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, dragHandle = { SheetHandle() }) {
             Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
                 SheetTitle("More actions", topPadding = 0.dp)
-                QuickActionGrid(quickActions, onPicked = { fabMoreOpen = false })
+                QuickActionGrid(moreActions, onPicked = { fabMoreOpen = false })
             }
         }
+    }
+    if (recentsOpen) {
+        val recents by container.recentPosts.posts.collectAsStateWithLifecycle()
+        RecentsSheet(
+            posts = recents,
+            onDismiss = { recentsOpen = false },
+            onPick = {
+                recentsOpen = false
+                nav.push(PostRoute(it.id))
+            },
+        )
     }
     explore?.let { mode ->
         ExploreSheet(
@@ -355,9 +380,14 @@ private fun openFeedFromExplore(nav: Navigator, name: String?) {
     if (name == null) nav.resetTo(FeedRoute(home = true)) else nav.push(FeedRoute(name, home = true))
 }
 
+/** More actions that open sheets [ShellScaffold] owns; it binds them, since the caller builds the list before the shell exists. */
+private const val ACTION_EXPLORE = "Explore"
+private const val ACTION_RECENTLY_VIEWED = "Recently viewed"
+
 /**
- * The More actions grid, in Sync's default order (Search, Profile, About, Submit, Dark mode, Settings,
- * Change view, Refresh, Saved). [onAbout] and [onChangeView] only exist on some pages.
+ * The More actions grid, in Sync's default order (Search, Profile, Hide read, About, Submit, Random,
+ * Dark mode, Settings, Swipe mode, Change view, Refresh, Saved), then the optional ones alphabetically
+ * as Sync's Action visibility lists them. [onAbout], [onChangeView] and [onScrollToTop] only exist on some pages.
  */
 @Composable
 fun quickActions(
@@ -366,11 +396,20 @@ fun quickActions(
     subreddit: String? = null,
     onAbout: (() -> Unit)? = null,
     onChangeView: (() -> Unit)? = null,
+    onScrollToTop: (() -> Unit)? = null,
 ): List<QuickAction> {
     val nav = LocalNavigator.current
     val me = LocalAccount.current
     val dark = LocalDarkTheme.current
     val settings = LocalSettings.current
+    val context = LocalContext.current
+    val accounts by container.accounts.collectAsStateWithLifecycle()
+    // Toggle account steps to the next saved account (from logged out: the first one).
+    val nextAccount = when {
+        me == null -> accounts.firstOrNull()
+        accounts.size > 1 -> accounts[(accounts.indexOf(me) + 1).mod(accounts.size)]
+        else -> null
+    }
     return buildList {
         add(QuickAction("Search", Icons.Outlined.Search) { nav.push(SearchRoute(subreddit = subreddit)) })
         if (me != null) add(QuickAction("Profile", Icons.Outlined.Person) { nav.push(UserRoute(me)) })
@@ -388,8 +427,28 @@ fun quickActions(
         onChangeView?.let { add(QuickAction("Change view", AppIcons.ViewStack, onClick = it)) }
         add(QuickAction("Refresh", Icons.Outlined.Refresh, onClick = onRefresh))
         if (me != null) add(QuickAction("Saved", AppIcons.Bookmark) { nav.push(UserRoute(me, UserWhere.SAVED)) })
-        if (me != null) add(QuickAction("Inbox", Icons.Outlined.Email) { nav.push(InboxRoute()) })
+        add(QuickAction(ACTION_EXPLORE, AppIcons.Compass) {})
         add(QuickAction("Filters", AppIcons.Filter) { nav.push(SettingsRoute) })
+        if (me != null) add(QuickAction("Inbox", Icons.Outlined.Email) { nav.push(InboxRoute()) })
+        // Random from the NSFW communities you joined; Reddit's own /r/randnsfw is gone, like /r/random.
+        if (me != null && settings.nsfw != NsfwMode.HIDE) {
+            add(QuickAction("Random nsfw", AppIcons.Dice) {
+                val nsfw = container.nsfwSubscriptions.value
+                if (nsfw.isEmpty()) {
+                    Toast.makeText(context, "You haven't joined any NSFW communities", Toast.LENGTH_SHORT).show()
+                } else {
+                    nav.openRandomCommunity(nsfw)
+                }
+            })
+        }
+        add(QuickAction(ACTION_RECENTLY_VIEWED, AppIcons.Clock) {})
+        onScrollToTop?.let { add(QuickAction("Scroll to top", AppIcons.ArrowUp, onClick = it)) }
+        nextAccount?.let { next ->
+            add(QuickAction("Toggle account", Icons.Outlined.AccountCircle) {
+                container.switchAccount(next)
+                Toast.makeText(context, "Switched to u/$next", Toast.LENGTH_SHORT).show()
+            })
+        }
         add(QuickAction("Watched", Icons.Outlined.Notifications) { nav.push(SettingsRoute) })
     }.filterNot { it.label in settings.hiddenActions }
 }
@@ -397,7 +456,8 @@ fun quickActions(
 /** Every More actions button that "Action visibility" in Settings can switch off, in grid order. */
 val QUICK_ACTION_LABELS = listOf(
     "Search", "Profile", "Hide read", "About", "Submit", "Random", "Dark mode", "Settings",
-    "Swipe mode", "Change view", "Refresh", "Saved", "Inbox", "Filters", "Watched",
+    "Swipe mode", "Change view", "Refresh", "Saved", ACTION_EXPLORE, "Filters", "Inbox", "Random nsfw",
+    ACTION_RECENTLY_VIEWED, "Scroll to top", "Toggle account", "Watched",
 )
 
 @Composable
