@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
@@ -59,6 +60,7 @@ import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -70,6 +72,8 @@ import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.PostMedia
 import io.github.radixtrator.resync.ui.navigation.LocalVisited
 import io.github.radixtrator.resync.ui.theme.ResyncColors
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 // Sync's six feed layouts (sync-reference/SYNC_PARITY_LOG.md §3.3). Each takes the post plus
 // [PostActions]; spacing between items belongs to the list, see [gutter] and [spacing].
@@ -512,13 +516,26 @@ private fun PostMedia.cardImage(): ImageSource? = when (this) {
  * with a centered badge for galleries and video and, on links, the domain/path band along the bottom.
  */
 @Composable
-fun CardPreview(post: Post, onClick: () -> Unit, modifier: Modifier = Modifier, height: Dp? = null) {
+fun CardPreview(post: Post, onClick: () -> Unit, modifier: Modifier = Modifier, height: Dp? = null, maxHeight: Dp? = null) {
     val image = post.media.cardImage() ?: return
     val blur = post.shouldBlur()
+    val ratio = image.aspectRatio.coerceIn(0.5f, 2.2f)
     Box(
         modifier
             .fillMaxWidth()
-            .then(if (height != null) Modifier.height(height) else Modifier.aspectRatio(image.aspectRatio.coerceIn(0.5f, 2.2f)))
+            .then(
+                when {
+                    height != null -> Modifier.height(height)
+                    // Its natural height up to [maxHeight], cropped beyond that.
+                    maxHeight != null -> Modifier.layout { measurable, constraints ->
+                        val width = constraints.maxWidth
+                        val cropped = min((width / ratio).roundToInt(), maxHeight.roundToPx())
+                        val placeable = measurable.measure(Constraints.fixed(width, cropped))
+                        layout(width, cropped) { placeable.place(0, 0) }
+                    }
+                    else -> Modifier.aspectRatio(ratio)
+                },
+            )
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(onClick = onClick),
     ) {

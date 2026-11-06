@@ -206,6 +206,8 @@ Settings = PreferencesActivity (root + 25 subscreens)
 - **Toolbar:** ←, subreddit icon, sub name with the current comment sort beneath it in small text ("Top"), then Search, Sort, ⋮.
 - **Header:**
   - Full-width image or link preview, title, and meta "author • age • domain • **98% upvoted**", then flair.
+  - The preview follows Settings → Comments → "Post media preview size": Thumbnail, **Cropped height** (default; a 180 dp banner,
+    center-cropped, that still opens the media) or Full height.
   - Bottom row: points/comments (left); ▲ ▼ 🔖 ⋮ (right).
 - **Selftext rendering:** full markdown, including italics and horizontal rules. Links are drawn larger in accent color with **superscript footnote numbers**. Below the body, each link gets a
   **preview card** (thumbnail + "(n) URL"). This also applies to links inside comments.

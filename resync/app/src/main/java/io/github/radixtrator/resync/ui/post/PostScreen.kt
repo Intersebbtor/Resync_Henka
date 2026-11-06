@@ -98,6 +98,7 @@ import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.data.Comment
 import io.github.radixtrator.resync.data.CommentSort
 import io.github.radixtrator.resync.data.CommentTree
+import io.github.radixtrator.resync.data.MediaPreviewSize
 import io.github.radixtrator.resync.data.MoreComments
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostMedia
@@ -399,7 +400,11 @@ private fun PostHeader(post: Post, onVote: (Int) -> Unit, onToggleSave: () -> Un
     val nav = LocalNavigator.current
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Column {
-        if (post.hasCardPreview()) CardPreview(post, onClick = { nav.openMedia(post) })
+        if (post.hasCardPreview()) {
+            // Sync's default "Cropped height": a banner over the comments that still opens the media.
+            val cropped = LocalSettings.current.postMediaPreview == MediaPreviewSize.CROPPED
+            CardPreview(post, onClick = { nav.openMedia(post) }, maxHeight = if (cropped) 180.dp else null)
+        }
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
             // Sync's 16sp title at its "Smaller" base font size; Sync draws it in Product Sans, which can't be bundled.
             PostTitle(post, MaterialTheme.typography.bodyLarge.copy(fontSize = 14.4.sp, lineHeight = TextUnit.Unspecified), dimWhenRead = false)

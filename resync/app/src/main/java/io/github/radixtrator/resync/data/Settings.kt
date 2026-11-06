@@ -22,6 +22,9 @@ enum class PostLayout(val label: String) {
 
 enum class NsfwMode(val label: String) { HIDE("Hide NSFW posts"), BLUR("Blur previews"), SHOW("Show") }
 
+/** Sync's "Post media preview size" for the image or video above a post's comments. */
+enum class MediaPreviewSize(val label: String) { CROPPED("Cropped height"), FULL("Full height") }
+
 /** What a swipe stage does. Sync's post and comment swipe lists, merged; [posts]/[comments] say where each applies. */
 enum class SwipeAction(val label: String, val posts: Boolean, val comments: Boolean) {
     UPVOTE("Upvote", posts = true, comments = true),
@@ -42,6 +45,7 @@ data class Settings(
     val nsfw: NsfwMode = NsfwMode.BLUR,
     val blurSpoilers: Boolean = true,
     val commentSort: CommentSort = CommentSort.BEST,
+    val postMediaPreview: MediaPreviewSize = MediaPreviewSize.CROPPED,
     val swipeBack: Boolean = true,
     val inAppBrowser: Boolean = true,
     val muteVideos: Boolean = false,

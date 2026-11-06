@@ -40,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.BuildConfig
 import io.github.radixtrator.resync.data.CommentSort
+import io.github.radixtrator.resync.data.MediaPreviewSize
 import io.github.radixtrator.resync.data.NsfwMode
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.SwipeAction
@@ -75,6 +76,7 @@ fun SettingsScreen(container: AppContainer) {
                 Choice("NSFW posts", NsfwMode.entries, settings.nsfw, NsfwMode::label) { v -> update { it.copy(nsfw = v) } }
                 Toggle("Blur spoiler previews", null, settings.blurSpoilers) { v -> update { it.copy(blurSpoilers = v) } }
                 Choice("Default comment sort", CommentSort.entries, settings.commentSort, CommentSort::label) { v -> update { it.copy(commentSort = v) } }
+                Choice("Post media preview size", MediaPreviewSize.entries, settings.postMediaPreview, MediaPreviewSize::label) { v -> update { it.copy(postMediaPreview = v) } }
                 Toggle("Start videos muted", null, settings.muteVideos) { v -> update { it.copy(muteVideos = v) } }
 
                 Section("Swipe actions")
