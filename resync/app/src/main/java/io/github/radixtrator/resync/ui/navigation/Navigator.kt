@@ -109,5 +109,8 @@ val LocalContainer = staticCompositionLocalOf<AppContainer> { error("No AppConta
 /** Your tags for users (Sync's "Tag user"), by lowercase name. */
 val LocalUserTags = compositionLocalOf<Map<String, String>> { emptyMap() }
 
+/** ARGB tag tints by lowercase user name; see [LocalUserTags]. */
+val LocalUserTagColors = compositionLocalOf<Map<String, Int>> { emptyMap() }
+
 /** Active account name, or null when logged out. */
 val LocalAccount = compositionLocalOf<String?> { null }

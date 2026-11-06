@@ -48,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
@@ -72,6 +73,7 @@ import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.PostMedia
 import io.github.radixtrator.resync.ui.navigation.LocalAccount
+import io.github.radixtrator.resync.ui.navigation.LocalUserTagColors
 import io.github.radixtrator.resync.ui.navigation.LocalUserTags
 import io.github.radixtrator.resync.ui.navigation.LocalVisited
 import io.github.radixtrator.resync.ui.theme.ResyncColors
@@ -439,7 +441,7 @@ fun PostMeta(
     val accent = MaterialTheme.colorScheme.primary
     val flairBg = MaterialTheme.colorScheme.surfaceVariant
     val tag = LocalUserTags.current[post.author.lowercase()]
-    val tagStyle = userTagStyle()
+    val tagStyle = userTagStyle(post.author)
     val me = LocalAccount.current
     val text = buildAnnotatedString {
         if (showSubreddit) {
@@ -486,7 +488,15 @@ private val DISTINGUISHED = setOf("moderator", "admin")
 
 /** Your tag for a user (Sync's "Tag user"): a tinted label after their name. */
 @Composable
-fun userTagStyle() = SpanStyle(background = MaterialTheme.colorScheme.tertiaryContainer, color = MaterialTheme.colorScheme.onTertiaryContainer)
+fun userTagStyle(user: String? = null): SpanStyle {
+    val custom = user?.let { LocalUserTagColors.current[it.lowercase()] }
+    return if (custom == null) {
+        SpanStyle(background = MaterialTheme.colorScheme.tertiaryContainer, color = MaterialTheme.colorScheme.onTertiaryContainer)
+    } else {
+        // Dark text on light tints, light text on dark ones.
+        SpanStyle(background = Color(custom), color = if (Color(custom).luminance() > 0.5f) Color.Black else Color.White)
+    }
+}
 
 /** Inline content for [DISTINGUISHED] ids: Sync's shield, in the accent color (red for admins). */
 @Composable

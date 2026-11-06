@@ -574,7 +574,7 @@ private fun CommentHeader(comment: Comment, avatarUrl: String?, collapsed: Boole
     val flairBackground = MaterialTheme.colorScheme.surfaceVariant
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val tag = LocalUserTags.current[comment.author.lowercase()]
-    val tagStyle = userTagStyle()
+    val tagStyle = userTagStyle(comment.author)
     val text = buildAnnotatedString {
         withStyle(SpanStyle(color = nameColor)) { append(comment.author) }
         tag?.let {
