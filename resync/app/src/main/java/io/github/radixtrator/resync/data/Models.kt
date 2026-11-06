@@ -122,6 +122,9 @@ data class Sort(val kind: SortKind, val time: TimeRange? = null) {
     }
 }
 
+/** One of a community's rules: its short name and, when it has one, the longer explanation. */
+data class SubredditRule(val name: String, val descriptionHtml: String?)
+
 /** One of a community's post flairs, for the Flairs chip. [color] is its background (ARGB), if it has one. */
 data class LinkFlair(val text: String, val color: Int?)
 

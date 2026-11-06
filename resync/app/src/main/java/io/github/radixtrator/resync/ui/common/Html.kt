@@ -29,6 +29,11 @@ private const val SPOILER_URL = "resync-spoiler:reveal"
 private val PARAGRAPH_BREAK = Regex("""</p>\s*<p>""")
 private val HORIZONTAL_RULE = Regex("""<hr\s*/?>""")
 private val HEADING_END = Regex("""</h([1-6])>\s*(?=<)""")
+// A list with no list inside it, so nested lists can be rewritten from the inside out.
+private val INNER_LIST = Regex("""<(ol|ul)(?:\s+start="(\d+)")?[^>]*>((?:(?!<[ou]l[\s>]).)*?)</\1>""", RegexOption.DOT_MATCHES_ALL)
+private val LIST_ITEM = Regex("""<li>(.*?)</li>""", RegexOption.DOT_MATCHES_ALL)
+private val LEADING_BREAKS = Regex("""^(\s*<br>\s*)+""")
+private val SPACED_BREAK = Regex("""\s*<br>\s*""")
 private val SPOILER = Regex("""<span class="md-spoiler-text">(.*?)</span>""", RegexOption.DOT_MATCHES_ALL)
 
 /**
@@ -78,6 +83,7 @@ fun redditMarkup(html: String, revealSpoilers: Boolean): String {
     // Reddit emits site-relative links (/r/foo, /u/bar) that no URI handler can open as-is.
     var source = html.replace("href=\"/", "href=\"https://www.reddit.com/")
     source = HORIZONTAL_RULE.replace(source, "<p>$RULE</p>")
+    source = flattenLists(source)
     // fromHtml runs paragraphs together, and headings into what follows; Reddit (and Sync) leave a blank
     // line after each.
     source = PARAGRAPH_BREAK.replace(source, "</p><br><p>")
@@ -86,6 +92,25 @@ fun redditMarkup(html: String, revealSpoilers: Boolean): String {
     source = RULE_GAP.replace(source, "<p>$RULE</p>")
     return SPOILER.replace(source) { m ->
         if (revealSpoilers) "<i>${m.groupValues[1]}</i>" else "<a href=\"$SPOILER_URL\">[spoiler]</a>"
+    }
+}
+
+/**
+ * fromHtml can't number ordered lists, and spaces items a paragraph apart. Sync writes "1. item" (or
+ * "• item") a line apart, so each list becomes such lines in one paragraph, innermost lists first.
+ */
+private fun flattenLists(html: String): String {
+    var source = html
+    while (true) {
+        val list = INNER_LIST.find(source) ?: return source
+        val ordered = list.groupValues[1] == "ol"
+        var number = list.groupValues[2].toIntOrNull() ?: 1
+        val lines = LIST_ITEM.findAll(list.groupValues[3]).map { item ->
+            // Paragraphs inside an item (loose lists, or a nested list already rewritten) become line breaks.
+            val content = LEADING_BREAKS.replace(SPACED_BREAK.replace(item.groupValues[1].replace("<p>", "<br>").replace("</p>", ""), "<br>").trim(), "")
+            (if (ordered) "${number++}. " else "• ") + content
+        }
+        source = source.replaceRange(list.range, "<p>" + lines.joinToString("<br>") + "</p>")
     }
 }
 

@@ -216,6 +216,17 @@ object Parser {
         )
     }
 
+    /** /r/sub/about/rules, in the community's order. */
+    fun rules(root: JsonElement): List<SubredditRule> = root.jsonObject.arr("rules").orEmpty().mapNotNull { element ->
+        val d = element as? JsonObject ?: return@mapNotNull null
+        val name = d.string("short_name")?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+        SubredditRule(name, d.string("description_html")?.takeIf { it.isNotBlank() })
+    }
+
+    /** /r/sub/about/moderators: the moderators' names, in Reddit's order (longest serving first). */
+    fun moderators(root: JsonElement): List<String> =
+        root.jsonObject.obj("data")?.arr("children").orEmpty().mapNotNull { (it as? JsonObject)?.string("name") }
+
     /** /r/sub/api/link_flair_v2: an array of flair templates. Blank ones (emoji-only) are dropped. */
     fun linkFlairs(root: JsonElement): List<LinkFlair> = (root as? JsonArray).orEmpty().mapNotNull { element ->
         val d = element as? JsonObject ?: return@mapNotNull null

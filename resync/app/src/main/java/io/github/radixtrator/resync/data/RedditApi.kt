@@ -101,6 +101,10 @@ class RedditApi(private val client: RedditClient) {
         return flairsOf(posts)
     }
 
+    suspend fun rules(subreddit: String): List<SubredditRule> = Parser.rules(client.get("/r/$subreddit/about/rules"))
+
+    suspend fun moderators(subreddit: String): List<String> = Parser.moderators(client.get("/r/$subreddit/about/moderators"))
+
     suspend fun subredditAbout(name: String): Subreddit {
         val data = client.get("/r/$name/about").jsonObject.obj("data") ?: throw RedditException("No info for r/$name")
         return Parser.subreddit(data)

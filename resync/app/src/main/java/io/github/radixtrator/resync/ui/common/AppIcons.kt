@@ -245,7 +245,17 @@ object AppIcons {
         }
     }
 
-    // Community header chips: Wiki, Flairs, Random.
+    // Community header chips: Join, Wiki, Flairs, Random.
+    val PlaylistAdd: ImageVector by lazy {
+        outline("PlaylistAdd") {
+            moveTo(3f, 6f); lineTo(15f, 6f)
+            moveTo(3f, 10.5f); lineTo(15f, 10.5f)
+            moveTo(3f, 15f); lineTo(11f, 15f)
+            moveTo(18f, 11.5f); lineTo(18f, 19.5f)
+            moveTo(14f, 15.5f); lineTo(22f, 15.5f)
+        }
+    }
+
     val Book: ImageVector by lazy {
         outline("Book") {
             moveTo(6f, 3.5f); lineTo(18f, 3.5f); lineTo(18f, 20.5f); lineTo(6f, 20.5f); close()

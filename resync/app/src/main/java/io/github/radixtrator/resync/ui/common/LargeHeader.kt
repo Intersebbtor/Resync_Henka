@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -67,7 +68,13 @@ fun LargeHeader(
 
 /** A filled, borderless chip like Sync's header chips. [dropdown] adds the ▾ for pickers. */
 @Composable
-fun HeaderChip(label: String, icon: ImageVector?, onClick: () -> Unit, dropdown: Boolean = false) {
+fun HeaderChip(
+    label: String,
+    icon: ImageVector?,
+    onClick: () -> Unit,
+    dropdown: Boolean = false,
+    container: Color = MaterialTheme.colorScheme.surfaceContainerLow,
+) {
     AssistChip(
         onClick = onClick,
         label = { Text(label, style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp)) },
@@ -79,7 +86,7 @@ fun HeaderChip(label: String, icon: ImageVector?, onClick: () -> Unit, dropdown:
         border = null,
         modifier = Modifier.height(36.dp),
         colors = AssistChipDefaults.assistChipColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            containerColor = container,
             labelColor = MaterialTheme.colorScheme.onSurface,
             leadingIconContentColor = MaterialTheme.colorScheme.onSurface,
             trailingIconContentColor = MaterialTheme.colorScheme.onSurface,

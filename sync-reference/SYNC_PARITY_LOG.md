@@ -213,7 +213,7 @@ Settings = PreferencesActivity (root + 25 subscreens)
   - The preview follows Settings → Comments → "Post media preview size": Thumbnail, **Cropped height** (default; a 180 dp banner,
     center-cropped, that still opens the media) or Full height.
   - Bottom row: points/comments (left); ▲ ▼ 🔖 ⋮ (right).
-- **Selftext rendering:** full markdown, including italics and horizontal rules. Links are drawn larger in accent color with **superscript footnote numbers**. Below the body, each link gets a
+- **Selftext rendering:** full markdown, including italics, horizontal rules and numbered lists ("1. item" a line apart). Links are drawn larger in accent color with **superscript footnote numbers**. Below the body, each link gets a
   **preview card** (thumbnail + "(n) URL"). This also applies to links inside comments.
 - **Badges:** pinned 📌, mod 🛡, emoji flair, edited "21d*" + "(last edited 1d)".
 - **Comment rows** (no card, no divider between nested replies; a thick gap separates top-level threads):
@@ -472,7 +472,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Galleries | broken in Sync | gallery viewer | ✅ (better) |
 | Explore sheet: Favorites / Subscriptions / Moderated / Most visited (+counts) / Follows, per-sub menu | yes | Favorites, Subscriptions (with icons), Moderated, Top (counts, Default tag, default in accent), opt-in Feeds; Sync's 42 dp rows and 51 dp headers; row ⋮ (favorite, set as default, about, unsubscribe, reset viewed), options ⋮ (section visibility, duplicate favorites, reload, clear) | ◐ (no Follows/Custom feeds sections, no favorite reordering) |
 | Recently searched & visited | yes | toolbar search opens Explore with recent feeds and searches; typing shows Search all (+ "Search r/<sub>"), bolded matches, suggested communities with "Search all subs", Open u/ and r/ | ✅ |
-| Subreddit header chips: Join, About, Wiki, Flairs, Watch, Favorite | yes | Join, About, Wiki, Flairs (Reddit's list, or the flairs on its 200 recent posts; picking one searches the community); Random opens one of your communities; Watch notifies about each new post (hourly WorkManager check, "Stop watching" on the notification, list and "Check now" in Settings) | ◐ (no Favorite; About sheet isn't Sync's yet; Sync's Watch sheet options unknown) |
+| Subreddit header chips: Join, About, Wiki, Flairs, Watch, Favorite | yes | Join, About, Wiki, Flairs (Reddit's list, or the flairs on its 200 recent posts; picking one searches the community); Random opens one of your communities; About is Sync's sheet (banner, icon, Join / Watch / Favorite, sidebar card, ⋮: wiki, flair filter, rules, share, message mods, moderators; no Edit flair or Add to multi); Watch notifies about each new post (hourly WorkManager check, "Stop watching" on the notification, list and "Check now" in Settings) | ◐ (Sync's Watch sheet options unknown) |
 | Wiki viewer | yes | the wiki's front page in a "pics - index" sheet, without Reddit's table of contents | ◐ (index page only; wiki links open in the browser) |
 | Inbox sections | 9 (incl. DMs, comment/post replies, mentions, mod) | All, Unread, DMs, Sent, Comment replies, Post replies, Mentions | ◐ (no mod boxes) |
 | Profile sections | 7 (incl. Downvoted, Hidden) + About/Trophies/Tag/Block/Share | 5 sections, karma | ◐ |

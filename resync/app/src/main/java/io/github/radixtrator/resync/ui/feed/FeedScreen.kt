@@ -2,9 +2,6 @@
 
 package io.github.radixtrator.resync.ui.feed
 
-import android.Manifest
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,7 +22,6 @@ import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Notifications
@@ -56,7 +52,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -102,9 +97,6 @@ import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import io.github.radixtrator.resync.ui.navigation.PostRoute
-import io.github.radixtrator.resync.ui.navigation.SearchRoute
-import io.github.radixtrator.resync.ui.navigation.SubmitRoute
-import io.github.radixtrator.resync.watch.WatchWorker
 import kotlinx.coroutines.launch
 
 @Composable
@@ -125,31 +117,13 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     var sortOpen by rememberSaveable { mutableStateOf(false) }
     var viewOpen by rememberSaveable { mutableStateOf(false) }
     var aboutOpen by rememberSaveable { mutableStateOf(false) }
-    var wikiOpen by rememberSaveable { mutableStateOf(false) }
-    var flairsOpen by rememberSaveable { mutableStateOf(false) }
+    // Wiki, Flairs, Rules or Moderators, from a header chip or the About ⋮.
+    var communitySheet by rememberSaveable { mutableStateOf<AboutAction?>(null) }
+    val explore by container.explore.state.collectAsStateWithLifecycle()
     val watched by container.watch.watched.collectAsStateWithLifecycle()
     val watching = vm.isCommunity && subreddit?.lowercase() in watched
-    val context = LocalContext.current
-    fun watch(name: String) {
-        container.setWatching(name, true)
-        scope.launch { snackbar.showSnackbar("Watching r/$name: you'll get a notification for each new post") }
-    }
-    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        val name = about?.name ?: subreddit ?: return@rememberLauncherForActivityResult
-        if (granted) watch(name) else scope.launch { snackbar.showSnackbar("Allow notifications to watch communities") }
-    }
-    val toggleWatch: () -> Unit = {
-        val name = about?.name ?: subreddit
-        when {
-            name == null -> Unit
-            watching -> {
-                container.setWatching(name, false)
-                scope.launch { snackbar.showSnackbar("Stopped watching r/$name") }
-            }
-            WatchWorker.canNotify(context) -> watch(name)
-            else -> notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
+    val community = about?.name ?: subreddit
+    val toggleWatch = rememberWatchToggle(container) { message -> scope.launch { snackbar.showSnackbar(message) } }
     val callbacks = remember(vm) { vm.postCallbacks() }
     val posts = state.items.visiblePosts { (it as? ProfileItem.PostItem)?.post }
     val title = Format.feedName(subreddit)
@@ -208,10 +182,10 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
                             onChangeView = { viewOpen = true },
                             onJoin = vm::toggleSubscribe,
                             onAbout = openAbout,
-                            onWiki = { wikiOpen = true },
-                            onFlairs = { flairsOpen = true },
+                            onWiki = { communitySheet = AboutAction.WIKI },
+                            onFlairs = { communitySheet = AboutAction.FLAIRS },
                             watching = watching,
-                            onWatch = toggleWatch,
+                            onWatch = { community?.let(toggleWatch) },
                             // Sync offers Random on the front page.
                             onRandom = if (subreddit == null) {
                                 { nav.openRandomCommunity(container.subscriptions.value) }
@@ -233,29 +207,24 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
 
     if (sortOpen) SortSheet(current = sort, options = vm.sortOptions, onDismiss = { sortOpen = false }, onPick = vm::setSort)
     if (viewOpen) ChangeViewSheet(container, subreddit, current = layout, onDismiss = { viewOpen = false })
-    val community = about?.name ?: subreddit
-    if (wikiOpen && community != null) WikiSheet(container, community, onDismiss = { wikiOpen = false })
-    if (flairsOpen && community != null) {
-        FlairsSheet(
-            container,
-            community,
-            onPick = { flair ->
-                flairsOpen = false
-                nav.push(SearchRoute("flair_name:\"${flair.text}\"", subreddit = community))
-            },
-            onDismiss = { flairsOpen = false },
-        )
-    }
     if (aboutOpen) {
         SubredditInfoSheet(
             about = about,
+            watching = watching,
+            favorite = community != null && explore.isFavorite(community),
             onDismiss = { aboutOpen = false },
             onToggleSubscribe = vm::toggleSubscribe,
-            onSubmit = {
+            onToggleWatch = { community?.let(toggleWatch) },
+            onToggleFavorite = { community?.let(container.explore::toggleFavorite) },
+            onAction = { action ->
                 aboutOpen = false
-                nav.push(SubmitRoute(subreddit))
+                if (community != null && !nav.runAboutAction(action, community)) communitySheet = action
             },
         )
+    }
+    val sheet = communitySheet
+    if (sheet != null && community != null) {
+        CommunityActionSheet(container, community, sheet, onDismiss = { communitySheet = null }, onNavigate = nav::push)
     }
 }
 
@@ -293,7 +262,7 @@ private fun FeedHeader(
         HeaderChip(sort.label, sortIcon(sort.kind), onSort, dropdown = true)
         if (isCommunity) {
             val joined = about?.isSubscribed == true
-            HeaderChip(if (joined) "Joined" else "Join", if (joined) Icons.Outlined.Check else Icons.Outlined.Add, onJoin)
+            HeaderChip(if (joined) "Joined" else "Join", if (joined) Icons.Outlined.Check else AppIcons.PlaylistAdd, onJoin)
             HeaderChip("About", Icons.Outlined.Info, onAbout)
             HeaderChip("Wiki", AppIcons.Book, onWiki)
             HeaderChip("Flairs", AppIcons.Tag, onFlairs, dropdown = true)

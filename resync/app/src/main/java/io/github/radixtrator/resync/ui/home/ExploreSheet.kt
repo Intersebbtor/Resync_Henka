@@ -3,6 +3,7 @@
 package io.github.radixtrator.resync.ui.home
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -69,6 +70,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -86,10 +88,13 @@ import io.github.radixtrator.resync.data.Subreddit
 import io.github.radixtrator.resync.ui.common.AppIcons
 import io.github.radixtrator.resync.ui.common.Format
 import io.github.radixtrator.resync.ui.common.SheetHandle
+import io.github.radixtrator.resync.ui.feed.AboutAction
+import io.github.radixtrator.resync.ui.feed.CommunityActionSheet
 import io.github.radixtrator.resync.ui.feed.SubredditInfoSheet
+import io.github.radixtrator.resync.ui.feed.rememberWatchToggle
+import io.github.radixtrator.resync.ui.feed.runAboutAction
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.SearchRoute
-import io.github.radixtrator.resync.ui.navigation.SubmitRoute
 import io.github.radixtrator.resync.ui.navigation.UserRoute
 import java.util.Locale
 import kotlin.coroutines.cancellation.CancellationException
@@ -230,12 +235,27 @@ fun ExploreSheet(
         }
     }
 
+    val context = LocalContext.current
+    val watched by container.watch.watched.collectAsStateWithLifecycle()
+    val toggleWatch = rememberWatchToggle(container) { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() }
+    var aboutSheet by remember { mutableStateOf<Pair<String, AboutAction>?>(null) }
     aboutFor?.let { name ->
         var about by remember(name) { mutableStateOf<Subreddit?>(null) }
         LaunchedEffect(name) { runCatching { container.api.subredditAbout(name) }.onSuccess { about = it } }
         SubredditInfoSheet(
             about = about,
+            watching = name.lowercase() in watched,
+            favorite = explore.isFavorite(name),
             onDismiss = { aboutFor = null },
+            onToggleWatch = { toggleWatch(name) },
+            onToggleFavorite = { container.explore.toggleFavorite(name) },
+            onAction = { action ->
+                aboutFor = null
+                when (action) {
+                    AboutAction.SHARE, AboutAction.MESSAGE_MODS -> close { nav.runAboutAction(action, name) }
+                    else -> aboutSheet = name to action
+                }
+            },
             onToggleSubscribe = {
                 val sub = about ?: return@SubredditInfoSheet
                 about = sub.copy(isSubscribed = !sub.isSubscribed)
@@ -244,11 +264,10 @@ fun ExploreSheet(
                     container.refreshSubscriptions(force = true)
                 }
             },
-            onSubmit = {
-                aboutFor = null
-                close { nav.push(SubmitRoute(name)) }
-            },
         )
+    }
+    aboutSheet?.let { (name, action) ->
+        CommunityActionSheet(container, name, action, onDismiss = { aboutSheet = null }, onNavigate = { route -> close { nav.push(route) } })
     }
 }
 

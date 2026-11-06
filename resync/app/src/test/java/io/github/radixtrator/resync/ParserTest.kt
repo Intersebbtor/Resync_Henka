@@ -267,6 +267,22 @@ class ParserTest {
     }
 
     @Test
+    fun `community rules and moderators parse`() {
+        val rules = Parser.rules(
+            RedditClient.JSON.parseToJsonElement(
+                """{"rules":[{"short_name":"No screenshots","description_html":"<div class=\"md\"><p>Or AI images.</p></div>"},
+                   {"short_name":"Be civil","description_html":""},{"short_name":" "}]}""",
+            ),
+        )
+        assertEquals(listOf("No screenshots", "Be civil"), rules.map { it.name })
+        assertEquals(null, rules[1].descriptionHtml)
+        val mods = Parser.moderators(
+            RedditClient.JSON.parseToJsonElement("""{"kind":"UserList","data":{"children":[{"name":"spez"},{"name":"tragopanic"}]}}"""),
+        )
+        assertEquals(listOf("spez", "tragopanic"), mods)
+    }
+
+    @Test
     fun `api errors surface as exceptions and posted comments parse`() {
         val error = RedditClient.JSON.parseToJsonElement(
             """{"json":{"errors":[["SUBREDDIT_NOEXIST","that community doesn't exist","sr"]]}}""",
@@ -364,6 +380,13 @@ class ParserTest {
             redditMarkup(html, revealSpoilers = true),
         )
         assertEquals("<h2 id=\"wiki_a\">Rules</h2><br><p>Be nice</p>", redditMarkup("<h2 id=\"wiki_a\">Rules</h2>\n\n<p>Be nice</p>", revealSpoilers = true))
+        assertEquals(
+            "<p>Rules:</p><br><p>1. No screenshots<br>2. Be civil<br>• quoted<br>• twice</p><br><p>3. Last</p>",
+            redditMarkup(
+                "<p>Rules:</p>\n<ol>\n<li><p>No screenshots</p></li>\n<li>Be civil\n<ul>\n<li>quoted</li>\n<li>twice</li>\n</ul></li>\n</ol>\n<ol start=\"3\">\n<li>Last</li>\n</ol>",
+                revealSpoilers = true,
+            ),
+        )
         assertEquals(
             "<p>a</p><br><p>$RULE</p><p>$RULE</p><p>$RULE</p><br><p>b</p>",
             redditMarkup("<p>a</p>\n<hr/>\n<hr/>\n<hr/>\n<p>b</p>", revealSpoilers = true),
