@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -143,6 +145,17 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
             } else {
                 items.filterNot {
                     (it as? ProfileItem.PostItem)?.post?.let { post -> filters.hides(post, subreddit) || (hideRead && post.id in readAtOpen) } == true
+                }
+            }
+        }
+    }
+    // History › "Mark posts as read on scroll": posts above the first visible item (after the header, grid item 0)
+    // count as read. Hide read still judges by what was read when the feed opened, so nothing jumps.
+    if (settings.markReadOnScroll) {
+        LaunchedEffect(gridState, posts) {
+            snapshotFlow { gridState.firstVisibleItemIndex }.collect { first ->
+                posts.take((first - 1).coerceAtLeast(0)).forEach { item ->
+                    (item as? ProfileItem.PostItem)?.post?.let { container.visited.mark(it.id) }
                 }
             }
         }

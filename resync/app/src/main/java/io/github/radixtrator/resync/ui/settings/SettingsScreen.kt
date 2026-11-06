@@ -57,7 +57,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.BuildConfig
 import io.github.radixtrator.resync.data.BaseFontSize
+import io.github.radixtrator.resync.data.CommentCount
 import io.github.radixtrator.resync.data.CommentSort
+import io.github.radixtrator.resync.data.DataSaving
 import io.github.radixtrator.resync.data.Typeface
 import io.github.radixtrator.resync.data.MediaPreviewSize
 import io.github.radixtrator.resync.data.MessageCheck
@@ -143,8 +145,41 @@ fun SettingsScreen(container: AppContainer) {
                 Toggle("Hide read posts", "Leave out posts you have already opened when a feed loads", settings.hideRead) { v -> update { it.copy(hideRead = v) } }
                 Choice("Default comment sort", CommentSort.entries, settings.commentSort, CommentSort::label) { v -> update { it.copy(commentSort = v) } }
                 Choice("Post media preview size", MediaPreviewSize.entries, settings.postMediaPreview, MediaPreviewSize::label) { v -> update { it.copy(postMediaPreview = v) } }
+
+                // Sync's Post options, Comments, Comment options, Media, Data options and History screens: the rows
+                // Resync honors.
+                Section("Post options")
+                Toggle("Show post flair", "Flair chips on posts in feeds", settings.showPostFlair) { v -> update { it.copy(showPostFlair = v) } }
+                Toggle("Show post author", "In feeds", settings.showPostAuthor) { v -> update { it.copy(showPostAuthor = v) } }
+                Toggle("Display short scores", "10.6k instead of 10,600", settings.shortScores) { v -> update { it.copy(shortScores = v) } }
+
+                Section("Comments")
+                Toggle("Show user flair", null, settings.commentFlair) { v -> update { it.copy(commentFlair = v) } }
+                Toggle("Hide AutoMod comments", "And the replies to them", settings.hideAutoMod) { v -> update { it.copy(hideAutoMod = v) } }
+
+                Section("Comment options")
+                Toggle("Collapse all threads by default", "The first time you open a post", settings.collapseAllByDefault) { v -> update { it.copy(collapseAllByDefault = v) } }
+                Choice("Initial comment count", CommentCount.entries, settings.commentCount, CommentCount::label) { v -> update { it.copy(commentCount = v) } }
+
+                Section("Media")
+                Toggle("Tap to close", "Tap an image to close the viewer", settings.tapToClose) { v -> update { it.copy(tapToClose = v) } }
+                Toggle("Swipe to close", "Fling images and videos down to close them", settings.swipeToClose) { v -> update { it.copy(swipeToClose = v) } }
                 Toggle("Start videos muted", null, settings.muteVideos) { v -> update { it.copy(muteVideos = v) } }
+                Toggle("Display seek bar", null, settings.videoSeekBar) { v -> update { it.copy(videoSeekBar = v) } }
+                Toggle("Display speed controls", null, settings.videoSpeedControls) { v -> update { it.copy(videoSpeedControls = v) } }
+
+                Section("Data options")
+                Choice("Data saving mode", DataSaving.entries, settings.dataSaving, DataSaving::label) { v -> update { it.copy(dataSaving = v) } }
+                Text(
+                    "Data saving leaves feed thumbnails and previews unloaded and opens Reddit videos in SD",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
                 Choice("HD Reddit video quality", VideoQuality.entries, settings.hdVideo, VideoQuality::label) { v -> update { it.copy(hdVideo = v) } }
+
+                Section("History")
+                Toggle("Mark posts as read on scroll", "Posts you scroll past in a feed count as read", settings.markReadOnScroll) { v -> update { it.copy(markReadOnScroll = v) } }
 
                 Section("Messaging")
                 Choice("Periodically check for new messages", MessageCheck.entries, settings.messageCheck, MessageCheck::label) { v ->

@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Metered-network checks: Data saving "On mobile data" and HD video "WiFi only". -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Watched communities and the inbox check notify. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Saving media to Pictures/ and Movies/; Android 10+ needs no permission for that. -->

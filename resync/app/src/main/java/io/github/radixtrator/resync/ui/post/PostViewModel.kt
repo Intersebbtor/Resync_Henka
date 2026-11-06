@@ -53,7 +53,8 @@ class PostViewModel(
     val state = _state.asStateFlow()
 
     private val memoryKey = PostMemoryStore.key(postId, focusCommentId)
-    private val remembering get() = container.settings.settings.value.rememberCommentPosition
+    private val settings get() = container.settings.settings.value
+    private val remembering get() = settings.rememberCommentPosition
 
     /** Where the user left this page last time, to restore once comments load. */
     val savedPosition: PostMemory? = container.postMemory[memoryKey]?.takeIf { remembering }
@@ -74,21 +75,28 @@ class PostViewModel(
         _state.update { it.copy(loading = !refresh, refreshing = refresh && !quiet, error = if (quiet) it.error else null) }
         loadJob = viewModelScope.launch {
             try {
-                val result = container.api.comments(postId, _state.value.sort, focusCommentId, context)
+                val result = container.api.comments(postId, _state.value.sort, focusCommentId, context, settings.commentCount.limit)
+                val comments = shown(result.comments)
                 _state.update {
-                    // Keep folds across refreshes, and restore last visit's on first load.
-                    val folded = if (it.post == null) savedPosition?.collapsed.orEmpty() else it.collapsed
-                    val ids = result.comments.mapTo(HashSet()) { node -> node.id }
+                    // Keep folds across refreshes, and restore last visit's on first load. With no last visit,
+                    // "Collapse all threads by default" folds every top-level thread (not on single-thread pages).
+                    val folded = when {
+                        it.post != null -> it.collapsed
+                        savedPosition != null -> savedPosition.collapsed
+                        settings.collapseAllByDefault && focusCommentId == null -> topLevelIds(comments)
+                        else -> emptySet()
+                    }
+                    val ids = comments.mapTo(HashSet()) { node -> node.id }
                     it.copy(
                         post = result.post,
-                        comments = result.comments,
+                        comments = comments,
                         collapsed = folded.filterTo(HashSet()) { id -> id in ids },
                         loading = false,
                         refreshing = false,
                     )
                 }
                 if (_subredditIcon.value == null) loadSubredditIcon(result.post.subreddit)
-                loadAvatars(result.comments)
+                loadAvatars(comments)
                 container.recentPosts.record(result.post)
             } catch (e: CancellationException) {
                 throw e
@@ -169,8 +177,34 @@ class PostViewModel(
 
     /** Sync's "Collapse all": fold every top-level thread down to its first comment. */
     fun collapseAll() {
-        _state.update { s -> s.copy(collapsed = s.comments.filter { it is Comment && it.depth == 0 }.mapTo(HashSet()) { it.id }) }
+        _state.update { s -> s.copy(collapsed = topLevelIds(s.comments)) }
         rememberFolds()
+    }
+
+    private fun topLevelIds(nodes: List<CommentNode>): Set<String> =
+        nodes.filter { it is Comment && it.depth == 0 }.mapTo(HashSet()) { it.id }
+
+    /**
+     * The comments as the Comments settings want them: "Hide AutoMod comments" drops AutoModerator's comments with
+     * everything under them, and "Show user flair" off drops authors' flair.
+     */
+    private fun shown(nodes: List<CommentNode>): List<CommentNode> {
+        val s = settings
+        if (!s.hideAutoMod && s.commentFlair) return nodes
+        val out = ArrayList<CommentNode>(nodes.size)
+        var skipBelow = -1 // depth of a hidden bot comment whose replies are being skipped
+        for (node in nodes) {
+            if (skipBelow >= 0) {
+                if (node.depth > skipBelow) continue
+                skipBelow = -1
+            }
+            if (s.hideAutoMod && node is Comment && node.author.equals(AUTOMOD, ignoreCase = true)) {
+                skipBelow = node.depth
+                continue
+            }
+            out += if (!s.commentFlair && node is Comment && node.flair != null) node.copy(flair = null) else node
+        }
+        return out
     }
 
     private fun rememberFolds() {
@@ -202,7 +236,7 @@ class PostViewModel(
                 loadAvatars(loaded)
                 _state.update {
                     it.copy(
-                        comments = CommentTree.splice(it.comments, more, loaded, remaining = more.children.drop(100)),
+                        comments = shown(CommentTree.splice(it.comments, more, loaded, remaining = more.children.drop(100))),
                         loadingMore = it.loadingMore - more.id,
                     )
                 }
@@ -277,4 +311,8 @@ class PostViewModel(
     }
 
     fun messageShown() = _state.update { it.copy(message = null) }
+
+    private companion object {
+        const val AUTOMOD = "AutoModerator"
+    }
 }

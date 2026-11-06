@@ -31,6 +31,9 @@ object Format {
         else -> String.format(Locale.ROOT, "%.1fm", n / 1_000_000.0).replace(".0m", "m")
     }
 
+    /** [count] when [short], else the whole number with grouping ("10,600"): Sync's "Display short scores". */
+    fun count(n: Int, short: Boolean): String = if (short) count(n) else String.format(Locale.getDefault(), "%,d", n)
+
     /** Community sizes, which Sync writes in capitals ("33.6M") unlike points ("4.3k"). */
     fun members(n: Int): String = count(n).uppercase(Locale.ROOT)
 }

@@ -161,8 +161,8 @@ private fun CardPost(post: Post, showSubreddit: Boolean, actions: PostActions, o
             Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
                 PostTitle(post, CardTitle)
                 Spacer(Modifier.height(4.dp))
-                PostMeta(post, showSubreddit, maxLines = 3)
-                if (post.flair != null) {
+                PostMeta(post, showSubreddit, maxLines = 3, showAuthor = feedAuthors)
+                if (post.shownFlair() != null) {
                     Spacer(Modifier.height(8.dp))
                     FlairChip(post)
                 }
@@ -193,8 +193,8 @@ private fun SmallCardPost(post: Post, showSubreddit: Boolean, actions: PostActio
                 Column(Modifier.weight(1f)) {
                     PostTitle(post, CardTitle, maxLines = 5)
                     Spacer(Modifier.height(4.dp))
-                    PostMeta(post, showSubreddit, maxLines = 3, style = RowMeta)
-                    if (post.flair != null) {
+                    PostMeta(post, showSubreddit, maxLines = 3, style = RowMeta, showAuthor = feedAuthors)
+                    if (post.shownFlair() != null) {
                         Spacer(Modifier.height(8.dp))
                         FlairChip(post)
                     }
@@ -229,6 +229,7 @@ private fun StatsFooter(post: Post, onMore: () -> Unit) {
 private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, options: ViewOptions, flushThumbnail: Boolean, inCard: Boolean) {
     var expanded by rememberSaveable(post.fullname) { mutableStateOf(false) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val short = LocalSettings.current.shortScores
     Column(
         Modifier
             // Opaque so a swipe's action panel shows only where the row has slid away.
@@ -245,14 +246,14 @@ private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, op
             }
             Column(Modifier.weight(1f).padding(start = 12.dp, top = 8.dp, bottom = 10.dp, end = 4.dp)) {
                 PostTitle(post, RowTitle, maxLines = if (options.singleLineTitle) 1 else 4)
-                PostMeta(post, showSubreddit, maxLines = 1, style = RowMeta)
+                PostMeta(post, showSubreddit, maxLines = 1, style = RowMeta, showAuthor = feedAuthors)
                 Text(
-                    "${points(post.score)} • ${comments(post.numComments)}",
+                    "${points(post.score, short)} • ${comments(post.numComments, short)}",
                     style = RowMeta,
                     color = muted,
                     maxLines = 1,
                 )
-                post.flair?.let {
+                post.shownFlair()?.let {
                     Text(it, style = if (flushThumbnail) RowMeta else RowTitle, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
@@ -320,11 +321,11 @@ private fun SlidePost(post: Post, actions: PostActions, options: ViewOptions) {
                     style = CardMeta,
                     color = muted,
                 )
-                PostMeta(post, showSubreddit = false, maxLines = 1)
+                PostMeta(post, showSubreddit = false, maxLines = 1, showAuthor = feedAuthors)
             }
         }
         PostTitle(post, CardTitle.copy(fontSize = 15.sp), modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp))
-        if (post.flair != null) FlairChip(post, Modifier.padding(start = 16.dp, top = 8.dp))
+        if (post.shownFlair() != null) FlairChip(post, Modifier.padding(start = 16.dp, top = 8.dp))
         if (options.imagePreviews) {
             CardPreview(
                 post,
@@ -366,7 +367,7 @@ private fun SlidePost(post: Post, actions: PostActions, options: ViewOptions) {
             ) {
                 Icon(AppIcons.Comment, "Comments", modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(Format.count(post.numComments), style = MaterialTheme.typography.labelLarge)
+                Text(Format.count(post.numComments, LocalSettings.current.shortScores), style = MaterialTheme.typography.labelLarge)
             }
             Spacer(Modifier.weight(1f))
             IconButton(onClick = actions.onToggleSave) {
@@ -398,7 +399,7 @@ private fun VotePill(likes: Boolean?, score: Int, onVote: (Int) -> Unit) {
         IconButton(onClick = { onVote(if (likes == true) 0 else 1) }, modifier = Modifier.size(40.dp)) {
             Icon(Icons.Default.KeyboardArrowUp, "Upvote", tint = tint)
         }
-        Text(Format.count(score), style = MaterialTheme.typography.labelLarge, color = tint)
+        Text(Format.count(score, LocalSettings.current.shortScores), style = MaterialTheme.typography.labelLarge, color = tint)
         IconButton(onClick = { onVote(if (likes == false) 0 else -1) }, modifier = Modifier.size(40.dp)) {
             Icon(Icons.Default.KeyboardArrowDown, "Downvote", tint = tint)
         }
@@ -471,6 +472,7 @@ fun PostMeta(
     maxLines: Int = 2,
     style: TextStyle = CardMeta,
     suffix: String? = null,
+    showAuthor: Boolean = true,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     val flairBg = MaterialTheme.colorScheme.surfaceVariant
@@ -480,27 +482,30 @@ fun PostMeta(
     val text = buildAnnotatedString {
         if (showSubreddit) {
             withStyle(SpanStyle(color = accent)) { append(post.subreddit) }
-            append(" • ")
         }
-        append(post.author)
-        // Sync marks your own posts with a person after your name.
-        if (post.author.equals(me, ignoreCase = true)) {
-            append(" ")
-            appendInlineContent("you", "[you]")
+        if (showAuthor) {
+            if (showSubreddit) append(" • ")
+            append(post.author)
+            // Sync marks your own posts with a person after your name.
+            if (post.author.equals(me, ignoreCase = true)) {
+                append(" ")
+                appendInlineContent("you", "[you]")
+            }
+            tag?.let {
+                append(" ")
+                withStyle(tagStyle) { append(" $it ") }
+            }
+            post.distinguished?.takeIf { it in DISTINGUISHED }?.let {
+                append(" ")
+                appendInlineContent(it, "[$it]")
+            }
+            post.authorFlair?.let {
+                append(" ")
+                withStyle(SpanStyle(background = flairBg)) { append(" $it ") }
+            }
         }
-        tag?.let {
-            append(" ")
-            withStyle(tagStyle) { append(" $it ") }
-        }
-        post.distinguished?.takeIf { it in DISTINGUISHED }?.let {
-            append(" ")
-            appendInlineContent(it, "[$it]")
-        }
-        post.authorFlair?.let {
-            append(" ")
-            withStyle(SpanStyle(background = flairBg)) { append(" $it ") }
-        }
-        append(" • ${Format.timeAgo(post.createdUtc)}")
+        if (showSubreddit || showAuthor) append(" • ")
+        append(Format.timeAgo(post.createdUtc))
         post.editedUtc?.let { append("* (last edited ${Format.timeAgo(it)})") }
         shortDomain(post)?.let { append(" • $it") }
         if (post.over18) withStyle(SpanStyle(color = ResyncColors.Nsfw, fontWeight = FontWeight.Bold)) { append(" • NSFW") }
@@ -555,6 +560,14 @@ internal fun shortDomain(post: Post): String? = when {
     else -> post.domain.removeSuffix(".com")
 }
 
+/** Post options › "Show post author", for feed items' [PostMeta]; off leaves the name and its marks out. */
+private val feedAuthors: Boolean
+    @Composable get() = LocalSettings.current.showPostAuthor
+
+/** The post's flair, unless Post options › Flair hides flair in feeds. */
+@Composable
+private fun Post.shownFlair(): String? = flair?.takeIf { LocalSettings.current.showPostFlair }
+
 /** A rounded flair chip, tinted with the subreddit's flair color when it has one. */
 @Composable
 fun FlairChip(post: Post, modifier: Modifier = Modifier) {
@@ -587,14 +600,16 @@ fun PostStats(post: Post, modifier: Modifier = Modifier, style: TextStyle = Card
         false -> ResyncColors.Downvote
         null -> muted
     }
+    val short = LocalSettings.current.shortScores
     Column(modifier) {
-        Text(points(post.score), style = style, color = pointsColor)
-        Text(comments(post.numComments), style = style, color = muted)
+        Text(points(post.score, short), style = style, color = pointsColor)
+        Text(comments(post.numComments, short), style = style, color = muted)
     }
 }
 
-private fun points(score: Int) = if (score == 1) "1 point" else "${Format.count(score)} points"
-private fun comments(n: Int) = if (n == 1) "1 comment" else "${Format.count(n)} comments"
+/** [short]: Post options › "Display short scores" (10.6k, else 10,600). */
+private fun points(score: Int, short: Boolean) = if (score == 1) "1 point" else "${Format.count(score, short)} points"
+private fun comments(n: Int, short: Boolean) = if (n == 1) "1 comment" else "${Format.count(n, short)} comments"
 
 /** Whether [CardPreview] has a big image to show (links without one fall back to a link row). */
 fun Post.hasCardPreview(): Boolean = media.cardImage() != null
@@ -616,6 +631,7 @@ private fun PostMedia.cardImage(): ImageSource? = when (this) {
 fun CardPreview(post: Post, onClick: () -> Unit, modifier: Modifier = Modifier, height: Dp? = null, maxHeight: Dp? = null) {
     val image = post.media.cardImage() ?: return
     val blur = post.shouldBlur()
+    val saving = dataSavingActive()
     val ratio = image.aspectRatio.coerceIn(0.5f, 2.2f)
     Box(
         modifier
@@ -636,16 +652,21 @@ fun CardPreview(post: Post, onClick: () -> Unit, modifier: Modifier = Modifier, 
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(onClick = onClick),
     ) {
-        AsyncImage(
-            model = image.url,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.matchParentSize().then(if (blur) Modifier.blur(40.dp) else Modifier),
-        )
+        // Data saving leaves the preview unloaded: the empty frame keeps its size, with the post's type in it.
+        if (!saving) {
+            AsyncImage(
+                model = image.url,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize().then(if (blur) Modifier.blur(40.dp) else Modifier),
+            )
+        }
         when (post.media) {
             is PostMedia.Gallery -> CenterBadge(AppIcons.Gallery, "Gallery", Modifier.align(Alignment.Center))
             is PostMedia.Video -> CenterBadge(AppIcons.PlayCircle, "Video", Modifier.align(Alignment.Center))
-            else -> Unit
+            else -> if (saving && !blur) {
+                Icon(typeIcon(post), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.Center).size(32.dp))
+            }
         }
         if (post.media is PostMedia.Link) UrlBand(post.domain, post.url, Modifier.align(Alignment.BottomCenter))
         if (blur) {
@@ -699,7 +720,9 @@ private fun UrlBand(domain: String, url: String, modifier: Modifier) {
 /** A square or rounded thumbnail; posts without an image get their content-type icon. */
 @Composable
 private fun Thumbnail(post: Post, size: Dp, shape: Shape, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val thumb = post.thumbnail()
+    // Data saving shows the type icon in place of the image.
+    val saving = dataSavingActive()
+    val thumb = post.thumbnail()?.takeUnless { saving }
     Box(
         modifier
             .size(size)

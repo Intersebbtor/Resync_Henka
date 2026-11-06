@@ -73,6 +73,7 @@ import io.github.radixtrator.resync.data.MediaDownloads
 import io.github.radixtrator.resync.data.VideoQuality
 import io.github.radixtrator.resync.ui.common.AppIcons
 import io.github.radixtrator.resync.ui.common.DismissibleMedia
+import io.github.radixtrator.resync.ui.common.dataSavingActive
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import kotlinx.coroutines.delay
@@ -101,7 +102,9 @@ fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: Me
     val adaptive = url.contains(".m3u8")
     var error by remember { mutableStateOf<String?>(null) }
     var muted by rememberSaveable { mutableStateOf(settings.muteVideos || loop) }
-    var hd by rememberSaveable { mutableStateOf(startInHd(context, settings.hdVideo)) }
+    // Data saving keeps videos in SD whatever "HD Reddit video quality" says; the HD button still switches.
+    val savingData = dataSavingActive()
+    var hd by rememberSaveable { mutableStateOf(!savingData && startInHd(context, settings.hdVideo)) }
     var speed by rememberSaveable { mutableFloatStateOf(1f) }
     var controls by rememberSaveable { mutableStateOf(!loop) }
     var panelOpen by rememberSaveable { mutableStateOf(false) }
@@ -182,6 +185,7 @@ fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: Me
     DismissibleMedia(
         onDismiss = onClose,
         enabled = !panelOpen && !zoomed,
+        dismissOnDrag = settings.swipeToClose,
         onSwipeUp = {
             controls = true
             panelOpen = true
@@ -236,10 +240,12 @@ fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: Me
                         .fillMaxWidth()
                         .background(if (panelOpen) MediaPanelColor else Color.Transparent),
                 ) {
-                    SeekBar(
-                        fraction = if (duration > 0) position.toFloat() / duration else 0f,
-                        onSeek = { player.seekTo((it * duration).toLong()) },
-                    )
+                    if (settings.videoSeekBar) {
+                        SeekBar(
+                            fraction = if (duration > 0) position.toFloat() / duration else 0f,
+                            onSeek = { player.seekTo((it * duration).toLong()) },
+                        )
+                    }
                     // Sync packs the playback buttons 38dp apart from the left edge.
                     Row(Modifier.fillMaxWidth().padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (adaptive) HdToggle(hd, onToggle = { hd = !hd })
@@ -267,7 +273,7 @@ fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: Me
                         }
                     }
                     if (panelOpen) {
-                        SpeedControl(speed, onChange = { speed = it })
+                        if (settings.videoSpeedControls) SpeedControl(speed, onChange = { speed = it })
                         MediaLinkInfo(url, emptyList())
                         MediaActionBar(url, postId)
                     } else {
