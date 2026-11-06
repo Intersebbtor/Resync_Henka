@@ -121,7 +121,8 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     // Each feed keeps its own view; a domain's is kept apart from the front page's.
     val layoutFeed = route.domain?.let { "domain:$it" } ?: subreddit
     val layout = settings.layoutFor(layoutFeed)
-    val columns = layout.columns(LocalConfiguration.current.screenWidthDp)
+    // Customize view's Columns choice for this layout, else as many as the width fits.
+    val columns = layout.columns(LocalConfiguration.current.screenWidthDp, settings.viewOptionsFor(layout).columns)
     val scope = rememberCoroutineScope()
     var sortOpen by rememberSaveable { mutableStateOf(false) }
     var viewOpen by rememberSaveable { mutableStateOf(false) }

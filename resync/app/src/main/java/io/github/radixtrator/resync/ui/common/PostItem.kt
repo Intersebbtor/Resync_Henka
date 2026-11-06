@@ -107,6 +107,8 @@ fun PostListItem(
             onMore = { sheetOpen = true },
             onVote = { callbacks.onVote(post, it) },
             onToggleSave = { callbacks.onToggleSave(post) },
+            // Customize view's Hide button shows only where the list can hide.
+            onHide = callbacks.onHide?.let { hide -> { hide(post) } },
         )
     }
     val settings = LocalSettings.current
