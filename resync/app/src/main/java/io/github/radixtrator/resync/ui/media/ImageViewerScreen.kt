@@ -80,7 +80,7 @@ fun ImageViewerScreen(urls: List<String>, start: Int, postId: String?, downloads
         onSwipeUp = { infoOpen = true },
     ) {
         Box(Modifier.fillMaxSize()) {
-            HorizontalPager(state = pager, beyondViewportPageCount = 1, modifier = Modifier.fillMaxSize()) { page ->
+            HorizontalPager(state = pager, beyondViewportPageCount = 1, pageSpacing = 16.dp, modifier = Modifier.fillMaxSize()) { page ->
                 ZoomableImage(
                     urls[page],
                     onTap = { if (infoOpen) infoOpen = false else onClose() },

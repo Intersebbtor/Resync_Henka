@@ -7,7 +7,20 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.IntOffset
+import io.github.radixtrator.resync.ui.common.LocalPreviousScreen
+import io.github.radixtrator.resync.ui.common.PARALLAX
+import io.github.radixtrator.resync.ui.common.SwipeBackState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -21,6 +34,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
@@ -111,9 +125,8 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
         LocalUserTags provides tags,
         LocalContainer provides container,
     ) {
-        NavDisplay(
+        val entries = rememberDecoratedNavEntries(
             backStack = backStack,
-            onBack = navigator::pop,
             entryDecorators = listOf(
                 rememberSaveableStateHolderNavEntryDecorator(),
                 rememberViewModelStoreNavEntryDecorator(),
@@ -130,8 +143,8 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
                 entry<LoginRoute> { LoginScreen(container = container, onFinished = navigator::pop) }
                 entry<FeedRoute> { route -> FeedScreen(route, container) }
                 entry<PostRoute> { route -> PostScreen(route, container) }
-                entry<ImageRoute> { route -> ImageViewerScreen(route.urls, route.start, route.postId, container.downloads, onClose = navigator::pop) }
-                entry<VideoRoute> { route -> VideoPlayerScreen(route.url, route.loop, route.postId, container.downloads, onClose = navigator::pop) }
+                entry<ImageRoute>(metadata = MediaFade) { route -> ImageViewerScreen(route.urls, route.start, route.postId, container.downloads, onClose = navigator::pop) }
+                entry<VideoRoute>(metadata = MediaFade) { route -> VideoPlayerScreen(route.url, route.loop, route.postId, container.downloads, onClose = navigator::pop) }
                 entry<UserRoute> { route -> ProfileScreen(route.name, route.tab, container) }
                 entry<InboxRoute> { route -> InboxScreen(route, container) }
                 entry<SearchRoute> { route -> SearchScreen(route.query, route.subreddit, container, communitiesTab = route.communities) }
@@ -141,8 +154,41 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
                 entry<SettingsRoute> { FullSizeText { SettingsScreen(container) } }
             },
         )
+        LaunchedEffect(backStack.size) { SwipeBackState.popping = false }
+        val previous: (@Composable () -> Unit)? = entries.getOrNull(entries.size - 2)?.let { entry -> { entry.Content() } }
+        CompositionLocalProvider(LocalPreviousScreen provides previous) {
+            NavDisplay(
+                entries = entries,
+                onBack = navigator::pop,
+                transitionSpec = { cardPush() },
+                popTransitionSpec = { if (SwipeBackState.popping) noTransition() else cardPop() },
+                predictivePopTransitionSpec = { cardPop() },
+            )
+        }
     }
 }
+
+/** Media viewers fade in and out; they have their own drag-to-dismiss. */
+private val MediaFade = NavDisplay.transitionSpec { ContentTransform(fadeIn(), fadeOut()) } +
+    NavDisplay.popTransitionSpec { ContentTransform(fadeIn(), fadeOut(), targetContentZIndex = -1f) } +
+    NavDisplay.predictivePopTransitionSpec { ContentTransform(fadeIn(), fadeOut(), targetContentZIndex = -1f) }
+
+private val CardSpec = tween<IntOffset>(320, easing = FastOutSlowInEasing)
+
+/** Sync's card push: the new screen slides over the old one, which drifts left and dims. */
+private fun cardPush() = ContentTransform(
+    targetContentEnter = slideInHorizontally(CardSpec) { it },
+    initialContentExit = slideOutHorizontally(CardSpec) { (-it * PARALLAX).toInt() },
+)
+
+/** The reverse: the top card slides off to the right and the screen under it drifts back into place. */
+private fun cardPop() = ContentTransform(
+    targetContentEnter = slideInHorizontally(CardSpec) { (-it * PARALLAX).toInt() },
+    initialContentExit = slideOutHorizontally(CardSpec) { it },
+    targetContentZIndex = -1f,
+)
+
+private fun noTransition() = ContentTransform(EnterTransition.None, ExitTransition.None, targetContentZIndex = -1f)
 
 /** The Posts tab at launch: Explore's default feed (Sync's "Set as default"), else the front page. */
 private fun homeRoute(container: AppContainer) = FeedRoute(container.explore.state.value.defaultFeed, home = true)

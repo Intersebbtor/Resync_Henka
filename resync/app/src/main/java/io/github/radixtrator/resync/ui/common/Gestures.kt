@@ -1,6 +1,11 @@
 package io.github.radixtrator.resync.ui.common
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -129,7 +134,15 @@ fun DismissibleMedia(
     }
 }
 
-/** Sync's "slide anywhere to go back": drag the page right to pop it. */
+/** The screen beneath the current one, so a drag can reveal it like a card being slid away. Null at the root. */
+val LocalPreviousScreen = compositionLocalOf<(@Composable () -> Unit)?> { null }
+
+/** Set just before a swipe-back pops, so the nav host skips its own pop animation (the drag already played it). */
+object SwipeBackState {
+    @Volatile var popping = false
+}
+
+/** Sync's "slide anywhere to go back": drag the page right like a card, revealing the previous screen. */
 @Composable
 fun SwipeBack(enabled: Boolean, onBack: () -> Unit, content: @Composable () -> Unit) {
     if (!enabled) {
@@ -139,6 +152,7 @@ fun SwipeBack(enabled: Boolean, onBack: () -> Unit, content: @Composable () -> U
     val offset = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     var width by remember { mutableIntStateOf(1) }
+    val previous = LocalPreviousScreen.current
     Box(
         Modifier
             .fillMaxSize()
@@ -150,14 +164,34 @@ fun SwipeBack(enabled: Boolean, onBack: () -> Unit, content: @Composable () -> U
                     onDelta = { offset.snapTo((offset.value + it).coerceAtLeast(0f)) },
                     onEnd = { velocity ->
                         if (offset.value > width * 0.33f || velocity > 1800f) {
-                            offset.animateTo(width.toFloat())
+                            offset.animateTo(width.toFloat(), tween(180, easing = LinearOutSlowInEasing))
+                            SwipeBackState.popping = true
                             onBack()
                         } else {
                             offset.animateTo(0f)
                         }
                     },
                 )
+            },
+    ) {
+        val progress = (offset.value / width).coerceIn(0f, 1f)
+        if (previous != null && offset.value > 0f) {
+            Box(Modifier.fillMaxSize().graphicsLayer { translationX = -width * PARALLAX * (1f - progress) }) {
+                CompositionLocalProvider(LocalPreviousScreen provides null) { previous() }
             }
-            .graphicsLayer { translationX = offset.value },
-    ) { content() }
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f * (1f - progress))))
+        }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    translationX = offset.value
+                    if (offset.value > 0f) shadowElevation = 24f
+                }
+                .background(MaterialTheme.colorScheme.background),
+        ) { content() }
+    }
 }
+
+/** How far the screen under a card shifts left, as a fraction of the width. */
+const val PARALLAX = 0.3f
