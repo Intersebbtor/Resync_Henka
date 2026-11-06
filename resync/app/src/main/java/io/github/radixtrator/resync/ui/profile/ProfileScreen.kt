@@ -177,7 +177,7 @@ fun ProfileScreen(name: String, initialTab: UserWhere, container: AppContainer) 
     val isSelf = me.equals(name, ignoreCase = true)
     val canAct = me != null && !isSelf
     val layout = LocalSettings.current.layout
-    val columns = layout.columns(LocalConfiguration.current.screenWidthDp)
+    val columns = layout.columns(LocalConfiguration.current.screenWidthDp, LocalSettings.current.viewOptionsFor(layout).columns)
     val callbacks = remember(vm) { vm.postCallbacks(allowHide = false) }
     val items = state.items.visiblePosts { (it as? ProfileItem.PostItem)?.post }
     // The toolbar shows the name only once the big header has scrolled away.
