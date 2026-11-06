@@ -71,6 +71,7 @@ enum class AboutAction(val label: String, val icon: ImageVector) {
     FLAIRS("Filter by flair", AppIcons.Tag),
     RULES("View rules", AppIcons.Text),
     ADD_TO_MULTI("Add to multi", Icons.Default.Add),
+    EDIT_FLAIR("Edit flair", AppIcons.Tag),
     SHARE("Share", Icons.Outlined.Share),
     MESSAGE_MODS("Message mods", Icons.Outlined.Email),
     MODS("View mods", Icons.Outlined.Person),

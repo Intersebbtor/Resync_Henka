@@ -87,6 +87,7 @@ fun CommunityActionSheet(container: AppContainer, community: String, action: Abo
         AboutAction.RULES -> RulesSheet(container, community, onDismiss)
         AboutAction.ADD_TO_MULTI -> AddToMultiSheet(container, community, onDismiss)
         AboutAction.MOD_TOOLS -> leave(ModRoute(community))
+        AboutAction.EDIT_FLAIR -> EditFlairSheet(container, community, onDismiss)
         AboutAction.MODS -> ModeratorsSheet(container, community, onOpen = { leave(UserRoute(it)) }, onDismiss)
         AboutAction.SHARE, AboutAction.MESSAGE_MODS -> Unit
     }
@@ -129,6 +130,49 @@ fun AddToMultiSheet(container: AppContainer, subreddit: String, onDismiss: () ->
                 },
                 onFailure = { Problem("Couldn't load your custom feeds: ${it.message}") },
             )
+        }
+    }
+}
+
+/** Sync's "Edit flair": the user flairs [subreddit] offers; picking one sets yours, "No flair" clears it. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun EditFlairSheet(container: AppContainer, subreddit: String, onDismiss: () -> Unit) {
+    val flairs by produceState<Result<List<LinkFlair>>?>(null, subreddit) { value = load { container.api.userFlairs(subreddit).filter { it.id != null } } }
+    val me = container.username.value
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    fun pick(flair: LinkFlair?) {
+        val user = me ?: return
+        scope.launch {
+            load { container.api.setUserFlair(subreddit, user, flair) }.fold(
+                onSuccess = {
+                    Toast.makeText(context, if (flair == null) "Flair cleared" else "Flair set", Toast.LENGTH_SHORT).show()
+                    onDismiss()
+                },
+                onFailure = { Toast.makeText(context, it.message ?: "Couldn't set the flair", Toast.LENGTH_SHORT).show() },
+            )
+        }
+    }
+    CommunitySheet("Edit flair", onDismiss) {
+        when {
+            me == null -> Problem("Log in to edit your flair")
+            else -> when (val result = flairs) {
+                null -> Loading()
+                else -> result.fold(
+                    onSuccess = { list ->
+                        if (list.isEmpty()) Problem("r/$subreddit doesn't let you pick a flair")
+                        FlowRow(
+                            Modifier.verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            TextButton(onClick = { pick(null) }) { Text("No flair") }
+                            list.forEach { f -> FlairChip(f.text, f.color, Modifier.clickable { pick(f) }) }
+                        }
+                    },
+                    onFailure = { Problem("Couldn't load flairs: ${it.message}") },
+                )
+            }
         }
     }
 }

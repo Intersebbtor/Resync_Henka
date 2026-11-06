@@ -211,6 +211,19 @@ class RedditApi(private val client: RedditClient) {
         client.post("/api/remove", mapOf("id" to fullname, "spam" to spam.toString()))
     }
 
+    /** The user flairs [subreddit] lets you pick (needs a login); empty if it allows none. */
+    suspend fun userFlairs(subreddit: String): List<LinkFlair> = Parser.linkFlairs(client.get("/r/$subreddit/api/user_flair_v2"))
+
+    /** Sets your flair in [subreddit] to [flair]; null clears it. */
+    suspend fun setUserFlair(subreddit: String, me: String, flair: LinkFlair?) {
+        Parser.checkErrors(
+            client.post(
+                "/r/$subreddit/api/selectflair",
+                mapOf("api_type" to "json", "name" to me) + (flair?.let { mapOf("flair_template_id" to it.id.orEmpty(), "text" to it.text) } ?: emptyMap()),
+            ),
+        )
+    }
+
     suspend fun multis(): List<Multi> = Parser.multis(client.get("/api/multi/mine"))
 
     /** Adds [subreddit] to the custom feed at [multiPath] ("user/bob/m/news"). */
