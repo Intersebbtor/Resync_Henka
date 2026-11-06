@@ -75,6 +75,7 @@ import io.github.radixtrator.resync.ui.home.QUICK_ACTION_LABELS
 import io.github.radixtrator.resync.ui.navigation.CustomizeViewRoute
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.SetupRoute
+import io.github.radixtrator.resync.ui.navigation.ThemeManagementRoute
 import io.github.radixtrator.resync.watch.WatchWorker
 
 @Composable
@@ -124,6 +125,11 @@ fun SettingsScreen(container: AppContainer) {
                         Toggle("Extra colorful", "Tint backgrounds and cards with the accent too", settings.extraColorful) { v -> update { it.copy(extraColorful = v) } }
                     }
                 }
+                ListItem(
+                    headlineContent = { Text("Theme management") },
+                    supportingContent = { Text("Preview, save, share and load themes") },
+                    modifier = Modifier.clickable { nav.push(ThemeManagementRoute) },
+                )
                 Choice("Typeface", Typeface.entries, settings.typeface, Typeface::label) { v -> update { it.copy(typeface = v) } }
                 Choice("Base font size", BaseFontSize.entries, settings.baseFontSize, BaseFontSize::label) { v ->
                     update { it.copy(baseFontSize = v) }
@@ -131,6 +137,11 @@ fun SettingsScreen(container: AppContainer) {
                     (context as? android.app.Activity)?.recreate()
                 }
                 Toggle("Tablet mode", "On wide screens, a navigation rail replaces the bottom bar", settings.tabletMode) { v -> update { it.copy(tabletMode = v) } }
+                // Sync's Tablet › Options: the dual pane per orientation, on windows wide enough for two panes.
+                if (settings.tabletMode) {
+                    Toggle("Dual pane (landscape)", "Show comments next to posts in landscape", settings.dualPaneLandscape) { v -> update { it.copy(dualPaneLandscape = v) } }
+                    Toggle("Dual pane (portrait)", "The same in portrait, on wide screens", settings.dualPanePortrait) { v -> update { it.copy(dualPanePortrait = v) } }
+                }
                 Toggle("Drawer navigation", "A side drawer, opened from your avatar, replaces the bottom bar", settings.drawerNavigation) { v -> update { it.copy(drawerNavigation = v) } }
                 Choice("Default post layout", PostLayout.entries, settings.layout, PostLayout::label) { v -> update { it.copy(layout = v) } }
                 ListItem(
@@ -294,6 +305,7 @@ fun SettingsScreen(container: AppContainer) {
 
                 Section("Behavior")
                 Toggle("Slide to go back", "Drag a page to the right to close it", settings.swipeBack) { v -> update { it.copy(swipeBack = v) } }
+                Toggle("Confirm exit", "Ask before back closes the app", settings.confirmExit) { v -> update { it.copy(confirmExit = v) } }
                 Toggle("Open links in the app", "Custom Tabs instead of your browser app", settings.inAppBrowser) { v -> update { it.copy(inAppBrowser = v) } }
                 Toggle("Comment navigation buttons", "Jump between top-level comments", settings.commentNavigation) { v -> update { it.copy(commentNavigation = v) } }
                 Toggle("Remember comment position", "Reopen posts where you left off, threads folded as you left them", settings.rememberCommentPosition) { v -> update { it.copy(rememberCommentPosition = v) } }

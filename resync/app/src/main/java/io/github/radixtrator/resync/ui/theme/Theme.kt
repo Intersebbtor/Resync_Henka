@@ -202,6 +202,17 @@ private fun ColorScheme.blackened() = copy(
 )
 
 /**
+ * Resync's own palette (not Material You): Sync's sampled Monet colors, tinted from [seed] (ARGB) when one is
+ * picked, [extra] colorful or not, and pure black when [black] (dark only). Theme management draws its previews
+ * with this too.
+ */
+fun resyncColorScheme(dark: Boolean, black: Boolean, seed: Int?, extra: Boolean): ColorScheme {
+    val base = if (dark) DarkColors else LightColors
+    val tinted = if (seed != null) base.tintedBy(Color(seed), dark, extra) else base
+    return if (black && dark) tinted.blackened() else tinted
+}
+
+/**
  * Sync's "Base font size" is "Smaller" by default on phones, and it shrinks every sp in the app by this
  * much: its 14sp rows and bodies, 16sp titles and 20sp sheet headers all measure at 0.9x the device's
  * font scale in sync-reference. MainActivity applies it to its configuration, so sheets, menus and
@@ -227,18 +238,16 @@ fun ResyncTheme(settings: Settings, content: @Composable () -> Unit) {
         ThemeMode.DARK, ThemeMode.BLACK -> true
     }
     val context = LocalContext.current
-    val base = when {
-        settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
-            if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        dark -> DarkColors
-        else -> LightColors
-    }.let { scheme ->
-        val seeded = settings.seedColor != null && !(settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-        if (seeded) scheme.tintedBy(Color(settings.seedColor!!), dark, settings.extraColorful) else scheme
+    val black = settings.theme == ThemeMode.BLACK
+    val scheme = if (settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val dynamic = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        if (black) dynamic.blackened() else dynamic
+    } else {
+        resyncColorScheme(dark, black, settings.seedColor, settings.extraColorful)
     }
     CompositionLocalProvider(LocalDarkTheme provides dark) {
         MaterialTheme(
-            colorScheme = if (settings.theme == ThemeMode.BLACK) base.blackened() else base,
+            colorScheme = scheme,
             typography = Typographies.getValue(settings.typeface),
             content = content,
         )

@@ -14,6 +14,10 @@ data object LoginRoute : NavKey
 @Serializable
 data object SettingsRoute : NavKey
 
+/** Sync's Theme management (Settings › Appearance): previews, saved themes, share and load. */
+@Serializable
+data object ThemeManagementRoute : NavKey
+
 /** Sync's Customize view ("View type" settings), opened on [layout]'s options. */
 @Serializable
 data class CustomizeViewRoute(val layout: PostLayout = PostLayout.CARD) : NavKey
