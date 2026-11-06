@@ -477,7 +477,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Wiki viewer | yes | the wiki's front page in a "pics - index" sheet, without Reddit's table of contents | ◐ (index page only; wiki links open in the browser) |
 | Inbox sections | 9 (incl. DMs, comment/post replies, mentions, mod) | All, Unread, DMs, Sent, Comment replies, Post replies, Mentions | ◐ (no mod boxes) |
 | Message notifications ("Periodically check for new messages") | Off / 10 min … 24 h / On launch, default 60 min; Mark read and Reply on the notification | same choices (15 min instead of 10, WorkManager's floor), default 60 min; one notification per unread item, opening its thread or the inbox; Mark read and inline Reply; "Check now" | ◐ (no mod mail; no Reddit Push mirroring) |
-| Profile sections | 7 (incl. Downvoted, Hidden) + About/Trophies/Tag/Block/Share | 5 sections, karma | ◐ |
+| Profile sections | 7 (incl. Downvoted, Hidden) + About/Trophies/Tag/Block/Share | Sync's large header (avatar, karma, name) and chips (section ▾, sort ▾, About, Message, Trophies, Tag user, Block, Share) over the feed grid with comment cards; all 7 sections; About sheet (banner, link/comment karma, cake day, Message / Trophies / Tag user, description) and Trophies sheet | ✅ (Block needs a fresh login for Reddit's "account" permission) |
 | User tagging | yes | — | ❌ |
 | Filters (sub/user/domain/flair/keyword) | yes | — | ❌ |
 | Multis: add to multi, custom feeds section | yes | multis listed | ◐ |

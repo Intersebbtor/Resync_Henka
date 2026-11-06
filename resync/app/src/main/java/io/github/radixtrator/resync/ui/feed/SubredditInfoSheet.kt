@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -96,41 +97,10 @@ fun SubredditInfoSheet(
             Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             return@ModalBottomSheet
         }
-        // The banner, with the icon hanging 24dp below it.
-        Box(Modifier.fillMaxWidth().height(BANNER + 24.dp)) {
-            Box(Modifier.fillMaxWidth().height(BANNER).background(MaterialTheme.colorScheme.surfaceVariant)) {
-                about.bannerUrl?.let { AsyncImage(it, null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize()) }
-            }
-            Box(Modifier.align(Alignment.TopCenter)) { SheetHandle() }
-            // Sync centers the icon a little above the banner's lower edge.
-            Box(
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = BANNER - 32.dp)
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.secondaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(about.name.take(1).uppercase(), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                about.iconUrl?.let { AsyncImage(it, null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize()) }
-            }
-            // Sync's ⋮ sits at the right, just under the banner.
-            AboutMenu(onAction, Modifier.align(Alignment.BottomEnd).offset(y = 20.dp))
-        }
-        Text(
-            about.name,
-            style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = TextUnit.Unspecified),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, start = 56.dp, end = 56.dp),
-        )
         // No online count: Reddit reports 0 for every community now.
-        Row(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 12.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.Person, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.width(4.dp))
-            Text(Format.members(about.subscribers), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AboutHeader(about.bannerUrl, about.iconUrl, about.name, menu = { AboutMenu(onAction, it) }) {
+            AboutStat(Icons.Outlined.Person, Format.members(about.subscribers))
         }
-        HorizontalDivider()
         Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
             Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
                 val chip = MaterialTheme.colorScheme.surfaceVariant
@@ -157,6 +127,65 @@ fun SubredditInfoSheet(
 }
 
 private val BANNER = 80.dp
+
+/**
+ * The top of Sync's About sheets (communities and users): the banner with the icon across its lower edge,
+ * the name, a row of [stats], and an optional ⋮ [menu] at the right, then a divider.
+ */
+@Composable
+fun AboutHeader(
+    bannerUrl: String?,
+    iconUrl: String?,
+    name: String,
+    menu: (@Composable (Modifier) -> Unit)? = null,
+    stats: @Composable RowScope.() -> Unit,
+) {
+    // The banner, with the icon hanging 24dp below it.
+    Box(Modifier.fillMaxWidth().height(BANNER + 24.dp)) {
+        Box(Modifier.fillMaxWidth().height(BANNER).background(MaterialTheme.colorScheme.surfaceVariant)) {
+            bannerUrl?.let { AsyncImage(it, null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize()) }
+        }
+        Box(Modifier.align(Alignment.TopCenter)) { SheetHandle() }
+        // Sync centers the icon a little above the banner's lower edge.
+        Box(
+            Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = BANNER - 32.dp)
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.secondaryContainer),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(name.take(1).uppercase(), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
+            iconUrl?.let { AsyncImage(it, null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize()) }
+        }
+        // Sync's ⋮ sits at the right, just under the banner.
+        menu?.invoke(Modifier.align(Alignment.BottomEnd).offset(y = 20.dp))
+    }
+    Text(
+        name,
+        style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = TextUnit.Unspecified),
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, start = 56.dp, end = 56.dp),
+    )
+    Row(
+        Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+        content = stats,
+    )
+    HorizontalDivider()
+}
+
+/** One of [AboutHeader]'s stats: a small icon and a number. */
+@Composable
+fun AboutStat(icon: ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(4.dp))
+        Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
 
 @Composable
 private fun AboutMenu(onAction: (AboutAction) -> Unit, modifier: Modifier) {

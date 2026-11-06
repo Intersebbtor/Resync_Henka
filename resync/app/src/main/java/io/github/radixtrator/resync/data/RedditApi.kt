@@ -143,6 +143,13 @@ class RedditApi(private val client: RedditClient) {
 
     suspend fun user(name: String): UserProfile = Parser.user(client.get("/user/$name/about"))
 
+    suspend fun trophies(name: String): List<Trophy> = Parser.trophies(client.get("/api/v1/user/$name/trophies"))
+
+    /** Needs the "account" scope, which logins from before Block was added don't have. */
+    suspend fun blockUser(name: String) {
+        client.post("/api/block_user", mapOf("name" to name))
+    }
+
     suspend fun userContent(name: String, where: UserWhere, sort: UserSort, after: String?): Listing<ProfileItem> =
         Parser.profileListing(
             client.get(

@@ -269,6 +269,24 @@ object AppIcons {
         }
     }
 
+    // Profile chips: Trophies, Block.
+    val Trophy: ImageVector by lazy {
+        outline("Trophy") {
+            moveTo(7f, 4f); lineTo(17f, 4f); lineTo(17f, 9f); curveTo(17f, 12f, 15f, 14f, 12f, 14f); curveTo(9f, 14f, 7f, 12f, 7f, 9f); close()
+            moveTo(17f, 6f); lineTo(20f, 6f); curveTo(20f, 9f, 18.5f, 10.5f, 17f, 10.5f)
+            moveTo(7f, 6f); lineTo(4f, 6f); curveTo(4f, 9f, 5.5f, 10.5f, 7f, 10.5f)
+            moveTo(12f, 14f); lineTo(12f, 18f)
+            moveTo(8f, 20f); lineTo(16f, 20f)
+        }
+    }
+
+    val Block: ImageVector by lazy {
+        outline("Block") {
+            moveTo(12f, 3f); arcTo(9f, 9f, 0f, true, true, 12f, 21f); arcTo(9f, 9f, 0f, true, true, 12f, 3f); close()
+            moveTo(5.6f, 5.6f); lineTo(18.4f, 18.4f)
+        }
+    }
+
     // Community header chips: Join, Wiki, Flairs, Random.
     val PlaylistAdd: ImageVector by lazy {
         outline("PlaylistAdd") {

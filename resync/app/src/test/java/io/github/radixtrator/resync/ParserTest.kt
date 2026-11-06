@@ -310,6 +310,26 @@ class ParserTest {
     }
 
     @Test
+    fun `trophies and profile banners parse`() {
+        val trophies = Parser.trophies(
+            RedditClient.JSON.parseToJsonElement(
+                """{"kind":"TrophyList","data":{"trophies":[
+                   {"kind":"t6","data":{"name":"14-Year Club","icon_70":"https://www.redditstatic.com/awards2/14_year_club-70.png","description":null}},
+                   {"kind":"t6","data":{"name":"Verified Email","icon_40":"https://www.redditstatic.com/awards2/verified_email-40.png"}}]}}""",
+            ),
+        )
+        assertEquals(listOf("14-Year Club", "Verified Email"), trophies.map { it.name })
+        assertEquals("https://www.redditstatic.com/awards2/verified_email-40.png", trophies[1].iconUrl)
+        val user = Parser.user(
+            RedditClient.JSON.parseToJsonElement(
+                """{"data":{"name":"exampleuser","link_karma":1,"comment_karma":2,"subreddit":{"banner_img":"https://styles.redditmedia.com/b.png","public_description":""}}}""",
+            ),
+        )
+        assertEquals("https://styles.redditmedia.com/b.png", user.bannerUrl)
+        assertEquals(null, user.description)
+    }
+
+    @Test
     fun `api errors surface as exceptions and posted comments parse`() {
         val error = RedditClient.JSON.parseToJsonElement(
             """{"json":{"errors":[["SUBREDDIT_NOEXIST","that community doesn't exist","sr"]]}}""",

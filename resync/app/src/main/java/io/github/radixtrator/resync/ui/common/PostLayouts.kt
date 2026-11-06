@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -70,6 +71,7 @@ import io.github.radixtrator.resync.data.ImageSource
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.PostMedia
+import io.github.radixtrator.resync.ui.navigation.LocalAccount
 import io.github.radixtrator.resync.ui.navigation.LocalUserTags
 import io.github.radixtrator.resync.ui.navigation.LocalVisited
 import io.github.radixtrator.resync.ui.theme.ResyncColors
@@ -438,12 +440,18 @@ fun PostMeta(
     val flairBg = MaterialTheme.colorScheme.surfaceVariant
     val tag = LocalUserTags.current[post.author.lowercase()]
     val tagStyle = userTagStyle()
+    val me = LocalAccount.current
     val text = buildAnnotatedString {
         if (showSubreddit) {
             withStyle(SpanStyle(color = accent)) { append(post.subreddit) }
             append(" • ")
         }
         append(post.author)
+        // Sync marks your own posts with a person after your name.
+        if (post.author.equals(me, ignoreCase = true)) {
+            append(" ")
+            appendInlineContent("you", "[you]")
+        }
         tag?.let {
             append(" ")
             withStyle(tagStyle) { append(" $it ") }
@@ -490,6 +498,9 @@ fun distinguishedMarks(): Map<String, InlineTextContent> {
         },
         "admin" to InlineTextContent(Placeholder(1.15.em, 1.15.em, PlaceholderVerticalAlign.TextCenter)) {
             Icon(AppIcons.Shield, "Admin", tint = ResyncColors.Nsfw)
+        },
+        "you" to InlineTextContent(Placeholder(1.15.em, 1.15.em, PlaceholderVerticalAlign.TextCenter)) {
+            Icon(Icons.Outlined.Person, "You", tint = MaterialTheme.colorScheme.onSurfaceVariant)
         },
     )
 }

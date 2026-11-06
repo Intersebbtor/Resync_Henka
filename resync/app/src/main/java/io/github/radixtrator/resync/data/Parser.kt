@@ -77,8 +77,17 @@ object Parser {
             createdUtc = d.long("created_utc") ?: 0,
             iconUrl = userIcon(d),
             description = d.obj("subreddit")?.string("public_description")?.takeIf { it.isNotBlank() },
+            bannerUrl = d.obj("subreddit")?.string("banner_img")?.takeIf { it.startsWith("http") },
         )
     }
+
+    /** /api/v1/user/name/trophies. */
+    fun trophies(root: JsonElement): List<Trophy> =
+        root.jsonObject.obj("data")?.arr("trophies").orEmpty().mapNotNull { element ->
+            val d = (element as? JsonObject)?.obj("data") ?: return@mapNotNull null
+            val name = d.string("name")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            Trophy(name, (d.string("icon_70") ?: d.string("icon_40"))?.takeIf { it.startsWith("http") }, d.string("description")?.takeIf { it.isNotBlank() })
+        }
 
     /** The avatar on /about and /api/v1/me: the snoovatar if set, else the profile icon. */
     private fun userIcon(d: JsonObject): String? =

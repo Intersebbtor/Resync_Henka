@@ -162,6 +162,7 @@ data class UserProfile(
     val createdUtc: Long,
     val iconUrl: String?,
     val description: String?,
+    val bannerUrl: String? = null,
 )
 
 /** A comment seen outside its thread (profiles, saved), so it carries its post's info. */
@@ -216,13 +217,19 @@ data class InboxItem(
 
 data class Me(val name: String, val inboxCount: Int, val iconUrl: String? = null)
 
+/** Sync's profile sections, in its order. The last four are only yours to see. */
 enum class UserWhere(val path: String, val label: String, val ownOnly: Boolean = false) {
     OVERVIEW("overview", "Overview"),
-    SUBMITTED("submitted", "Posts"),
     COMMENTS("comments", "Comments"),
-    SAVED("saved", "Saved", ownOnly = true),
+    SUBMITTED("submitted", "Submitted"),
     UPVOTED("upvoted", "Upvoted", ownOnly = true),
+    DOWNVOTED("downvoted", "Downvoted", ownOnly = true),
+    SAVED("saved", "Saved", ownOnly = true),
+    HIDDEN("hidden", "Hidden", ownOnly = true),
 }
+
+/** A Reddit trophy (14-Year Club, Verified Email…), for the profile's Trophies sheet. */
+data class Trophy(val name: String, val iconUrl: String?, val description: String?)
 
 enum class UserSort(val param: String, val label: String, val time: String? = null) {
     NEW("new", "New"),

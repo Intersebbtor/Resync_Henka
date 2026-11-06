@@ -49,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -97,6 +98,7 @@ import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import io.github.radixtrator.resync.ui.navigation.PostRoute
+import io.github.radixtrator.resync.ui.theme.ResyncColors
 import kotlinx.coroutines.launch
 
 @Composable
@@ -306,11 +308,12 @@ private fun sortIcon(kind: SortKind): ImageVector = when (kind) {
 }
 
 /**
- * A comment on Sync's "Comments" sort: its post's title in italics, then "author [flair] 5 points • 2h • sub"
- * with the author in the accent color, then the comment itself. Tapping opens it in its thread.
+ * A comment outside its thread (Sync's "Comments" sort, profiles): its post's title in italics, then
+ * "author [flair] 5 points • 2h • sub" with the author in the accent color and the score in your vote's
+ * color, then the comment itself. Tapping opens it in its thread.
  */
 @Composable
-private fun CommentCard(comment: UserComment, onOpen: () -> Unit) {
+fun CommentCard(comment: UserComment, onOpen: () -> Unit) {
     val accent = MaterialTheme.colorScheme.primary
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val flairBg = MaterialTheme.colorScheme.surfaceVariant
@@ -325,13 +328,20 @@ private fun CommentCard(comment: UserComment, onOpen: () -> Unit) {
             withStyle(SpanStyle(background = flairBg)) { append(" $it ") }
         }
         append(" ")
-        append(
-            when {
-                comment.scoreHidden -> "[score hidden]"
-                comment.score == 1 -> "1 point"
-                else -> "${Format.count(comment.score)} points"
-            },
-        )
+        val scoreColor = when (comment.likes) {
+            true -> ResyncColors.Upvote
+            false -> ResyncColors.Downvote
+            null -> Color.Unspecified
+        }
+        withStyle(SpanStyle(color = scoreColor)) {
+            append(
+                when {
+                    comment.scoreHidden -> "[score hidden]"
+                    comment.score == 1 -> "1 point"
+                    else -> "${Format.count(comment.score)} points"
+                },
+            )
+        }
         append(" • ${Format.timeAgo(comment.createdUtc)} • ${comment.subreddit}")
     }
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {

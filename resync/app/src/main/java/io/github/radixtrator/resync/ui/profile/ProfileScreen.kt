@@ -3,7 +3,6 @@
 package io.github.radixtrator.resync.ui.profile
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,41 +10,53 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SecondaryScrollableTabRow
-import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Tab
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -55,27 +66,43 @@ import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.data.Listing
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.ProfileItem
-import io.github.radixtrator.resync.data.UserComment
+import io.github.radixtrator.resync.data.RedditException
+import io.github.radixtrator.resync.data.Trophy
 import io.github.radixtrator.resync.data.UserProfile
 import io.github.radixtrator.resync.data.UserSort
 import io.github.radixtrator.resync.data.UserWhere
 import io.github.radixtrator.resync.ui.common.AppIcons
-import io.github.radixtrator.resync.ui.common.Format
+import io.github.radixtrator.resync.ui.common.HeaderChip
+import io.github.radixtrator.resync.ui.common.LargeHeader
 import io.github.radixtrator.resync.ui.common.ListingViewModel
 import io.github.radixtrator.resync.ui.common.MessageEffect
-import io.github.radixtrator.resync.ui.common.PagedList
+import io.github.radixtrator.resync.ui.common.PagedGrid
 import io.github.radixtrator.resync.ui.common.PostListItem
-import io.github.radixtrator.resync.ui.common.RedditBodyText
+import io.github.radixtrator.resync.ui.common.SheetHandle
+import io.github.radixtrator.resync.ui.common.SheetTitle
 import io.github.radixtrator.resync.ui.common.SwipeBack
+import io.github.radixtrator.resync.ui.common.TagUserDialog
+import io.github.radixtrator.resync.ui.common.columns
+import io.github.radixtrator.resync.ui.common.gutter
 import io.github.radixtrator.resync.ui.common.postCallbacks
-import io.github.radixtrator.resync.ui.common.rememberRedditHtml
+import io.github.radixtrator.resync.ui.common.spacing
 import io.github.radixtrator.resync.ui.common.visiblePosts
+import io.github.radixtrator.resync.ui.feed.AboutHeader
+import io.github.radixtrator.resync.ui.feed.AboutStat
+import io.github.radixtrator.resync.ui.feed.CommentCard
+import io.github.radixtrator.resync.ui.home.HomeTab
+import io.github.radixtrator.resync.ui.home.ShellScaffold
+import io.github.radixtrator.resync.ui.home.quickActions
 import io.github.radixtrator.resync.ui.navigation.ComposeMode
 import io.github.radixtrator.resync.ui.navigation.ComposeRoute
 import io.github.radixtrator.resync.ui.navigation.LocalAccount
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import io.github.radixtrator.resync.ui.navigation.PostRoute
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -115,60 +142,110 @@ class ProfileViewModel(container: AppContainer, val name: String, initialTab: Us
         updateItems { emptyList() }
         reload()
     }
+
+    fun block() {
+        viewModelScope.launch {
+            runCatching { container.api.blockUser(name) }
+                .onSuccess { showMessage("Blocked u/$name") }
+                .onFailure {
+                    // Logins from before Block existed lack Reddit's "account" permission.
+                    val relogin = (it as? RedditException)?.code == 403
+                    showMessage(if (relogin) "Log in again to let Resync block users" else "Couldn't block u/$name: ${it.message}")
+                }
+        }
+    }
 }
 
+/**
+ * Sync's profile: the avatar, karma and big username over chips (section ▾, sort ▾, About, Message,
+ * Trophies, Tag user, Block, Share), then posts and comment cards in the feed's grid.
+ */
 @Composable
 fun ProfileScreen(name: String, initialTab: UserWhere, container: AppContainer) {
     val nav = LocalNavigator.current
     val vm = viewModel { ProfileViewModel(container, name, initialTab) }
     val state by vm.state.collectAsStateWithLifecycle()
     val tab by vm.tab.collectAsStateWithLifecycle()
+    val sort by vm.sort.collectAsStateWithLifecycle()
     val user by vm.user.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    val isSelf = LocalAccount.current.equals(name, ignoreCase = true)
-    val tabs = UserWhere.entries.filter { isSelf || !it.ownOnly }
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val gridState = rememberLazyStaggeredGridState()
+    val scope = rememberCoroutineScope()
+    val me = LocalAccount.current
+    val isSelf = me.equals(name, ignoreCase = true)
+    val canAct = me != null && !isSelf
+    val layout = LocalSettings.current.layout
+    val columns = layout.columns(LocalConfiguration.current.screenWidthDp)
     val callbacks = remember(vm) { vm.postCallbacks(allowHide = false) }
     val items = state.items.visiblePosts { (it as? ProfileItem.PostItem)?.post }
+    // The toolbar shows the name only once the big header has scrolled away.
+    val headerGone by remember { derivedStateOf { gridState.firstVisibleItemIndex > 0 } }
+    var aboutOpen by rememberSaveable { mutableStateOf(false) }
+    var trophiesOpen by rememberSaveable { mutableStateOf(false) }
+    var tagging by rememberSaveable { mutableStateOf(false) }
+    var confirmBlock by rememberSaveable { mutableStateOf(false) }
+    val message = { nav.push(ComposeRoute(ComposeMode.MESSAGE, to = name)) }
 
     MessageEffect(state.message, snackbar, vm::messageShown)
 
     SwipeBack(enabled = LocalSettings.current.swipeBack, onBack = nav::pop) {
-        Scaffold(
-            snackbarHost = { SnackbarHost(snackbar) },
-            topBar = {
-                TopAppBar(
-                    navigationIcon = { IconButton(onClick = nav::pop) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                    title = { Text("u/$name", fontWeight = FontWeight.SemiBold) },
-                    actions = {
-                        if (!isSelf && LocalAccount.current != null) {
-                            IconButton(onClick = { nav.push(ComposeRoute(ComposeMode.MESSAGE, to = name)) }) {
-                                Icon(Icons.Default.Email, "Message")
-                            }
-                        }
-                        UserSortMenu(vm::setSort)
-                    },
-                )
-            },
+        ShellScaffold(
+            container = container,
+            home = false,
+            tab = HomeTab.POSTS,
+            smallTitle = name.takeIf { headerGone },
+            scrollBehavior = scrollBehavior,
+            snackbar = snackbar,
+            quickActions = quickActions(container, onRefresh = vm::refresh),
+            onReselectTab = { scope.launch { gridState.animateScrollToItem(0) } },
+            // Sync has the sort in the toolbar as well as on its chip.
+            actions = { SortMenu(vm::setSort) },
         ) { padding ->
-            PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = vm::refresh, modifier = Modifier.padding(padding).fillMaxSize()) {
-                PagedList(
+            PullToRefreshBox(
+                isRefreshing = state.refreshing,
+                onRefresh = vm::refresh,
+                modifier = Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize(),
+            ) {
+                PagedGrid(
                     state = state.copy(items = items),
                     key = { it.fullname },
                     onLoadMore = vm::loadMore,
                     onRetry = vm::retry,
+                    columns = columns,
+                    gutter = layout.gutter,
+                    spacing = layout.spacing,
+                    gridState = gridState,
+                    bottomPadding = padding.calculateBottomPadding(),
                     emptyText = "Nothing to show",
                     header = {
-                        item(key = "header") { ProfileHeader(name, user) }
-                        item(key = "tabs") {
-                            SecondaryScrollableTabRow(selectedTabIndex = tabs.indexOf(tab).coerceAtLeast(0), edgePadding = 8.dp) {
-                                tabs.forEach { t -> Tab(selected = t == tab, onClick = { vm.setTab(t) }, text = { Text(t.label) }) }
-                            }
+                        LargeHeader(
+                            title = name,
+                            leading = { Avatar(name, user?.iconUrl, 56.dp) },
+                            overline = user?.let { u ->
+                                {
+                                    Text(
+                                        "${u.linkKarma + u.commentKarma} karma",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            },
+                        ) {
+                            ChipMenu(tab.label, Icons.Outlined.Person, UserWhere.entries.filter { isSelf || !it.ownOnly }, { it.label }, vm::setTab)
+                            ChipMenu(sort.label, sortIcon(sort), UserSort.entries, { it.label }, vm::setSort)
+                            HeaderChip("About", Icons.Outlined.Info, { aboutOpen = true })
+                            if (canAct) HeaderChip("Message", Icons.Outlined.Email, message)
+                            HeaderChip("Trophies", AppIcons.Trophy, { trophiesOpen = true })
+                            if (!isSelf) HeaderChip("Tag user", AppIcons.TagUser, { tagging = true })
+                            if (canAct) HeaderChip("Block", AppIcons.Block, { confirmBlock = true })
+                            HeaderChip("Share", Icons.Outlined.Share, { nav.share("https://www.reddit.com/user/$name", "u/$name") })
                         }
                     },
                 ) { item ->
                     when (item) {
-                        is ProfileItem.PostItem -> PostListItem(item.post, showSubreddit = true, callbacks = callbacks)
-                        is ProfileItem.CommentItem -> ProfileCommentRow(item.comment) {
+                        is ProfileItem.PostItem -> PostListItem(item.post, showSubreddit = true, callbacks = callbacks, layout = layout, standalone = false)
+                        is ProfileItem.CommentItem -> CommentCard(item.comment) {
                             nav.push(PostRoute(item.comment.postId, item.comment.id, context = 3))
                         }
                     }
@@ -176,71 +253,150 @@ fun ProfileScreen(name: String, initialTab: UserWhere, container: AppContainer) 
             }
         }
     }
-}
 
-@Composable
-private fun ProfileHeader(name: String, user: UserProfile?) {
-    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer)) {
-            user?.iconUrl?.let { AsyncImage(model = it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize()) }
-        }
-        Spacer(Modifier.width(16.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("u/$name", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            if (user != null) {
-                Text(
-                    "${Format.count(user.linkKarma)} post karma · ${Format.count(user.commentKarma)} comment karma",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    "Redditor for ${Format.timeAgo(user.createdUtc)}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                user.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis) }
-            }
-        }
+    if (aboutOpen) {
+        ProfileAboutSheet(
+            name = name,
+            user = user,
+            onMessage = if (canAct) ({ aboutOpen = false; message() }) else null,
+            onTrophies = { aboutOpen = false; trophiesOpen = true },
+            onTag = if (!isSelf) ({ aboutOpen = false; tagging = true }) else null,
+            onDismiss = { aboutOpen = false },
+        )
+    }
+    if (trophiesOpen) TrophiesSheet(container, name, onDismiss = { trophiesOpen = false })
+    if (tagging) TagUserDialog(name, onDismiss = { tagging = false })
+    if (confirmBlock) {
+        AlertDialog(
+            onDismissRequest = { confirmBlock = false },
+            title = { Text("Block u/$name?") },
+            text = { Text("You won't see their posts and comments, and they can't message you.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmBlock = false
+                    vm.block()
+                }) { Text("Block", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmBlock = false }) { Text("Cancel") } },
+        )
     }
 }
 
-/** A comment shown outside its thread, with the post it belongs to. */
-@Composable
-fun ProfileCommentRow(comment: UserComment, onOpen: () -> Unit) {
-    Card(
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp),
-    ) {
-        Column(Modifier.combinedClickable(onClick = onOpen).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(AppIcons.Comment, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    "r/${comment.subreddit} · ${comment.postTitle}",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            RedditBodyText(rememberRedditHtml(comment.bodyHtml), MaterialTheme.typography.bodyMedium, maxLines = 8, overflow = TextOverflow.Ellipsis)
-            Text(
-                "${Format.count(comment.score)} points · ${Format.timeAgo(comment.createdUtc)}",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+private fun sortIcon(sort: UserSort): ImageVector = when (sort) {
+    UserSort.NEW -> AppIcons.Burst
+    UserSort.HOT -> AppIcons.Flame
+    UserSort.TOP_WEEK, UserSort.TOP_ALL -> AppIcons.Bars
 }
 
 @Composable
-private fun UserSortMenu(onPick: (UserSort) -> Unit) {
+private fun SortMenu(onPick: (UserSort) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) { Icon(AppIcons.Sort, "Sort") }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            UserSort.entries.forEach { sort -> DropdownMenuItem(text = { Text(sort.label) }, onClick = { open = false; onPick(sort) }) }
+            UserSort.entries.forEach { sort ->
+                DropdownMenuItem(text = { Text(sort.label) }, onClick = {
+                    open = false
+                    onPick(sort)
+                })
+            }
+        }
+    }
+}
+
+/** A header chip whose ▾ opens a menu of [options], like Sync's section and sort chips. */
+@Composable
+private fun <T> ChipMenu(label: String, icon: ImageVector, options: List<T>, labelOf: (T) -> String, onPick: (T) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        HeaderChip(label, icon, { open = true }, dropdown = true)
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(text = { Text(labelOf(option)) }, onClick = {
+                    open = false
+                    onPick(option)
+                })
+            }
+        }
+    }
+}
+
+@Composable
+private fun Avatar(name: String, url: String?, size: Dp) {
+    Box(Modifier.size(size).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
+        Text(name.take(1).uppercase(), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
+        url?.let { AsyncImage(it, null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize()) }
+    }
+}
+
+/** Sync's user About: the banner and avatar, link karma, comment karma and cake day, Message / Trophies / Tag user, then the description. */
+@Composable
+private fun ProfileAboutSheet(
+    name: String,
+    user: UserProfile?,
+    onMessage: (() -> Unit)?,
+    onTrophies: () -> Unit,
+    onTag: (() -> Unit)?,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, dragHandle = null) {
+        if (user == null) {
+            SheetHandle()
+            Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            return@ModalBottomSheet
+        }
+        AboutHeader(user.bannerUrl, user.iconUrl, user.name.ifEmpty { name }) {
+            AboutStat(AppIcons.Link, user.linkKarma.toString())
+            AboutStat(AppIcons.Comment, user.commentKarma.toString())
+            // Sync writes the cake day as "21 Apr 2012".
+            AboutStat(Icons.Outlined.DateRange, SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(user.createdUtc * 1000)))
+        }
+        Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
+            val chip = MaterialTheme.colorScheme.surfaceVariant
+            Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
+                onMessage?.let { HeaderChip("Message", Icons.Outlined.Email, it, container = chip) }
+                HeaderChip("Trophies", AppIcons.Trophy, onTrophies, container = chip)
+                onTag?.let { HeaderChip("Tag user", AppIcons.TagUser, it, container = chip) }
+            }
+            Surface(color = chip, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Text(
+                    user.description ?: "This user has no public description",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
+        }
+    }
+}
+
+/** Sync's Trophies sheet: each trophy's icon and name. */
+@Composable
+private fun TrophiesSheet(container: AppContainer, name: String, onDismiss: () -> Unit) {
+    val trophies by produceState<Result<List<Trophy>>?>(null, name) {
+        value = runCatching { container.api.trophies(name) }.onFailure { if (it is CancellationException) throw it }
+    }
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, dragHandle = { SheetHandle() }) {
+        Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
+            SheetTitle("Trophies", topPadding = 0.dp)
+            when (val result = trophies) {
+                null -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                else -> {
+                    val list = result.getOrDefault(emptyList())
+                    val note = result.exceptionOrNull()?.let { "Couldn't load trophies: ${it.message}" } ?: "No trophies yet".takeIf { list.isEmpty() }
+                    note?.let {
+                        Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                    }
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        list.forEach { trophy ->
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(28.dp)) { trophy.iconUrl?.let { AsyncImage(it, null, modifier = Modifier.matchParentSize()) } }
+                                Spacer(Modifier.width(16.dp))
+                                Text(trophy.name, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
