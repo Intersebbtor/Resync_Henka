@@ -234,6 +234,45 @@ class RedditApi(private val client: RedditClient) {
         client.post("/api/remove", mapOf("id" to fullname, "spam" to spam.toString()))
     }
 
+    // --- New-style mod mail (needs the "modmail" scope) ---
+
+    /**
+     * A page of mod mail in [state]; [communities] narrows it to those subreddits (all you moderate when empty).
+     * Reddit pages by conversation id, so [after] is the last id of the previous page.
+     */
+    suspend fun modMail(state: ModMailState, communities: List<String>, after: String?, limit: Int = 25): Listing<ModMailConversation> {
+        val items = Parser.modMailConversations(
+            client.get(
+                "/api/mod/conversations",
+                mapOf(
+                    "state" to state.param,
+                    "sort" to "recent",
+                    "entity" to communities.takeIf { it.isNotEmpty() }?.joinToString(","),
+                    "after" to after,
+                    "limit" to limit.toString(),
+                ),
+            ),
+        )
+        return Listing(items, items.lastOrNull()?.id?.takeIf { items.size >= limit })
+    }
+
+    /** One conversation with its messages; [markRead] also marks it read. */
+    suspend fun modMailThread(id: String, markRead: Boolean = true): ModMailThread =
+        Parser.modMailThread(client.get("/api/mod/conversations/$id", mapOf("markRead" to markRead.toString())))
+
+    /** Replies to conversation [id] as yourself (not as the subreddit); returns the updated conversation. */
+    suspend fun replyModMail(id: String, markdown: String, internal: Boolean = false): ModMailThread =
+        Parser.modMailThread(
+            client.post(
+                "/api/mod/conversations/$id",
+                mapOf("body" to markdown, "isAuthorHidden" to "false", "isInternal" to internal.toString()),
+            ),
+        )
+
+    suspend fun setModMailArchived(id: String, archived: Boolean) {
+        client.post("/api/mod/conversations/$id/${if (archived) "archive" else "unarchive"}", emptyMap())
+    }
+
     /** The user flairs [subreddit] lets you pick (needs a login); empty if it allows none. */
     suspend fun userFlairs(subreddit: String): List<LinkFlair> = Parser.linkFlairs(client.get("/r/$subreddit/api/user_flair_v2"))
 

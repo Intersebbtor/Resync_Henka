@@ -557,6 +557,73 @@ class SearchPathTest {
             io.github.radixtrator.resync.data.multiModel(subreddits = listOf("pics", "gifs")),
         )
     }
+
+    @org.junit.Test
+    fun `parses mod mail conversations in conversationIds order`() {
+        val json = kotlinx.serialization.json.Json.parseToJsonElement(
+            """
+            {"conversations":{
+              "abc":{"id":"abc","subject":"Ban appeal","lastUpdated":"2024-01-02T03:04:05.123456+00:00","isHighlighted":true,
+                     "numMessages":3,"state":1,"lastUnread":"2024-01-02T03:04:05.123456+00:00",
+                     "authors":[{"name":"alice"},{"name":"modbob","isMod":true},{"name":"alice"}],
+                     "owner":{"displayName":"pics","type":"subreddit"}},
+              "xyz":{"id":"xyz","subject":"Hi","lastUpdated":null,"isHighlighted":false,"numMessages":1,"state":2,
+                     "lastUnread":null,"authors":[],"owner":{"displayName":"gifs"}}
+            },
+            "conversationIds":["xyz","abc"],
+            "messages":{}}
+            """,
+        )
+        val list = Parser.modMailConversations(json)
+        org.junit.Assert.assertEquals(listOf("xyz", "abc"), list.map { it.id })
+        val appeal = list[1]
+        org.junit.Assert.assertEquals("Ban appeal", appeal.subject)
+        org.junit.Assert.assertEquals("pics", appeal.community)
+        org.junit.Assert.assertEquals(listOf("alice", "modbob"), appeal.participants)
+        org.junit.Assert.assertEquals(1704164645L, appeal.lastUpdatedUtc)
+        org.junit.Assert.assertEquals(3, appeal.numMessages)
+        org.junit.Assert.assertTrue(appeal.highlighted)
+        org.junit.Assert.assertTrue(appeal.unread)
+        org.junit.Assert.assertFalse(appeal.archived)
+        val hi = list[0]
+        org.junit.Assert.assertEquals(0L, hi.lastUpdatedUtc)
+        org.junit.Assert.assertFalse(hi.unread)
+        org.junit.Assert.assertTrue(hi.archived)
+        // Demo data and other listings read as empty rather than failing.
+        org.junit.Assert.assertTrue(Parser.modMailConversations(kotlinx.serialization.json.Json.parseToJsonElement("""{"kind":"Listing"}""")).isEmpty())
+    }
+
+    @org.junit.Test
+    fun `parses a mod mail conversation with messages in objIds order`() {
+        val json = kotlinx.serialization.json.Json.parseToJsonElement(
+            """
+            {"conversation":{"id":"abc","subject":"Ban appeal","owner":{"displayName":"pics"},"authors":[{"name":"alice"}],
+                             "numMessages":2,"state":0,"lastUpdated":"2024-01-02T03:04:05+00:00",
+                             "objIds":[{"id":"m1","key":"messages"},{"id":"a1","key":"modActions"},{"id":"m2","key":"messages"}]},
+             "messages":{
+               "m2":{"id":"m2","body":"<div class=\"md\"><p>No.</p></div>","bodyMarkdown":"No.","date":"2024-01-02T03:04:05+00:00",
+                     "isInternal":true,"author":{"name":"modbob","isMod":true,"isHidden":true}},
+               "m1":{"id":"m1","body":"<div class=\"md\"><p>Please unban me</p></div>","bodyMarkdown":"Please unban me",
+                     "date":"2024-01-01T00:00:00+00:00","isInternal":false,"author":{"name":"alice","isMod":false}}
+             }}
+            """,
+        )
+        val thread = Parser.modMailThread(json)
+        org.junit.Assert.assertEquals("abc", thread.conversation.id)
+        org.junit.Assert.assertEquals("pics", thread.conversation.community)
+        org.junit.Assert.assertEquals(listOf("m1", "m2"), thread.messages.map { it.id })
+        val first = thread.messages[0]
+        org.junit.Assert.assertEquals("alice", first.author)
+        org.junit.Assert.assertEquals(1704067200L, first.dateUtc)
+        org.junit.Assert.assertTrue(first.bodyHtml.contains("Please unban me"))
+        org.junit.Assert.assertFalse(first.authorIsMod)
+        val second = thread.messages[1]
+        org.junit.Assert.assertTrue(second.authorIsMod)
+        org.junit.Assert.assertTrue(second.authorHidden)
+        org.junit.Assert.assertTrue(second.internal)
+        org.junit.Assert.assertEquals("No.", second.bodyMarkdown)
+        assertFailsWith<RedditException> { Parser.modMailThread(kotlinx.serialization.json.Json.parseToJsonElement("""{"messages":{}}""")) }
+    }
 }
 
 class MarkdownToolsTest {

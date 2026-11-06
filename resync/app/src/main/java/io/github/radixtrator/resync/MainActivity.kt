@@ -76,6 +76,10 @@ import io.github.radixtrator.resync.ui.navigation.ThemeManagementRoute
 import io.github.radixtrator.resync.ui.navigation.SwipeModeRoute
 import io.github.radixtrator.resync.ui.navigation.ModRoute
 import io.github.radixtrator.resync.ui.feed.ModScreen
+import io.github.radixtrator.resync.ui.mod.ModMailConversationScreen
+import io.github.radixtrator.resync.ui.mod.ModMailScreen
+import io.github.radixtrator.resync.ui.navigation.ModMailConversationRoute
+import io.github.radixtrator.resync.ui.navigation.ModMailRoute
 import io.github.radixtrator.resync.ui.feed.SwipeModeScreen
 import io.github.radixtrator.resync.ui.navigation.SetupRoute
 import io.github.radixtrator.resync.ui.navigation.SubmitRoute
@@ -169,6 +173,8 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
                 entry<FeedRoute>(metadata = DualPaneList) { route -> FeedScreen(route, container) }
                 entry<PostRoute>(metadata = DualPaneDetail) { route -> PostScreen(route, container) }
                 entry<ModRoute> { route -> ModScreen(route.subreddit, container) }
+                entry<ModMailRoute> { route -> ModMailScreen(route.subreddit, container) }
+                entry<ModMailConversationRoute> { route -> ModMailConversationScreen(route.id, container) }
                 entry<SwipeModeRoute> { route -> SwipeModeScreen(route.subreddit, container) }
                 entry<ImageRoute>(metadata = MediaFade) { route -> ImageViewerScreen(route.urls, route.start, route.postId, container.downloads, onClose = navigator::pop) }
                 entry<VideoRoute>(metadata = MediaFade) { route -> VideoPlayerScreen(route.url, route.loop, route.postId, container.downloads, onClose = navigator::pop) }
