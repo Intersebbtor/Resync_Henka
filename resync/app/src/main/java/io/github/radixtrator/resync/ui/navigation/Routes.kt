@@ -44,6 +44,10 @@ data class UserRoute(val name: String, val tab: UserWhere = UserWhere.OVERVIEW) 
 @Serializable
 data class SearchRoute(val query: String = "", val subreddit: String? = null, val communities: Boolean = false) : NavKey
 
+/** Sync's Swipe mode over [subreddit]'s feed (null = front page). */
+@Serializable
+data class SwipeModeRoute(val subreddit: String? = null) : NavKey
+
 @Serializable
 data class SubmitRoute(val subreddit: String? = null) : NavKey
 

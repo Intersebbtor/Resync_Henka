@@ -101,6 +101,7 @@ import io.github.radixtrator.resync.ui.navigation.LoginRoute
 import io.github.radixtrator.resync.ui.navigation.Navigator
 import io.github.radixtrator.resync.ui.navigation.SearchRoute
 import io.github.radixtrator.resync.ui.navigation.SettingsRoute
+import io.github.radixtrator.resync.ui.navigation.SwipeModeRoute
 import io.github.radixtrator.resync.ui.navigation.SubmitRoute
 import io.github.radixtrator.resync.ui.navigation.UserRoute
 import io.github.radixtrator.resync.ui.theme.LocalDarkTheme
@@ -278,6 +279,7 @@ fun quickActions(
             container.settings.update { it.copy(theme = if (dark) ThemeMode.LIGHT else ThemeMode.DARK) }
         })
         add(QuickAction("Settings", Icons.Outlined.Settings) { nav.push(SettingsRoute) })
+        add(QuickAction("Swipe mode", AppIcons.Gallery) { nav.push(SwipeModeRoute(subreddit)) })
         onChangeView?.let { add(QuickAction("Change view", AppIcons.ViewStack, onClick = it)) }
         add(QuickAction("Refresh", Icons.Outlined.Refresh, onClick = onRefresh))
         if (me != null) add(QuickAction("Saved", AppIcons.Bookmark) { nav.push(UserRoute(me, UserWhere.SAVED)) })
@@ -290,7 +292,7 @@ fun quickActions(
 /** Every More actions button that "Action visibility" in Settings can switch off, in grid order. */
 val QUICK_ACTION_LABELS = listOf(
     "Search", "Profile", "Hide read", "About", "Submit", "Random", "Dark mode", "Settings",
-    "Change view", "Refresh", "Saved", "Inbox", "Filters", "Watched",
+    "Swipe mode", "Change view", "Refresh", "Saved", "Inbox", "Filters", "Watched",
 )
 
 @Composable

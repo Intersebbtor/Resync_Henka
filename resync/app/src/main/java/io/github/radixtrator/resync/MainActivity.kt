@@ -62,6 +62,8 @@ import io.github.radixtrator.resync.ui.navigation.Navigator
 import io.github.radixtrator.resync.ui.navigation.PostRoute
 import io.github.radixtrator.resync.ui.navigation.SearchRoute
 import io.github.radixtrator.resync.ui.navigation.SettingsRoute
+import io.github.radixtrator.resync.ui.navigation.SwipeModeRoute
+import io.github.radixtrator.resync.ui.feed.SwipeModeScreen
 import io.github.radixtrator.resync.ui.navigation.SetupRoute
 import io.github.radixtrator.resync.ui.navigation.SubmitRoute
 import io.github.radixtrator.resync.ui.navigation.UserRoute
@@ -149,6 +151,7 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
                 entry<LoginRoute> { LoginScreen(container = container, onFinished = navigator::pop) }
                 entry<FeedRoute> { route -> FeedScreen(route, container) }
                 entry<PostRoute> { route -> PostScreen(route, container) }
+                entry<SwipeModeRoute> { route -> SwipeModeScreen(route.subreddit, container) }
                 entry<ImageRoute>(metadata = MediaFade) { route -> ImageViewerScreen(route.urls, route.start, route.postId, container.downloads, onClose = navigator::pop) }
                 entry<VideoRoute>(metadata = MediaFade) { route -> VideoPlayerScreen(route.url, route.loop, route.postId, container.downloads, onClose = navigator::pop) }
                 entry<UserRoute> { route -> ProfileScreen(route.name, route.tab, container) }
