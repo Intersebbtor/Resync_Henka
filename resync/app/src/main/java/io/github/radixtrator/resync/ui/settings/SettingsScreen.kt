@@ -2,7 +2,11 @@
 
 package io.github.radixtrator.resync.ui.settings
 
+import android.Manifest
 import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,11 +47,14 @@ import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.BuildConfig
 import io.github.radixtrator.resync.data.CommentSort
 import io.github.radixtrator.resync.data.MediaPreviewSize
+import io.github.radixtrator.resync.data.MessageCheck
 import io.github.radixtrator.resync.data.NsfwMode
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.SwipeAction
 import io.github.radixtrator.resync.data.ThemeMode
 import io.github.radixtrator.resync.data.VideoQuality
+import io.github.radixtrator.resync.notify.InboxWorker
+import io.github.radixtrator.resync.notify.Notifications
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.SetupRoute
@@ -60,6 +67,9 @@ fun SettingsScreen(container: AppContainer) {
     val update = container.settings::update
     val watched by container.watch.watched.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) Toast.makeText(context, "Allow notifications to hear about new messages", Toast.LENGTH_SHORT).show()
+    }
 
     SwipeBack(enabled = settings.swipeBack, onBack = nav::pop) {
         Scaffold(
@@ -85,6 +95,20 @@ fun SettingsScreen(container: AppContainer) {
                 Choice("Post media preview size", MediaPreviewSize.entries, settings.postMediaPreview, MediaPreviewSize::label) { v -> update { it.copy(postMediaPreview = v) } }
                 Toggle("Start videos muted", null, settings.muteVideos) { v -> update { it.copy(muteVideos = v) } }
                 Choice("HD Reddit video quality", VideoQuality.entries, settings.hdVideo, VideoQuality::label) { v -> update { it.copy(hdVideo = v) } }
+
+                Section("Messaging")
+                Choice("Periodically check for new messages", MessageCheck.entries, settings.messageCheck, MessageCheck::label) { v ->
+                    update { it.copy(messageCheck = v) }
+                    InboxWorker.schedule(context, v)
+                    if (v != MessageCheck.OFF && !Notifications.canNotify(context)) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+                if (settings.messageCheck != MessageCheck.OFF) {
+                    ListItem(
+                        headlineContent = { Text("Check now") },
+                        supportingContent = { Text("Look for new messages without waiting for the next check") },
+                        modifier = Modifier.clickable { InboxWorker.checkNow(context) },
+                    )
+                }
 
                 Section("Watched communities")
                 if (watched.isEmpty()) {

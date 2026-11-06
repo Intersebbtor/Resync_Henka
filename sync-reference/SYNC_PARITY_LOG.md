@@ -476,6 +476,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Subreddit header chips: Join, About, Wiki, Flairs, Watch, Favorite | yes | Join, About, Wiki, Flairs (Reddit's list, or the flairs on its 200 recent posts; picking one searches the community); Random opens one of your communities; About is Sync's sheet (banner, icon, Join / Watch / Favorite, sidebar card, ⋮: wiki, flair filter, rules, share, message mods, moderators; no Edit flair or Add to multi); Watch notifies about each new post (hourly WorkManager check, "Stop watching" on the notification, list and "Check now" in Settings) | ◐ (Sync's Watch sheet options unknown) |
 | Wiki viewer | yes | the wiki's front page in a "pics - index" sheet, without Reddit's table of contents | ◐ (index page only; wiki links open in the browser) |
 | Inbox sections | 9 (incl. DMs, comment/post replies, mentions, mod) | All, Unread, DMs, Sent, Comment replies, Post replies, Mentions | ◐ (no mod boxes) |
+| Message notifications ("Periodically check for new messages") | Off / 10 min … 24 h / On launch, default 60 min; Mark read and Reply on the notification | same choices (15 min instead of 10, WorkManager's floor), default 60 min; one notification per unread item, opening its thread or the inbox; Mark read and inline Reply; "Check now" | ◐ (no mod mail; no Reddit Push mirroring) |
 | Profile sections | 7 (incl. Downvoted, Hidden) + About/Trophies/Tag/Block/Share | 5 sections, karma | ◐ |
 | User tagging | yes | — | ❌ |
 | Filters (sub/user/domain/flair/keyword) | yes | — | ❌ |

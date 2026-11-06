@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Watched communities notify about new posts. -->
+    <!-- Watched communities and the inbox check notify. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Saving media to Pictures/ and Movies/; Android 10+ needs no permission for that. -->
     <uses-permission
@@ -30,6 +30,9 @@
         </activity>
         <receiver
             android:name=".watch.WatchWorker$StopWatchingReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".notify.InboxWorker$InboxActionReceiver"
             android:exported="false" />
     </application>
 </manifest>

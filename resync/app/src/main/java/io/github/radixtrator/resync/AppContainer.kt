@@ -9,6 +9,7 @@ import io.github.radixtrator.resync.data.AvatarCache
 import io.github.radixtrator.resync.data.Comment
 import io.github.radixtrator.resync.data.ExploreStore
 import io.github.radixtrator.resync.data.MediaDownloads
+import io.github.radixtrator.resync.data.NotifiedMessages
 import io.github.radixtrator.resync.data.PostMemoryStore
 import io.github.radixtrator.resync.data.RedditApi
 import io.github.radixtrator.resync.data.RedditClient
@@ -41,6 +42,7 @@ class AppContainer(context: Context) {
     val explore = ExploreStore(prefs)
     val downloads = MediaDownloads(context)
     val watch = WatchStore(prefs)
+    val notifiedMessages = NotifiedMessages(prefs)
     private val appContext = context.applicationContext
     private val accountStore = AccountStore(prefs)
     val client = RedditClient(configStore, accountStore, context.assets)

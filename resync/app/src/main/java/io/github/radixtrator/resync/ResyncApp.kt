@@ -9,6 +9,7 @@ import coil3.gif.AnimatedImageDecoder
 import coil3.gif.GifDecoder
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import io.github.radixtrator.resync.notify.InboxWorker
 import io.github.radixtrator.resync.watch.WatchWorker
 import okhttp3.OkHttpClient
 
@@ -21,6 +22,8 @@ class ResyncApp : Application(), SingletonImageLoader.Factory {
         container = AppContainer(this)
         // KEEP leaves a running schedule alone; this only repairs one lost to a data wipe or an update.
         WatchWorker.schedule(this, container.watch.watched.value.isNotEmpty())
+        // Sync's message check: keeps the repeating check in line with the setting, or runs "On launch".
+        InboxWorker.schedule(this, container.settings.settings.value.messageCheck)
     }
 
     /**

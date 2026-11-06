@@ -3,6 +3,8 @@ package io.github.radixtrator.resync
 import android.content.SharedPreferences
 import io.github.radixtrator.resync.data.ExploreSection
 import io.github.radixtrator.resync.data.ExploreStore
+import io.github.radixtrator.resync.data.InboxItem
+import io.github.radixtrator.resync.data.NotifiedMessages
 import io.github.radixtrator.resync.data.PostMemoryStore
 import io.github.radixtrator.resync.data.Recent
 import io.github.radixtrator.resync.data.VisitedStore
@@ -71,6 +73,19 @@ class StoresTest {
         assertTrue(store.state.value.isDefault(""))
         store.toggleFavorite("Pics")
         assertTrue(store.state.value.favorites.isEmpty())
+    }
+
+    @Test
+    fun `each unread message is announced once`() {
+        fun item(id: String) = InboxItem(
+            id = id, fullname = "t4_$id", isComment = false, author = "a", dest = "me", subject = "s", postTitle = null,
+            subreddit = null, body = "b", bodyHtml = "", createdUtc = 0, isNew = true, postId = null, commentId = null,
+        )
+        val prefs = FakePrefs()
+        val notified = NotifiedMessages(prefs)
+        assertEquals(listOf("t4_1", "t4_2"), notified.unseen(listOf(item("1"), item("2"))).map { it.fullname })
+        notified.remember(listOf("t4_1", "t4_2"))
+        assertEquals(listOf("t4_3"), NotifiedMessages(prefs).unseen(listOf(item("1"), item("2"), item("3"))).map { it.fullname })
     }
 
     @Test

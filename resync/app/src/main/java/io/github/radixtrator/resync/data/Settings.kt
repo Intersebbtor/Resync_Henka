@@ -22,6 +22,22 @@ enum class PostLayout(val label: String) {
 
 enum class NsfwMode(val label: String) { HIDE("Hide NSFW posts"), BLUR("Blur previews"), SHOW("Show") }
 
+/**
+ * Sync's "Periodically check for new messages". [minutes] null means no repeating check. WorkManager can't
+ * repeat faster than every 15 minutes, so Sync's "Every 10 minutes" is 15 here.
+ */
+enum class MessageCheck(val label: String, val minutes: Long?) {
+    OFF("Off", null),
+    MINUTES_15("Every 15 minutes", 15),
+    MINUTES_30("Every 30 minutes", 30),
+    HOUR("Every 60 minutes", 60),
+    HOURS_3("Every 3 hours", 180),
+    HOURS_6("Every 6 hours", 360),
+    HOURS_12("Every 12 hours", 720),
+    HOURS_24("Every 24 hours", 1440),
+    ON_LAUNCH("On launch", null),
+}
+
 /** Sync's "HD Reddit video quality": when v.redd.it videos open in HD rather than SD (the player's HD button switches). */
 enum class VideoQuality(val label: String) { ALWAYS("Always"), WIFI("WiFi only"), NEVER("Never") }
 
@@ -61,6 +77,7 @@ data class Settings(
     val linkCards: Boolean = true,
     /** Sync's "Show profile pictures": authors' avatars in comment headers instead of their initial. */
     val profilePictures: Boolean = true,
+    val messageCheck: MessageCheck = MessageCheck.HOUR,
     /** Sync's extended swipe: drag left, and each further step arms the next of these three. */
     val postSwipe: Boolean = true,
     val postSwipeActions: List<SwipeAction> = DEFAULT_POST_SWIPES,

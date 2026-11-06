@@ -19,10 +19,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import io.github.radixtrator.resync.notify.Notifications
 import io.github.radixtrator.resync.ui.compose.ComposeScreen
 import io.github.radixtrator.resync.ui.compose.SubmitScreen
 import io.github.radixtrator.resync.ui.feed.FeedScreen
@@ -55,7 +57,6 @@ import io.github.radixtrator.resync.ui.setup.SetupScreen
 import io.github.radixtrator.resync.ui.theme.BASE_FONT_SCALE
 import io.github.radixtrator.resync.ui.theme.FullSizeText
 import io.github.radixtrator.resync.ui.theme.ResyncTheme
-import io.github.radixtrator.resync.watch.WatchWorker
 
 class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
@@ -64,28 +65,28 @@ class MainActivity : ComponentActivity() {
         applyOverrideConfiguration(Configuration().apply { fontScale = newBase.resources.configuration.fontScale * BASE_FONT_SCALE })
     }
 
-    /** A post to open, from a tapped watched-community notification. */
-    private var openPost by mutableStateOf<String?>(null)
+    /** A page to open, from a tapped notification (a watched community's post, an inbox message). */
+    private var openRoute by mutableStateOf<NavKey?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        if (savedInstanceState == null) openPost = intent.getStringExtra(WatchWorker.EXTRA_POST)
+        if (savedInstanceState == null) openRoute = Notifications.routeFrom(intent)
         val container = (application as ResyncApp).container
         setContent {
             val settings by container.settings.settings.collectAsStateWithLifecycle()
-            ResyncTheme(settings) { ResyncNavHost(container, openPost, onPostOpened = { openPost = null }) }
+            ResyncTheme(settings) { ResyncNavHost(container, openRoute, onRouteOpened = { openRoute = null }) }
         }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        intent.getStringExtra(WatchWorker.EXTRA_POST)?.let { openPost = it }
+        Notifications.routeFrom(intent)?.let { openRoute = it }
     }
 }
 
 @Composable
-private fun ResyncNavHost(container: AppContainer, openPost: String?, onPostOpened: () -> Unit) {
+private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOpened: () -> Unit) {
     val backStack = rememberNavBackStack(if (container.isConfigured) homeRoute(container) else SetupRoute)
     val context = LocalContext.current
     val settings by container.settings.settings.collectAsStateWithLifecycle()
@@ -93,9 +94,9 @@ private fun ResyncNavHost(container: AppContainer, openPost: String?, onPostOpen
     val visited by container.visited.ids.collectAsStateWithLifecycle()
     val currentSettings by rememberUpdatedState(settings)
     val navigator = remember(backStack) { Navigator(context, backStack) { currentSettings } }
-    LaunchedEffect(openPost) {
-        if (openPost != null && container.isConfigured) navigator.push(PostRoute(openPost))
-        if (openPost != null) onPostOpened()
+    LaunchedEffect(openRoute) {
+        if (openRoute != null && container.isConfigured) navigator.push(openRoute)
+        if (openRoute != null) onRouteOpened()
     }
 
     CompositionLocalProvider(

@@ -38,6 +38,7 @@ import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.data.LinkFlair
 import io.github.radixtrator.resync.data.RedditException
 import io.github.radixtrator.resync.data.SubredditRule
+import io.github.radixtrator.resync.notify.Notifications
 import io.github.radixtrator.resync.ui.common.FlairChip
 import io.github.radixtrator.resync.ui.common.LinkCards
 import io.github.radixtrator.resync.ui.common.OptionRow
@@ -52,7 +53,6 @@ import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import io.github.radixtrator.resync.ui.navigation.Navigator
 import io.github.radixtrator.resync.ui.navigation.SearchRoute
 import io.github.radixtrator.resync.ui.navigation.UserRoute
-import io.github.radixtrator.resync.watch.WatchWorker
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -111,7 +111,7 @@ fun rememberWatchToggle(container: AppContainer, onMessage: (String) -> Unit): (
                 container.setWatching(name, false)
                 onMessage("Stopped watching r/$name")
             }
-            WatchWorker.canNotify(context) -> watch(name)
+            Notifications.canNotify(context) -> watch(name)
             else -> {
                 pending = name
                 permission.launch(Manifest.permission.POST_NOTIFICATIONS)

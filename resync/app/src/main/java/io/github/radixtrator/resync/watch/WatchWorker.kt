@@ -1,19 +1,13 @@
 package io.github.radixtrator.resync.watch
 
-import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -22,9 +16,9 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import io.github.radixtrator.resync.MainActivity
 import io.github.radixtrator.resync.R
 import io.github.radixtrator.resync.ResyncApp
+import io.github.radixtrator.resync.notify.Notifications
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.Sort
 import io.github.radixtrator.resync.data.SortKind
@@ -61,7 +55,6 @@ class WatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         private const val WORK = "watched-communities"
         private const val MAX_PER_CHECK = 5
         private const val CHANNEL = "watched"
-        const val EXTRA_POST = "io.github.radixtrator.resync.POST"
         private const val EXTRA_COMMUNITY = "io.github.radixtrator.resync.COMMUNITY"
         private const val EXTRA_NOTIFICATION = "io.github.radixtrator.resync.NOTIFICATION"
 
@@ -87,28 +80,12 @@ class WatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
             )
         }
 
-        fun canNotify(context: Context): Boolean =
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-
         /** "r/pics" over the post's title. Tapping opens the post; "Stop watching" unwatches the community. */
         private fun notify(context: Context, community: String, post: Post) {
-            if (!canNotify(context)) return
-            val manager = context.getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(
-                NotificationChannel(CHANNEL, "Watched communities", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                    description = "New posts in communities you watch"
-                },
-            )
+            if (!Notifications.canNotify(context)) return
+            Notifications.channel(context, CHANNEL, "Watched communities", "New posts in communities you watch")
             val id = post.id.hashCode()
-            val open = PendingIntent.getActivity(
-                context,
-                id,
-                Intent(context, MainActivity::class.java)
-                    .putExtra(EXTRA_POST, post.id)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-            )
+            val open = Notifications.openPost(context, id, post.id)
             val stop = PendingIntent.getBroadcast(
                 context,
                 id,
