@@ -8,6 +8,7 @@ import io.github.radixtrator.resync.data.ApiConfig
 import io.github.radixtrator.resync.data.ApiConfigStore
 import io.github.radixtrator.resync.data.AvatarCache
 import io.github.radixtrator.resync.data.Comment
+import io.github.radixtrator.resync.data.DraftStore
 import io.github.radixtrator.resync.data.ExploreStore
 import io.github.radixtrator.resync.data.FilterStore
 import io.github.radixtrator.resync.data.MediaDownloads
@@ -54,6 +55,7 @@ class AppContainer(context: Context) {
     val notifiedMessages = NotifiedMessages(prefs)
     val tags = UserTags(prefs)
     val filters = FilterStore(prefs)
+    val drafts = DraftStore(prefs)
     val readAloud = ReadAloud(context)
     private val appContext = context.applicationContext
     private val accountStore = AccountStore(prefs)

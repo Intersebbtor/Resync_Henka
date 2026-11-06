@@ -1,6 +1,8 @@
 package io.github.radixtrator.resync
 
 import android.content.SharedPreferences
+import io.github.radixtrator.resync.data.Draft
+import io.github.radixtrator.resync.data.DraftStore
 import io.github.radixtrator.resync.data.ExploreSection
 import io.github.radixtrator.resync.data.ExploreStore
 import io.github.radixtrator.resync.data.FilterStore
@@ -88,6 +90,33 @@ class StoresTest {
         assertEquals("admin", UserTags(prefs).tagOf("spez"))
         tags.set("spez", " ")
         assertNull(UserTags(prefs).tagOf("SPEZ"))
+    }
+
+    @Test
+    fun `drafts keep the newest first, drop blanks and survive a reload`() {
+        val prefs = FakePrefs()
+        var now = 100L
+        val drafts = DraftStore(prefs) { now }
+        drafts.save("reply:t1_a", "hello", "Reply")
+        now = 200
+        drafts.save("submit", "post body", "Post")
+        assertEquals(listOf("submit", "reply:t1_a"), DraftStore(prefs).drafts.value.map { it.key })
+
+        now = 300
+        drafts.save("reply:t1_a", "hello there", "Reply")
+        val reloaded = DraftStore(prefs)
+        assertEquals(listOf("reply:t1_a", "submit"), reloaded.drafts.value.map { it.key })
+        assertEquals(Draft("reply:t1_a", "hello there", "Reply", 300), reloaded.get("reply:t1_a"))
+
+        // Saving the same text again doesn't bump it.
+        now = 400
+        drafts.save("submit", "post body", "Post")
+        assertEquals(200L, drafts.get("submit")?.savedAt)
+
+        drafts.save("submit", "  ")
+        assertNull(DraftStore(prefs).get("submit"))
+        drafts.clear("reply:t1_a")
+        assertTrue(DraftStore(prefs).drafts.value.isEmpty())
     }
 
     @Test
