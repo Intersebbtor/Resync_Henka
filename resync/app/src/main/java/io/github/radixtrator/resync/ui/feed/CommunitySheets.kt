@@ -108,7 +108,7 @@ fun AddToMultiSheet(container: AppContainer, subreddit: String, onDismiss: () ->
             null -> Loading()
             else -> result.fold(
                 onSuccess = { list ->
-                    if (list.isEmpty()) Problem("You have no custom feeds yet. Create one on reddit.com, then add communities here.")
+                    if (list.isEmpty()) Problem("You have no custom feeds yet. Create one in Explore › Custom feeds, then add communities here.")
                     Column(Modifier.verticalScroll(rememberScrollState())) {
                         list.forEach { multi ->
                             val has = subreddit.lowercase() in multi.subreddits.map { it.lowercase() }

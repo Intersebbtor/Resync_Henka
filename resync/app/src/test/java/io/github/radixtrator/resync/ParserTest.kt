@@ -540,6 +540,23 @@ class SearchPathTest {
         org.junit.Assert.assertEquals("/user/bob/m/news/search", io.github.radixtrator.resync.data.multiSearchPath("bob/news"))
         org.junit.Assert.assertEquals("/user/bob/m/news/search", io.github.radixtrator.resync.data.multiSearchPath("/u/bob/m/news/"))
     }
+
+    @org.junit.Test
+    fun `custom feed url names and models`() {
+        val name = io.github.radixtrator.resync.data::multiName
+        org.junit.Assert.assertEquals("My_cool_feed", name("  My cool feed! "))
+        org.junit.Assert.assertEquals("tech_news", name("__tech & news__"))
+        org.junit.Assert.assertEquals("ab_feed", name("ab"))
+        org.junit.Assert.assertEquals("feed", name("!!!"))
+        org.junit.Assert.assertEquals(50, name("x".repeat(80)).length)
+        val model = io.github.radixtrator.resync.data.multiModel("Say \"hi\"", emptyList(), "private")
+        org.junit.Assert.assertEquals("""{"display_name":"Say \"hi\"","subreddits":[],"visibility":"private"}""", model)
+        org.junit.Assert.assertEquals("""{"display_name":"New"}""", io.github.radixtrator.resync.data.multiModel(displayName = "New"))
+        org.junit.Assert.assertEquals(
+            """{"subreddits":[{"name":"pics"},{"name":"gifs"}]}""",
+            io.github.radixtrator.resync.data.multiModel(subreddits = listOf("pics", "gifs")),
+        )
+    }
 }
 
 class MarkdownToolsTest {

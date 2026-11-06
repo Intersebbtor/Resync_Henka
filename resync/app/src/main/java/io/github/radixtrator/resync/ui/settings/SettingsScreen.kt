@@ -35,7 +35,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -60,6 +59,7 @@ import io.github.radixtrator.resync.data.BaseFontSize
 import io.github.radixtrator.resync.data.CommentCount
 import io.github.radixtrator.resync.data.CommentSort
 import io.github.radixtrator.resync.data.DataSaving
+import io.github.radixtrator.resync.data.FilterType
 import io.github.radixtrator.resync.data.Typeface
 import io.github.radixtrator.resync.data.MediaPreviewSize
 import io.github.radixtrator.resync.data.MessageCheck
@@ -73,6 +73,7 @@ import io.github.radixtrator.resync.notify.Notifications
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.home.QUICK_ACTION_LABELS
 import io.github.radixtrator.resync.ui.navigation.CustomizeViewRoute
+import io.github.radixtrator.resync.ui.navigation.FilterEditorRoute
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.SetupRoute
 import io.github.radixtrator.resync.ui.navigation.ThemeManagementRoute
@@ -244,47 +245,16 @@ fun SettingsScreen(container: AppContainer) {
                     }
                 }
 
-                // Sync's Filter… from post options; this is where to take them back.
+                // Sync's Post filters: a row per list, each opening its editor. Post ⋮ → Filter… adds to them too.
                 Section("Filters")
-                if (filters.isEmpty) {
+                FilterType.entries.forEach { type ->
+                    val count = type.of(filters).size
                     ListItem(
-                        headlineContent = { Text("None yet") },
-                        supportingContent = { Text("Use Filter... in a post's options, or add keywords and flairs here") },
+                        headlineContent = { Text(type.title) },
+                        supportingContent = { Text(if (count == 0) type.summary else "${type.summary} · $count") },
+                        modifier = Modifier.clickable { nav.push(FilterEditorRoute(type)) },
                     )
                 }
-                filters.keywords.sorted().forEach { word -> FilterRow("\"$word\"", "Titles containing it are hidden") { container.filters.filterKeyword(word, false) } }
-                filters.flairs.sorted().forEach { flair -> FilterRow("Flair: $flair", "Posts with this flair are hidden") { container.filters.filterFlair(flair, false) } }
-                var adding by remember { mutableStateOf<String?>(null) }
-                Row(Modifier.padding(horizontal = 8.dp)) {
-                    TextButton(onClick = { adding = "keyword" }) { Text("Add keyword") }
-                    TextButton(onClick = { adding = "flair" }) { Text("Add flair") }
-                }
-                adding?.let { kind ->
-                    var text by remember { mutableStateOf("") }
-                    val add = {
-                        if (kind == "keyword") container.filters.filterKeyword(text) else container.filters.filterFlair(text)
-                        adding = null
-                    }
-                    AlertDialog(
-                        onDismissRequest = { adding = null },
-                        title = { Text(if (kind == "keyword") "Filter keyword" else "Filter flair") },
-                        text = {
-                            OutlinedTextField(
-                                value = text,
-                                onValueChange = { text = it },
-                                singleLine = true,
-                                label = { Text(if (kind == "keyword") "Word or phrase in the title" else "Flair text, exactly") },
-                            )
-                        },
-                        confirmButton = { TextButton(onClick = add, enabled = text.isNotBlank()) { Text("Add") } },
-                        dismissButton = { TextButton(onClick = { adding = null }) { Text("Cancel") } },
-                    )
-                }
-                filters.subreddits.sorted().forEach { name ->
-                    FilterRow("r/$name", "Hidden outside r/$name itself") { container.filters.filterSubreddit(name, false) }
-                }
-                filters.users.sorted().forEach { name -> FilterRow("u/$name", "Posts hidden from feeds") { container.filters.filterUser(name, false) } }
-                filters.domains.sorted().forEach { domain -> FilterRow(domain, "Links hidden from feeds") { container.filters.filterDomain(domain, false) } }
 
                 Section("Action visibility")
                 QUICK_ACTION_LABELS.forEach { label ->
@@ -325,15 +295,6 @@ fun SettingsScreen(container: AppContainer) {
             }
         }
     }
-}
-
-@Composable
-private fun FilterRow(title: String, subtitle: String, onRemove: () -> Unit) {
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(subtitle) },
-        trailingContent = { IconButton(onClick = onRemove) { Icon(Icons.Default.Close, "Stop filtering $title") } },
-    )
 }
 
 /** Sync's "First / Second / Third swipe action" rows. */

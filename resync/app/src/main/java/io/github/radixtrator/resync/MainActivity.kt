@@ -57,6 +57,7 @@ import io.github.radixtrator.resync.ui.media.VideoPlayerScreen
 import io.github.radixtrator.resync.ui.navigation.ComposeRoute
 import io.github.radixtrator.resync.ui.navigation.CustomizeViewRoute
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
+import io.github.radixtrator.resync.ui.navigation.FilterEditorRoute
 import io.github.radixtrator.resync.ui.navigation.ImageRoute
 import io.github.radixtrator.resync.ui.navigation.InboxRoute
 import io.github.radixtrator.resync.ui.navigation.LocalAccount
@@ -84,6 +85,7 @@ import io.github.radixtrator.resync.ui.post.PostScreen
 import io.github.radixtrator.resync.ui.profile.ProfileScreen
 import io.github.radixtrator.resync.ui.search.SearchScreen
 import io.github.radixtrator.resync.ui.settings.CustomizeViewScreen
+import io.github.radixtrator.resync.ui.settings.FilterEditorScreen
 import io.github.radixtrator.resync.ui.settings.SettingsScreen
 import io.github.radixtrator.resync.ui.settings.ThemeManagementScreen
 import io.github.radixtrator.resync.ui.setup.SetupScreen
@@ -180,6 +182,7 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
                 entry<ThemeManagementRoute> { FullSizeText { ThemeManagementScreen(container) } }
                 // Its preview stays at feed size; the screen sizes its own option rows like the settings.
                 entry<CustomizeViewRoute> { route -> CustomizeViewScreen(route.layout, container) }
+                entry<FilterEditorRoute> { route -> FullSizeText { FilterEditorScreen(route.type, container) } }
             },
         )
         LaunchedEffect(backStack.size) { SwipeBackState.popping = false }
