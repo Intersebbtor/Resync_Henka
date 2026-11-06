@@ -159,6 +159,7 @@ fun ExploreSheet(
         state = explore,
         subscribed = subscriptions,
         onToggleFavorite = container.explore::toggleFavorite,
+        onMoveFavorite = container.explore::moveFavorite,
         onSetDefault = container.explore::setDefault,
         onAbout = { aboutFor = it },
         onUnsubscribe = { name ->
@@ -380,6 +381,7 @@ private class RowMenu(
     val state: ExploreState,
     val subscribed: List<String>,
     val onToggleFavorite: (String) -> Unit,
+    val onMoveFavorite: (String, Int) -> Unit,
     val onSetDefault: (String) -> Unit,
     val onAbout: (String) -> Unit,
     val onUnsubscribe: (String) -> Unit,
@@ -429,6 +431,10 @@ private fun FeedRow(
                     text = { Text(if (menu.state.isFavorite(name)) "Unfavorite" else "Favorite") },
                     onClick = { pick { menu.onToggleFavorite(name) } },
                 )
+                if (section == ExploreSection.FAVORITES) {
+                    DropdownMenuItem(text = { Text("Move up") }, onClick = { pick { menu.onMoveFavorite(name, -1) } })
+                    DropdownMenuItem(text = { Text("Move down") }, onClick = { pick { menu.onMoveFavorite(name, 1) } })
+                }
                 if (!menu.state.isDefault(name)) DropdownMenuItem(text = { Text("Set as default") }, onClick = { pick { menu.onSetDefault(name) } })
                 if (isCommunity) DropdownMenuItem(text = { Text("About") }, onClick = { pick { menu.onAbout(name) } })
                 if (isCommunity && menu.subscribed.any { it.equals(name, ignoreCase = true) }) {

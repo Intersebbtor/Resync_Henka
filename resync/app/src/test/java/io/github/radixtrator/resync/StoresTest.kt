@@ -183,3 +183,17 @@ class StoresTest {
         assertEquals(setOf("p1", "p2"), VisitedStore(prefs).ids.value)
     }
 }
+
+class FavoriteOrderTest {
+    @org.junit.Test
+    fun `moves favorites`() {
+        val store = ExploreStore(FakePrefs())
+        store.toggleFavorite("a")
+        store.toggleFavorite("b")
+        store.toggleFavorite("c")
+        store.moveFavorite("c", -1)
+        org.junit.Assert.assertEquals(listOf("a", "c", "b"), store.state.value.favorites)
+        store.moveFavorite("a", -1)
+        org.junit.Assert.assertEquals(listOf("a", "c", "b"), store.state.value.favorites)
+    }
+}

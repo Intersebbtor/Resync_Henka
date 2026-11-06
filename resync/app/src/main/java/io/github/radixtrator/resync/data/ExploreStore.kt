@@ -57,6 +57,17 @@ class ExploreStore(private val prefs: SharedPreferences) {
     private val _state = MutableStateFlow(load())
     val state: StateFlow<ExploreState> = _state.asStateFlow()
 
+    /** Moves a favorite one place up ([delta] -1) or down (+1). */
+    fun moveFavorite(name: String, delta: Int) = update { s ->
+        val from = s.favorites.indexOfFirst { it.equals(name, ignoreCase = true) }
+        val to = from + delta
+        if (from < 0 || to !in s.favorites.indices) {
+            s
+        } else {
+            s.copy(favorites = s.favorites.toMutableList().apply { add(to, removeAt(from)) })
+        }
+    }
+
     fun toggleFavorite(name: String) = update { s ->
         s.copy(favorites = if (s.isFavorite(name)) s.favorites.filterNot { it.equals(name, ignoreCase = true) } else s.favorites + name)
     }
