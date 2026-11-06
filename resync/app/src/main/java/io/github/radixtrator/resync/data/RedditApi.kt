@@ -4,6 +4,12 @@ import kotlinx.serialization.json.jsonObject
 
 private val WIKI_TOC = Regex("""<div class="toc">.*?</div>""", RegexOption.DOT_MATCHES_ALL)
 
+/** "user/feed", "u/user/m/feed" and the like to Reddit's custom-feed search path, /user/<name>/m/<feed>/search. */
+fun multiSearchPath(multi: String): String {
+    val parts = multi.trim().trim('/').removePrefix("user/").removePrefix("u/").split('/').filter { it.isNotEmpty() && it != "m" }
+    return "/user/${parts.getOrElse(0) { "" }}/m/${parts.getOrElse(1) { "" }}/search"
+}
+
 /** The endpoints the app uses, on top of [RedditClient]. */
 class RedditApi(private val client: RedditClient) {
 
@@ -166,8 +172,13 @@ class RedditApi(private val client: RedditClient) {
         // mark=false: opening a box shouldn't silently mark everything read.
         Parser.inbox(client.get("/message/${box.path}", mapOf("after" to after, "limit" to "50", "mark" to "false")))
 
-    suspend fun searchPosts(query: String, subreddit: String?, sort: SearchSort, after: String?): Listing<Post> {
-        val path = if (subreddit == null) "/search" else "/r/$subreddit/search"
+    /** [multi] ("user/feedname") searches inside a custom feed instead of a community. */
+    suspend fun searchPosts(query: String, subreddit: String?, sort: SearchSort, after: String?, multi: String? = null): Listing<Post> {
+        val path = when {
+            multi != null -> multiSearchPath(multi)
+            subreddit == null -> "/search"
+            else -> "/r/$subreddit/search"
+        }
         return Parser.postListing(
             client.get(
                 path,
@@ -176,7 +187,7 @@ class RedditApi(private val client: RedditClient) {
                     "sort" to sort.param,
                     "t" to sort.time,
                     "type" to "link",
-                    "restrict_sr" to subreddit?.let { "on" },
+                    "restrict_sr" to (subreddit ?: multi)?.let { "on" },
                     "after" to after,
                     "limit" to "25",
                 ),

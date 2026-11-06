@@ -250,11 +250,20 @@ enum class InboxBox(val path: String, val label: String) {
 
 enum class SearchSort(val param: String, val label: String, val time: String? = null) {
     RELEVANCE("relevance", "Relevance"),
-    HOT("hot", "Hot"),
     NEW("new", "New"),
+    HOT("hot", "Hot"),
+    TOP_ALL("top", "Top", "all"),
     TOP_WEEK("top", "Top: this week", "week"),
-    TOP_ALL("top", "Top: all time", "all"),
-    COMMENTS("comments", "Most comments"),
+    COMMENTS("comments", "Comments"),
+}
+
+/** Sync's search "Options" modes for post search; "Search subs" is the Communities tab instead. */
+enum class SearchMode(val label: String, val hint: String) {
+    SEARCH("Search", ""),
+    SUBREDDIT("Subreddit", "Community, e.g. pics"),
+    CUSTOM_FEED("Custom feed", "Multireddit, e.g. username/feedname"),
+    PROFILE("Profile", "Username"),
+    DOMAIN("Domain", "Domain, e.g. imgur.com"),
 }
 
 enum class CommentSort(val param: String, val label: String) {

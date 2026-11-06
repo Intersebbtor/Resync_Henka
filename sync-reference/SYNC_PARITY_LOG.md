@@ -453,7 +453,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Customize view | per-mode toggles, fonts, live preview | — | ❌ |
 | Feed sorts | Best/Hot/New/Rising/Top×6/Controversial×6/Comments | all of them in Sync's top sheet; "Comments" shows the feed's newest comments as Sync's cards (italic post title, author, score, age, sub) and opens each in its thread | ✅ |
 | Comment sorts | Top/Best/New/Old/Controversial/Q&A | same | ✅ |
-| Search sorts | Relevance/New/Hot/Top/Comments + search modes (sub, multi, subs, profile, domain) | Relevance/Hot/New/Top×2/Comments, sub scope | ◐ |
+| Search sorts | Relevance/New/Hot/Top/Comments + search modes (sub, multi, subs, profile, domain) | Relevance/New/Hot/Top (+ Top: this week)/Comments; Options dialog with modes Search, Subreddit, Custom feed, Search subs, Profile, Domain (unverified on device) | ◐ (no collapsing large title) |
 | More actions grid (configurable, 24 actions) | yes | grid of 9 (Search, Profile, About, Submit, Dark mode, Settings, Change view, Refresh, Saved) | ◐ (not configurable) |
 | Post options sheet | ~22 actions incl. Copy…, Filter…, Watch, Explore domain, Add to multi | Sync's layout and order: Hide, Mark as read, Share, Watch (new-comment notifications), Report / u, r, Explore domain (the site's feed), Open in browser / Copy… (title, permalink, link, username), Filter… (community, user, domain; undone in Settings), Edit, Delete | ◐ (no Add to multi or share-type ⋮) |
 | Read-state dimming, Hide read | yes | opened posts dim in feeds (local) | ◐ (no Hide read) |

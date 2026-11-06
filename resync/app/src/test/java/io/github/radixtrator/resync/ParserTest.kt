@@ -524,3 +524,11 @@ class WikiTest {
         org.junit.Assert.assertEquals(listOf(Wiki.Heading(1, "One"), Wiki.Heading(2, "Two & more")), h)
     }
 }
+
+class SearchPathTest {
+    @org.junit.Test
+    fun `custom feed search paths`() {
+        org.junit.Assert.assertEquals("/user/bob/m/news/search", io.github.radixtrator.resync.data.multiSearchPath("bob/news"))
+        org.junit.Assert.assertEquals("/user/bob/m/news/search", io.github.radixtrator.resync.data.multiSearchPath("/u/bob/m/news/"))
+    }
+}

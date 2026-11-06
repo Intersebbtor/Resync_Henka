@@ -64,6 +64,13 @@ import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.data.Listing
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.SearchSort
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import io.github.radixtrator.resync.data.SearchMode
 import io.github.radixtrator.resync.data.Subreddit
 import io.github.radixtrator.resync.ui.common.AppIcons
 import io.github.radixtrator.resync.ui.common.Format
@@ -83,6 +90,10 @@ class SearchPostsViewModel(container: AppContainer, query: String, private val s
     private val _query = MutableStateFlow(query)
     private val _sort = MutableStateFlow(SearchSort.RELEVANCE)
     val sort = _sort.asStateFlow()
+    private val _mode = MutableStateFlow(SearchMode.SEARCH)
+    val mode = _mode.asStateFlow()
+    private val _target = MutableStateFlow("")
+    val target = _target.asStateFlow()
     private val _restrict = MutableStateFlow(subreddit != null)
     val restrict = _restrict.asStateFlow()
 
@@ -93,7 +104,15 @@ class SearchPostsViewModel(container: AppContainer, query: String, private val s
     override suspend fun fetch(after: String?): Listing<Post> {
         val q = _query.value.trim()
         if (q.isEmpty()) return Listing(emptyList(), null)
-        return container.api.searchPosts(q, subreddit.takeIf { _restrict.value }, _sort.value, after)
+        val target = _target.value.trim().removePrefix("r/").removePrefix("/r/").removePrefix("u/").removePrefix("/u/")
+        if (_mode.value != SearchMode.SEARCH && target.isEmpty()) return Listing(emptyList(), null)
+        return when (_mode.value) {
+            SearchMode.SEARCH -> container.api.searchPosts(q, subreddit.takeIf { _restrict.value }, _sort.value, after)
+            SearchMode.SUBREDDIT -> container.api.searchPosts(q, target, _sort.value, after)
+            SearchMode.CUSTOM_FEED -> container.api.searchPosts(q, null, _sort.value, after, multi = target)
+            SearchMode.PROFILE -> container.api.searchPosts("author:$target $q", null, _sort.value, after)
+            SearchMode.DOMAIN -> container.api.searchPosts("site:$target $q", null, _sort.value, after)
+        }
     }
 
     override fun keyOf(item: Post) = item.fullname
@@ -111,6 +130,12 @@ class SearchPostsViewModel(container: AppContainer, query: String, private val s
 
     fun setSort(sort: SearchSort) {
         _sort.value = sort
+        search(_query.value)
+    }
+
+    fun setMode(mode: SearchMode, target: String) {
+        _mode.value = mode
+        _target.value = target
         search(_query.value)
     }
 
@@ -150,6 +175,8 @@ fun SearchScreen(initialQuery: String, subreddit: String?, container: AppContain
     val postState by posts.state.collectAsStateWithLifecycle()
     val communityState by communities.state.collectAsStateWithLifecycle()
     val restrict by posts.restrict.collectAsStateWithLifecycle()
+    val mode by posts.mode.collectAsStateWithLifecycle()
+    val target by posts.target.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf(initialQuery) }
     var tab by rememberSaveable { mutableIntStateOf(if (communitiesTab) 1 else 0) }
     val focus = remember { FocusRequester() }
@@ -201,7 +228,12 @@ fun SearchScreen(initialQuery: String, subreddit: String?, container: AppContain
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Posts") })
                 Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Communities") })
             }
-            if (tab == 0 && subreddit != null) {
+            if (tab == 0) {
+                SearchOptions(mode, target) { m, t ->
+                    if (m == null) tab = 1 else posts.setMode(m, t)
+                }
+            }
+            if (tab == 0 && subreddit != null && mode == SearchMode.SEARCH) {
                 FilterChip(
                     selected = restrict,
                     onClick = { posts.setRestrict(!restrict) },
@@ -266,4 +298,52 @@ private fun SearchSortMenu(onPick: (SearchSort) -> Unit) {
             SearchSort.entries.forEach { sort -> DropdownMenuItem(text = { Text(sort.label) }, onClick = { open = false; onPick(sort) }) }
         }
     }
+}
+
+/**
+ * Sync's search "Options" ("Edit current"): a chip showing the current mode that opens a dialog of mode chips
+ * (Search, Subreddit, Custom feed, Search subs, Profile, Domain) and, for most, a target field. "Search subs"
+ * hands over to the Communities tab ([onChange] gets a null mode).
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SearchOptions(mode: SearchMode, target: String, onChange: (SearchMode?, String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    AssistChip(
+        onClick = { open = true },
+        label = { Text(if (mode == SearchMode.SEARCH) "Options" else "${mode.label}: $target") },
+        modifier = Modifier.padding(horizontal = 12.dp),
+    )
+    if (!open) return
+    var picked by remember { mutableStateOf<SearchMode?>(mode) }
+    var text by remember { mutableStateOf(target) }
+    AlertDialog(
+        onDismissRequest = { open = false },
+        title = { Text("Edit current") },
+        text = {
+            Column {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    (SearchMode.entries + listOf<SearchMode?>(null)).forEach { m ->
+                        FilterChip(selected = picked == m, onClick = { picked = m }, label = { Text(m?.label ?: "Search subs") })
+                    }
+                }
+                picked?.takeIf { it != SearchMode.SEARCH }?.let { m ->
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        singleLine = true,
+                        label = { Text(m.hint) },
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                open = false
+                onChange(picked, if (picked == SearchMode.SEARCH) "" else text)
+            }) { Text("Change") }
+        },
+        dismissButton = { TextButton(onClick = { open = false }) { Text("Cancel") } },
+    )
 }
