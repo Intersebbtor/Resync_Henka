@@ -85,6 +85,21 @@ enum class MessageCheck(val label: String, val minutes: Long?) {
 /** Sync's "HD Reddit video quality": when v.redd.it videos open in HD rather than SD (the player's HD button switches). */
 enum class VideoQuality(val label: String) { ALWAYS("Always"), WIFI("WiFi only"), NEVER("Never") }
 
+/**
+ * Sync's "Data saving mode" (Data options): while it applies, feeds leave thumbnails and card previews unloaded
+ * and Reddit videos open in SD. [MOBILE] is Sync's "Automagic": any metered connection.
+ */
+enum class DataSaving(val label: String) { NEVER("Never"), MOBILE("On mobile data"), ALWAYS("Always") }
+
+/** Sync's "Initial comment count": Reddit's `limit` for a post's first page of comments (500 is Reddit's ceiling). */
+enum class CommentCount(val label: String, val limit: Int) {
+    C50("50", 50),
+    C75("75", 75),
+    C100("100", 100),
+    C200("200", 200),
+    ALL("All (up to 500)", 500),
+}
+
 /** Sync's "Post media preview size" for the image or video above a post's comments. */
 enum class MediaPreviewSize(val label: String) { CROPPED("Cropped height"), FULL("Full height") }
 
@@ -139,6 +154,32 @@ data class Settings(
     val postSwipeActions: List<SwipeAction> = DEFAULT_POST_SWIPES,
     val commentSwipe: Boolean = true,
     val commentSwipeActions: List<SwipeAction> = DEFAULT_COMMENT_SWIPES,
+    /** Post options › Flair: flair chips on posts in feeds (Sync's "Hide post flair" is this off). */
+    val showPostFlair: Boolean = true,
+    /** Post options › "Show post author" in feed items' meta line. */
+    val showPostAuthor: Boolean = true,
+    /** Post options › "Display short scores": 10.6k rather than 10,600 in feeds. */
+    val shortScores: Boolean = true,
+    /** History › "Mark posts as read on scroll": posts scrolled past in a feed count as read. */
+    val markReadOnScroll: Boolean = false,
+    /** Comments › "Hide AutoMod comments", replies included. */
+    val hideAutoMod: Boolean = false,
+    /** Comments › "Show user flair" in comment headers. */
+    val commentFlair: Boolean = true,
+    /** Comment options › "Collapse all threads by default" on a post's first open. */
+    val collapseAllByDefault: Boolean = false,
+    /** Comment options › "Initial comment count". 200 is what Resync always asked for (Sync's default is 75). */
+    val commentCount: CommentCount = CommentCount.C200,
+    /** Media › "Tap to close" the image viewer. */
+    val tapToClose: Boolean = true,
+    /** Media › "Swipe to close" the image and video viewers with a vertical fling. */
+    val swipeToClose: Boolean = true,
+    /** Media › Video / GIF playback: "Display seek bar". */
+    val videoSeekBar: Boolean = true,
+    /** Media › Video / GIF playback: "Display speed controls" (in the player's ⋮ panel). */
+    val videoSpeedControls: Boolean = true,
+    /** Data options › "Data saving mode". Never is how Resync always behaved (Sync's default is Automagic). */
+    val dataSaving: DataSaving = DataSaving.NEVER,
     /** Per-feed overrides of [layout], keyed by [feedKey], like Sync's per-subreddit view. */
     val feedLayouts: Map<String, PostLayout> = emptyMap(),
     /** Sync's Customize view choices, per layout; a layout missing here uses the [ViewOptions] defaults. */

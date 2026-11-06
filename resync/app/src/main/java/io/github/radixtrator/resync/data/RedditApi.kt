@@ -42,18 +42,22 @@ class RedditApi(private val client: RedditClient) {
     suspend fun postNow(id: String): Post =
         Parser.comments(client.get("/comments/$id", mapOf("limit" to "1", "depth" to "1"))).post
 
-    /** [focusCommentId] narrows the page to that comment's subtree, with [context] parents above it. */
+    /**
+     * [focusCommentId] narrows the page to that comment's subtree, with [context] parents above it. [limit] is how
+     * many comments the first page holds (Sync's "Initial comment count"; Reddit stops at 500).
+     */
     suspend fun comments(
         postId: String,
         sort: CommentSort,
         focusCommentId: String? = null,
         context: Int = 0,
+        limit: Int = 200,
     ): PostWithComments = Parser.comments(
         client.get(
             "/comments/$postId",
             mapOf(
                 "sort" to sort.param,
-                "limit" to "200",
+                "limit" to limit.toString(),
                 "comment" to focusCommentId,
                 "context" to context.takeIf { focusCommentId != null && it > 0 }?.toString(),
             ),

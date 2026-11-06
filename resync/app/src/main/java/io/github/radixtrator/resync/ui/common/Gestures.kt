@@ -80,12 +80,14 @@ private suspend fun PointerInputScope.claimDrags(
 /**
  * Fling media up or down to close it, like Sync's viewer. The backdrop fades as it moves. With
  * [onSwipeUp], only a downward fling closes it: swiping up calls that instead (Sync's info sheet) and
- * the media springs back.
+ * the media springs back. [dismissOnDrag] false (Sync's "Swipe to close" off) keeps the media from closing on a
+ * fling; a swipe up still reaches [onSwipeUp].
  */
 @Composable
 fun DismissibleMedia(
     onDismiss: () -> Unit,
     enabled: Boolean = true,
+    dismissOnDrag: Boolean = true,
     onSwipeUp: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
@@ -100,13 +102,17 @@ fun DismissibleMedia(
             .fillMaxSize()
             .onSizeChanged { height = it.height }
             .background(Color.Black.copy(alpha = 1f - progress * 0.85f))
-            .pointerInput(enabled) {
-                if (!enabled) return@pointerInput
+            .pointerInput(enabled, dismissOnDrag, onSwipeUp != null) {
+                if (!enabled || (!dismissOnDrag && onSwipeUp == null)) return@pointerInput
                 claimDrags(
                     Axis.VERTICAL,
                     scope,
-                    // Upward drags only hint at the sheet, so they move a fraction of the finger.
-                    onDelta = { offset.snapTo(offset.value + if (swipeUp != null && offset.value + it < 0f) it * 0.3f else it) },
+                    // Upward drags only hint at the sheet, so they move a fraction of the finger. Without
+                    // dismissing, the media never moves down.
+                    onDelta = {
+                        val next = offset.value + if (swipeUp != null && offset.value + it < 0f) it * 0.3f else it
+                        offset.snapTo(if (dismissOnDrag) next else next.coerceAtMost(0f))
+                    },
                     onEnd = { velocity ->
                         val up = swipeUp
                         when {
@@ -114,6 +120,7 @@ fun DismissibleMedia(
                                 if (offset.value < -height * 0.03f || velocity < -1500f) up()
                                 offset.animateTo(0f)
                             }
+                            !dismissOnDrag -> offset.animateTo(0f)
                             abs(offset.value) > height * 0.18f || abs(velocity) > 2500f -> onDismiss()
                             else -> offset.animateTo(0f)
                         }

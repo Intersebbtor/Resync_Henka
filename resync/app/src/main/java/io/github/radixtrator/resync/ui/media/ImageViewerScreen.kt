@@ -49,6 +49,7 @@ import coil3.compose.SubcomposeAsyncImageContent
 import io.github.radixtrator.resync.data.MediaDownloads
 import io.github.radixtrator.resync.ui.common.AppIcons
 import io.github.radixtrator.resync.ui.common.DismissibleMedia
+import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Locale
@@ -70,17 +71,22 @@ fun ImageViewerScreen(urls: List<String>, start: Int, postId: String?, downloads
     val backdrop by animateColorAsState(tints[pager.currentPage] ?: Color.Black, tween(600), label = "backdrop")
     var infoOpen by rememberSaveable { mutableStateOf(false) }
     val download = rememberDownloader(downloads)
+    // Media › "Tap to close" and "Swipe to close".
+    val settings = LocalSettings.current
     BackHandler(enabled = infoOpen) { infoOpen = false }
     DismissibleMedia(
         onDismiss = onClose,
         enabled = zoomed[pager.currentPage] != true && !infoOpen,
+        dismissOnDrag = settings.swipeToClose,
         onSwipeUp = { infoOpen = true },
     ) {
         Box(Modifier.fillMaxSize().background(backdrop)) {
             HorizontalPager(state = pager, beyondViewportPageCount = 1, pageSpacing = 16.dp, modifier = Modifier.fillMaxSize()) { page ->
                 ZoomableImage(
                     urls[page],
-                    onTap = { if (infoOpen) infoOpen = false else onClose() },
+                    onTap = {
+                        if (infoOpen) infoOpen = false else if (settings.tapToClose) onClose()
+                    },
                     onZoomChange = { zoomed[page] = it },
                     onTint = { tints[page] = it },
                 )
