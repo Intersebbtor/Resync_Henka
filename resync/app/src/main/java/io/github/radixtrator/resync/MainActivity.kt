@@ -42,6 +42,9 @@ import io.github.radixtrator.resync.notify.Notifications
 import io.github.radixtrator.resync.ui.compose.ComposeScreen
 import io.github.radixtrator.resync.ui.compose.SubmitScreen
 import io.github.radixtrator.resync.ui.feed.FeedScreen
+import io.github.radixtrator.resync.ui.home.DualPaneDetail
+import io.github.radixtrator.resync.ui.home.DualPaneList
+import io.github.radixtrator.resync.ui.home.rememberDualPaneSceneStrategies
 import io.github.radixtrator.resync.ui.inbox.InboxScreen
 import io.github.radixtrator.resync.ui.login.LoginScreen
 import io.github.radixtrator.resync.ui.media.ImageViewerScreen
@@ -153,8 +156,9 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
                     )
                 }
                 entry<LoginRoute> { LoginScreen(container = container, onFinished = navigator::pop) }
-                entry<FeedRoute> { route -> FeedScreen(route, container) }
-                entry<PostRoute> { route -> PostScreen(route, container) }
+                // Tablet mode's dual pane puts a post beside the feed it was opened from (ui/home/DualPane.kt).
+                entry<FeedRoute>(metadata = DualPaneList) { route -> FeedScreen(route, container) }
+                entry<PostRoute>(metadata = DualPaneDetail) { route -> PostScreen(route, container) }
                 entry<ModRoute> { route -> ModScreen(route.subreddit, container) }
                 entry<SwipeModeRoute> { route -> SwipeModeScreen(route.subreddit, container) }
                 entry<ImageRoute>(metadata = MediaFade) { route -> ImageViewerScreen(route.urls, route.start, route.postId, container.downloads, onClose = navigator::pop) }
@@ -172,9 +176,12 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
         )
         LaunchedEffect(backStack.size) { SwipeBackState.popping = false }
         val previous: (@Composable () -> Unit)? = entries.getOrNull(entries.size - 2)?.let { entry -> { entry.Content() } }
+        // The dual pane scene sets LocalPreviousScreen for each of its panes, so neither redraws the other.
+        val sceneStrategies = rememberDualPaneSceneStrategies()
         CompositionLocalProvider(LocalPreviousScreen provides previous) {
             NavDisplay(
                 entries = entries,
+                sceneStrategies = sceneStrategies,
                 onBack = navigator::pop,
                 transitionSpec = { cardPush() },
                 popTransitionSpec = { if (SwipeBackState.popping) noTransition() else cardPop() },
