@@ -220,7 +220,7 @@ class RedditClient(
         private const val API_BASE = "https://oauth.reddit.com"
         private const val INSTALLED_CLIENT_GRANT = "https://oauth.reddit.com/grants/installed_client"
         private const val SCOPES =
-            "account,identity,edit,flair,history,mysubreddits,privatemessages,read,report,save,submit,subscribe,vote,wikiread"
+            "account,identity,edit,flair,history,mysubreddits,privatemessages,read,report,save,submit,subscribe,vote,wikiread,modposts,modflair,modmail"
         val JSON = Json { ignoreUnknownKeys = true }
     }
 }
