@@ -42,6 +42,26 @@ class ReaderQueueTest {
     }
 
     @Test
+    fun `with replies on, replies are read in thread order`() {
+        val post = Parser.post(RedditClient.JSON.parseToJsonElement("""{"id":"p","title":"Match thread"}""").jsonObject)
+        val comments = listOf(
+            comment("a", 0, "alice", "Goal!"),
+            comment("b", 1, "bob", "Offside"),
+            comment("c", 2, "carol", "[removed]"),
+            comment("d", 0, "dave", "What a save"),
+        )
+        assertEquals(
+            listOf(
+                ReaderItem("Post", "Match thread"),
+                ReaderItem("u/alice", "alice.\nGoal!"),
+                ReaderItem("u/bob · reply", "bob replies.\nOffside"),
+                ReaderItem("u/dave", "dave.\nWhat a save"),
+            ),
+            readerQueue(post, comments, plain, replies = true),
+        )
+    }
+
+    @Test
     fun `a link post is just its title`() {
         val post = Parser.post(RedditClient.JSON.parseToJsonElement("""{"id":"p","title":"A link"}""").jsonObject)
         assertEquals(listOf(ReaderItem("Post", "A link")), readerQueue(post, emptyList(), plain))
