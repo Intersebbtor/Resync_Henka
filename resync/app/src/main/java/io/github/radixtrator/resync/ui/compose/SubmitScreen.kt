@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,6 +47,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.radixtrator.resync.AppContainer
+import io.github.radixtrator.resync.data.LinkFlair
+import io.github.radixtrator.resync.ui.feed.RulesSheet
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.PostRoute
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,7 +62,7 @@ class SubmitViewModel(private val container: AppContainer) : ViewModel() {
     private val _state = MutableStateFlow(State())
     val state = _state.asStateFlow()
 
-    fun submit(subreddit: String, title: String, isLink: Boolean, body: String, nsfw: Boolean, spoiler: Boolean) {
+    fun submit(subreddit: String, title: String, isLink: Boolean, body: String, nsfw: Boolean, spoiler: Boolean, sendReplies: Boolean, flair: LinkFlair?) {
         if (_state.value.sending) return
         if (container.username.value == null) {
             _state.value = State(error = "Log in to post")
@@ -68,7 +71,7 @@ class SubmitViewModel(private val container: AppContainer) : ViewModel() {
         _state.value = State(sending = true)
         viewModelScope.launch {
             runCatching {
-                container.api.submit(subreddit.trim().removePrefix("r/").removePrefix("/r/"), title.trim(), isLink, body.trim(), nsfw, spoiler)
+                container.api.submit(subreddit.trim().removePrefix("r/").removePrefix("/r/"), title.trim(), isLink, body.trim(), nsfw, spoiler, sendReplies, flair)
             }.onSuccess { _state.value = State(postId = it) }
                 .onFailure { e -> _state.value = State(error = e.message ?: "Couldn't post") }
         }
@@ -90,6 +93,13 @@ fun SubmitScreen(initialSubreddit: String?, container: AppContainer) {
     var url by rememberSaveable { mutableStateOf("") }
     var nsfw by rememberSaveable { mutableStateOf(false) }
     var spoiler by rememberSaveable { mutableStateOf(false) }
+    var sendReplies by rememberSaveable { mutableStateOf(true) }
+    var flairText by rememberSaveable { mutableStateOf<String?>(null) }
+    var flairId by rememberSaveable { mutableStateOf<String?>(null) }
+    var flairColor by rememberSaveable { mutableStateOf<Int?>(null) }
+    var flairOpen by rememberSaveable { mutableStateOf(false) }
+    var rulesOpen by rememberSaveable { mutableStateOf(false) }
+    val community = subreddit.trim().removePrefix("r/").removePrefix("/r/")
     val snackbar = remember { SnackbarHostState() }
     val canPost = subreddit.isNotBlank() && title.isNotBlank() && (!isLink || url.startsWith("http")) && !state.sending
 
@@ -100,6 +110,16 @@ fun SubmitScreen(initialSubreddit: String?, container: AppContainer) {
             vm.errorShown()
         }
     }
+
+    if (flairOpen) {
+        FlairPickerSheet(container, community, onDismiss = { flairOpen = false }) { picked ->
+            flairText = picked?.text
+            flairId = picked?.id
+            flairColor = picked?.color
+            flairOpen = false
+        }
+    }
+    if (rulesOpen) RulesSheet(container, community, onDismiss = { rulesOpen = false })
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -113,7 +133,10 @@ fun SubmitScreen(initialSubreddit: String?, container: AppContainer) {
                     } else {
                         TextButton(
                             enabled = canPost,
-                            onClick = { vm.submit(subreddit, title, isLink, if (isLink) url else body.text, nsfw, spoiler) },
+                            onClick = {
+                                val flair = flairText?.let { LinkFlair(it, flairColor, flairId) }
+                                vm.submit(subreddit, title, isLink, if (isLink) url else body.text, nsfw, spoiler, sendReplies, flair)
+                            },
                         ) { Text("Post") }
                     }
                 },
@@ -131,12 +154,25 @@ fun SubmitScreen(initialSubreddit: String?, container: AppContainer) {
         ) {
             OutlinedTextField(
                 value = subreddit,
-                onValueChange = { subreddit = it.trim().removePrefix("r/") },
+                onValueChange = {
+                    // A flair belongs to its community.
+                    if (it.trim().removePrefix("r/") != subreddit) {
+                        flairText = null
+                        flairId = null
+                    }
+                    subreddit = it.trim().removePrefix("r/")
+                },
                 label = { Text("Community") },
                 prefix = { Text("r/") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
+            if (community.isNotBlank()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AssistChip(onClick = { flairOpen = true }, label = { Text(flairText?.let { "Flair: $it" } ?: "Add flair") })
+                    AssistChip(onClick = { rulesOpen = true }, label = { Text("Community rules") })
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = !isLink, onClick = { isLink = false }, label = { Text("Text") })
                 FilterChip(selected = isLink, onClick = { isLink = true }, label = { Text("Link") })
@@ -171,6 +207,35 @@ fun SubmitScreen(initialSubreddit: String?, container: AppContainer) {
                 Text("NSFW")
                 Checkbox(checked = spoiler, onCheckedChange = { spoiler = it })
                 Text("Spoiler")
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = sendReplies, onCheckedChange = { sendReplies = it })
+                Text("Send replies to my inbox")
+            }
+        }
+    }
+}
+
+/** Flairs the community lets you pick on a new post (only those with a template id can be submitted). */
+@Composable
+private fun FlairPickerSheet(container: AppContainer, subreddit: String, onDismiss: () -> Unit, onPick: (LinkFlair?) -> Unit) {
+    val flairs by androidx.compose.runtime.produceState<Result<List<LinkFlair>>?>(null, subreddit) {
+        value = runCatching { container.api.linkFlairs(subreddit).filter { it.id != null } }
+            .onFailure { if (it is kotlin.coroutines.cancellation.CancellationException) throw it }
+    }
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Flair", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+            when (val result = flairs) {
+                null -> CircularProgressIndicator(Modifier.padding(16.dp))
+                else -> result.fold(
+                    onSuccess = { list ->
+                        if (list.isEmpty()) Text("r/$subreddit has no flairs you can pick")
+                        TextButton(onClick = { onPick(null) }) { Text("No flair") }
+                        list.forEach { f -> AssistChip(onClick = { onPick(f) }, label = { Text(f.text) }) }
+                    },
+                    onFailure = { Text("Couldn't load flairs: ${it.message}") },
+                )
             }
         }
     }

@@ -131,7 +131,7 @@ data class ReportReason(val text: String, val siteRule: Boolean)
 data class SubredditRule(val name: String, val descriptionHtml: String?)
 
 /** One of a community's post flairs, for the Flairs chip. [color] is its background (ARGB), if it has one. */
-data class LinkFlair(val text: String, val color: Int?)
+data class LinkFlair(val text: String, val color: Int?, val id: String? = null)
 
 /** The post flairs used in [posts], most used first. */
 fun flairsOf(posts: List<Post>): List<LinkFlair> = posts

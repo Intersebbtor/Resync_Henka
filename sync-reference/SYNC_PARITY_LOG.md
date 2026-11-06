@@ -444,7 +444,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Navigation shell | Bottom nav Posts / Explore / Inbox + avatar account card + FAB (drawer is an option; nav rail in tablet mode) | bottom nav, account card, ⋯ FAB (tap: More actions, long-press: Explore search), hide on scroll | ✅ (no drawer option / rail) |
 | Swipe actions on posts/comments | extended 3-stage, configurable, colored panels | extended swipe (72/144/216dp stages), Sync's colors and defaults, haptic ticks, configurable in Settings | ✅ (no swipe-to-hide mode, no forced vibration) |
 | Swipe mode (one post per page, horizontal) | yes | — | ❌ |
-| Submit | Text / Link / Photo, flair, rules, spoiler, NSFW, replies toggle | text + link posts | ◐ (no photo, flair, rules?) |
+| Submit | Text / Link / Photo, flair, rules, spoiler, NSFW, replies toggle | text + link posts, flair picker, community rules sheet, spoiler / NSFW / send-replies toggles (unverified on device) | ◐ (no photo posts) |
 | Light theme + Monet palette, AMOLED, extra-colorful tweaks | yes | Sync's sampled Monet palette (light + dark) as the default theme, black, Material You, Dark mode quick toggle | ◐ (no tweaks/manual seed) |
 | Mod tools (modqueue, reports, spam, edited, unmoderated) | yes | — | ❌ |
 | Tablet mode (nav rail, dual pane, tabbed comments) | yes (off here) | — | ❌ |
@@ -454,9 +454,9 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Feed sorts | Best/Hot/New/Rising/Top×6/Controversial×6/Comments | all of them in Sync's top sheet; "Comments" shows the feed's newest comments as Sync's cards (italic post title, author, score, age, sub) and opens each in its thread | ✅ |
 | Comment sorts | Top/Best/New/Old/Controversial/Q&A | same | ✅ |
 | Search sorts | Relevance/New/Hot/Top/Comments + search modes (sub, multi, subs, profile, domain) | Relevance/New/Hot/Top (+ Top: this week)/Comments; Options dialog with modes Search, Subreddit, Custom feed, Search subs, Profile, Domain (unverified on device) | ◐ (no collapsing large title) |
-| More actions grid (configurable, 24 actions) | yes | grid of 9 (Search, Profile, About, Submit, Dark mode, Settings, Change view, Refresh, Saved) | ◐ (not configurable) |
+| More actions grid (configurable, 24 actions) | yes | grid of 14 (Search, Profile, Hide read, About, Submit, Random, Dark mode, Settings, Change view, Refresh, Saved, Inbox, Filters, Watched); Settings › Action visibility switches each off (unverified on device) | ◐ (10 of Sync's 24 actions missing, no reordering) |
 | Post options sheet | ~22 actions incl. Copy…, Filter…, Watch, Explore domain, Add to multi | Sync's layout and order: Hide, Mark as read, Share, Watch (new-comment notifications), Report / u, r, Explore domain (the site's feed), Open in browser / Copy… (title, permalink, link, username), Filter… (community, user, domain; undone in Settings), Edit, Delete | ◐ (no Add to multi or share-type ⋮) |
-| Read-state dimming, Hide read | yes | opened posts dim in feeds (local) | ◐ (no Hide read) |
+| Read-state dimming, Hide read | yes | opened posts dim in feeds (local); Settings › Hide read posts and a More actions toggle leave out posts opened before the feed loaded (unverified on device) | ✅ |
 | Comment rails | 5-color cycle, 16 dp indent | Sync's palette, a rail for every ancestor level, 16dp indent | ✅ |
 | Comment profile pictures ("Show profile pictures") | yes | authors' avatars from Reddit's account data, fetched in batches as comments load; NSFW ones and missing ones fall back to the initial; setting to turn off | ✅ |
 | Tap-to-collapse with "+n" pill | yes | tap folds the replies, "+N" pill; the comment itself stays readable | ✅ |

@@ -241,6 +241,8 @@ class RedditApi(private val client: RedditClient) {
         body: String,
         nsfw: Boolean,
         spoiler: Boolean,
+        sendReplies: Boolean = true,
+        flair: LinkFlair? = null,
     ): String = Parser.submittedId(
         client.post(
             "/api/submit",
@@ -252,9 +254,9 @@ class RedditApi(private val client: RedditClient) {
                 (if (isLink) "url" else "text") to body,
                 "nsfw" to nsfw.toString(),
                 "spoiler" to spoiler.toString(),
-                "sendreplies" to "true",
+                "sendreplies" to sendReplies.toString(),
                 "resubmit" to "true",
-            ),
+            ) + (flair?.id?.let { mapOf("flair_id" to it, "flair_text" to flair.text) } ?: emptyMap()),
         ),
     )
 
