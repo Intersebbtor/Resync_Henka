@@ -78,6 +78,8 @@ data class Comment(
     val saved: Boolean = false,
     /** When the comment was last edited (epoch seconds), if Reddit says. */
     val editedUtc: Long? = null,
+    /** The author's account id (t2_…), for fetching their profile picture. */
+    val authorFullname: String? = null,
 ) : CommentNode
 
 /** A "load more comments" stub. Empty [children] means "continue this thread" (needs a new page). */

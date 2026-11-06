@@ -80,6 +80,7 @@ class PostViewModel(
                     )
                 }
                 if (_subredditIcon.value == null) loadSubredditIcon(result.post.subreddit)
+                loadAvatars(result.comments)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -145,6 +146,11 @@ class PostViewModel(
         if (remembering && _state.value.post != null) container.postMemory.saveScroll(memoryKey, index, offset)
     }
 
+    private fun loadAvatars(nodes: List<CommentNode>) {
+        if (!container.settings.settings.value.profilePictures) return
+        viewModelScope.launch { container.avatars.load(nodes.mapNotNull { (it as? Comment)?.authorFullname }) }
+    }
+
     private fun loadSubredditIcon(subreddit: String) {
         viewModelScope.launch {
             runCatching { container.api.subredditAbout(subreddit) }.onSuccess { _subredditIcon.value = it.iconUrl }
@@ -158,6 +164,7 @@ class PostViewModel(
         viewModelScope.launch {
             try {
                 val loaded = container.api.moreChildren(post.fullname, more.children, _state.value.sort)
+                loadAvatars(loaded)
                 _state.update {
                     it.copy(
                         comments = CommentTree.splice(it.comments, more, loaded, remaining = more.children.drop(100)),

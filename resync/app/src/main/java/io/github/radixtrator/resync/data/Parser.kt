@@ -216,6 +216,16 @@ object Parser {
         )
     }
 
+    /**
+     * /api/user_data_by_account_ids: each account's profile picture by fullname. NSFW profile pictures are
+     * left out, so those authors keep their letter avatar.
+     */
+    fun avatars(root: JsonElement): Map<String, String> = (root as? JsonObject).orEmpty().mapNotNull { (id, value) ->
+        val d = value as? JsonObject ?: return@mapNotNull null
+        if (d.bool("profile_over_18")) return@mapNotNull null
+        d.string("profile_img")?.takeIf { it.startsWith("http") }?.let { id to it }
+    }.toMap()
+
     /** /r/sub/about/rules, in the community's order. */
     fun rules(root: JsonElement): List<SubredditRule> = root.jsonObject.arr("rules").orEmpty().mapNotNull { element ->
         val d = element as? JsonObject ?: return@mapNotNull null
@@ -305,6 +315,7 @@ object Parser {
                 flair = flair(d, "author"),
                 saved = d.bool("saved"),
                 editedUtc = d.long("edited"),
+                authorFullname = d.string("author_fullname"),
             )
             "more" -> MoreComments(
                 id = id,

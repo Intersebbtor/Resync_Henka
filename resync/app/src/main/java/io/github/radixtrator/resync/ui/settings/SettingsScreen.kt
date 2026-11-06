@@ -128,6 +128,7 @@ fun SettingsScreen(container: AppContainer) {
                 Toggle("Comment navigation buttons", "Jump between top-level comments", settings.commentNavigation) { v -> update { it.copy(commentNavigation = v) } }
                 Toggle("Remember comment position", "Reopen posts where you left off, threads folded as you left them", settings.rememberCommentPosition) { v -> update { it.copy(rememberCommentPosition = v) } }
                 Toggle("Link cards", "Number links and list them under posts and comments", settings.linkCards) { v -> update { it.copy(linkCards = v) } }
+                Toggle("Show profile pictures", "Authors' avatars in comment headers", settings.profilePictures) { v -> update { it.copy(profilePictures = v) } }
 
                 Section("Reddit")
                 ListItem(

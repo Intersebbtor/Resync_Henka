@@ -5,6 +5,7 @@ import io.github.radixtrator.resync.data.Account
 import io.github.radixtrator.resync.data.AccountStore
 import io.github.radixtrator.resync.data.ApiConfig
 import io.github.radixtrator.resync.data.ApiConfigStore
+import io.github.radixtrator.resync.data.AvatarCache
 import io.github.radixtrator.resync.data.Comment
 import io.github.radixtrator.resync.data.ExploreStore
 import io.github.radixtrator.resync.data.MediaDownloads
@@ -44,6 +45,7 @@ class AppContainer(context: Context) {
     private val accountStore = AccountStore(prefs)
     val client = RedditClient(configStore, accountStore, context.assets)
     val api = RedditApi(client)
+    val avatars = AvatarCache(api)
 
     private val _username = MutableStateFlow(accountStore.active?.username)
     /** Active account name, or null when browsing logged out. Feeds reload when it changes. */

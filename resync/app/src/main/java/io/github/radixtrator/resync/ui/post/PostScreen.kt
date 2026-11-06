@@ -158,6 +158,8 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
     val vm = viewModel { PostViewModel(container, route.postId, route.commentId, route.context) }
     val state by vm.state.collectAsStateWithLifecycle()
     val subredditIcon by vm.subredditIcon.collectAsStateWithLifecycle()
+    val avatars by container.avatars.urls.collectAsStateWithLifecycle()
+    val showAvatars = LocalSettings.current.profilePictures
     val snackbar = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -310,6 +312,7 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
                         when (val node = row.node) {
                             is Comment -> CommentRow(
                                 comment = node,
+                                avatarUrl = node.authorFullname?.let { avatars[it] }.takeIf { showAvatars },
                                 collapsed = node.id in state.collapsed,
                                 hiddenCount = row.hiddenCount,
                                 separated = separated,
@@ -483,6 +486,7 @@ private fun contentStart(depth: Int): Dp = INDENT * (depth + 1)
 @Composable
 private fun CommentRow(
     comment: Comment,
+    avatarUrl: String?,
     collapsed: Boolean,
     hiddenCount: Int,
     separated: Boolean,
@@ -525,7 +529,7 @@ private fun CommentRow(
                     .rails(depth)
                     .padding(start = contentStart(depth), end = 16.dp, top = 12.dp, bottom = 12.dp),
             ) {
-                CommentHeader(comment, collapsed, hiddenCount)
+                CommentHeader(comment, avatarUrl, collapsed, hiddenCount)
                 // Collapsing a reply chain keeps the comment itself readable (Sync's default); a lone
                 // comment folds to its header.
                 if (!collapsed || hiddenCount > 0) {
@@ -552,7 +556,7 @@ private fun CommentRow(
 
 /** "avatar username [marks] [flair] 859 points • 4h", OP's name in a rounded tinted pill, "+N" when folded. */
 @Composable
-private fun CommentHeader(comment: Comment, collapsed: Boolean, hiddenCount: Int) {
+private fun CommentHeader(comment: Comment, avatarUrl: String?, collapsed: Boolean, hiddenCount: Int) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val nameColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
     val scoreColor = when (comment.likes) {
@@ -593,7 +597,7 @@ private fun CommentHeader(comment: Comment, collapsed: Boolean, hiddenCount: Int
         }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        UserAvatar(comment.author, 22.dp)
+        UserAvatar(comment.author, avatarUrl, 22.dp)
         Spacer(Modifier.width(8.dp))
         Text(
             text,
@@ -715,7 +719,12 @@ private fun MoreRow(more: MoreComments, separated: Boolean, loading: Boolean, on
 
 /** A colored initial: comment listings don't carry avatars, and fetching one per author is too costly. */
 @Composable
-private fun UserAvatar(name: String, size: Dp) {
+private fun UserAvatar(name: String, url: String?, size: Dp) {
+    // Snoovatars have transparent backgrounds, so a picture replaces the initial rather than covering it.
+    if (url != null) {
+        AsyncImage(url, null, contentScale = ContentScale.Crop, modifier = Modifier.size(size).clip(CircleShape))
+        return
+    }
     val color = ResyncColors.Depth[name.hashCode().absoluteValue % ResyncColors.Depth.size]
     Box(Modifier.size(size).clip(CircleShape).background(color.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
         Text(name.take(1).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)

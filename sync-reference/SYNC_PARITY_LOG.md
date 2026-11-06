@@ -217,7 +217,7 @@ Settings = PreferencesActivity (root + 25 subscreens)
   **preview card** (thumbnail + "(n) URL"). This also applies to links inside comments.
 - **Badges:** pinned 📌, mod 🛡, emoji flair, edited "21d*" + "(last edited 1d)".
 - **Comment rows** (no card, no divider between nested replies; a thick gap separates top-level threads):
-  - Small round avatar, **username**, "859 points • 4h" in gray, then the body.
+  - Small round avatar (the author's profile picture; "Show profile pictures" in Comments settings), **username**, "859 points • 4h" in gray, then the body.
   - OP gets a tinted pill around the name plus OP / mod / pinned icons. "[score hidden]" is shown when hidden.
   - Blockquotes get a gray bar and a tinted background.
   - Depth: 16 dp indent per level with colored rails (palette in §1). Rails of ancestor levels continue down the left side.
@@ -458,6 +458,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Post options sheet | ~22 actions incl. Copy…, Filter…, Watch, Explore domain, Add to multi | Sync's layout and order: Hide, Mark as read, Share / u, r, Open in browser / Copy… (title, permalink, link, username), Edit, Delete | ◐ (no Watch, Report, Explore domain, Filter…, Add to multi, share-type ⋮) |
 | Read-state dimming, Hide read | yes | opened posts dim in feeds (local) | ◐ (no Hide read) |
 | Comment rails | 5-color cycle, 16 dp indent | Sync's palette, a rail for every ancestor level, 16dp indent | ✅ |
+| Comment profile pictures ("Show profile pictures") | yes | authors' avatars from Reddit's account data, fetched in batches as comments load; NSFW ones and missing ones fall back to the initial; setting to turn off | ✅ |
 | Tap-to-collapse with "+n" pill | yes | tap folds the replies, "+N" pill; the comment itself stays readable | ✅ |
 | Long-press inline comment action bar | 7 buttons | ▲ ▼ 🔖 👤 ↩ ^ ⋮ bar under the highlighted comment | ✅ |
 | Comment ⋮: Select text, Tag user, Read aloud, Copy… | yes | Share, Open in browser, Select text, Copy… (text/permalink/username), Edit/Delete | ◐ (no Report, Tag user, Read aloud) |

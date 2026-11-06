@@ -283,6 +283,18 @@ class ParserTest {
     }
 
     @Test
+    fun `profile pictures parse, skipping NSFW ones`() {
+        val avatars = Parser.avatars(
+            RedditClient.JSON.parseToJsonElement(
+                """{"t2_a":{"name":"alice","profile_img":"https://styles.redditmedia.com/a.png","profile_over_18":false},
+                   "t2_b":{"name":"bob","profile_img":"https://styles.redditmedia.com/b.png","profile_over_18":true},
+                   "t2_c":{"name":"carol","profile_img":""}}""",
+            ),
+        )
+        assertEquals(mapOf("t2_a" to "https://styles.redditmedia.com/a.png"), avatars)
+    }
+
+    @Test
     fun `api errors surface as exceptions and posted comments parse`() {
         val error = RedditClient.JSON.parseToJsonElement(
             """{"json":{"errors":[["SUBREDDIT_NOEXIST","that community doesn't exist","sr"]]}}""",

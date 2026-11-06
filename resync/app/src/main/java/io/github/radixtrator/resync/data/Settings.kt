@@ -59,6 +59,8 @@ data class Settings(
     val rememberCommentPosition: Boolean = true,
     /** Footnote numbers on off-Reddit links, with a card per link under the text. */
     val linkCards: Boolean = true,
+    /** Sync's "Show profile pictures": authors' avatars in comment headers instead of their initial. */
+    val profilePictures: Boolean = true,
     /** Sync's extended swipe: drag left, and each further step arms the next of these three. */
     val postSwipe: Boolean = true,
     val postSwipeActions: List<SwipeAction> = DEFAULT_POST_SWIPES,

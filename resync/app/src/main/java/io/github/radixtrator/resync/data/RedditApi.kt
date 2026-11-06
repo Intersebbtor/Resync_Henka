@@ -101,6 +101,12 @@ class RedditApi(private val client: RedditClient) {
         return flairsOf(posts)
     }
 
+    /** Profile pictures by account fullname (t2_…); Reddit takes up to 100 ids a request. */
+    suspend fun avatars(accountIds: Collection<String>): Map<String, String> =
+        accountIds.chunked(100).fold(emptyMap()) { found, ids ->
+            found + Parser.avatars(client.get("/api/user_data_by_account_ids", mapOf("ids" to ids.joinToString(","))))
+        }
+
     suspend fun rules(subreddit: String): List<SubredditRule> = Parser.rules(client.get("/r/$subreddit/about/rules"))
 
     suspend fun moderators(subreddit: String): List<String> = Parser.moderators(client.get("/r/$subreddit/about/moderators"))
