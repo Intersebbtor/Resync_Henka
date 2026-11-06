@@ -14,6 +14,7 @@ enum class ExploreSection(val label: String, val header: String = label) {
     FEEDS("Feeds"),
     CUSTOM_FEEDS("Custom feeds"),
     SUBSCRIPTIONS("Subscriptions"),
+    FOLLOWS("Follows"),
     MODERATED("Moderated"),
     MOST_VISITED("Most visited", header = "Top"),
 }

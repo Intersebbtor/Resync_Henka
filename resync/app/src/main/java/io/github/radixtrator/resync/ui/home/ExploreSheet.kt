@@ -233,8 +233,11 @@ fun ExploreSheet(
                     section(ExploreSection.CUSTOM_FEEDS, customFeeds.map { it.feedName }) { feed -> customFeeds.first { it.feedName == feed }.name }
                     section(
                         ExploreSection.SUBSCRIPTIONS,
-                        if (explore.duplicateFavorites) subscriptions else subscriptions.filterNot(explore::isFavorite),
+                        (if (explore.duplicateFavorites) subscriptions else subscriptions.filterNot(explore::isFavorite))
+                            .filterNot { it.startsWith("u_", ignoreCase = true) },
                     )
+                    // Followed users are "u_name" profile communities in your subscriptions.
+                    section(ExploreSection.FOLLOWS, subscriptions.filter { it.startsWith("u_", ignoreCase = true) }) { "u/" + it.drop(2) }
                     section(ExploreSection.MODERATED, moderated)
                     val visited = explore.mostVisited()
                     section(ExploreSection.MOST_VISITED, visited.map { it.name }) { name ->
