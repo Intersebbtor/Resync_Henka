@@ -245,7 +245,15 @@ object AppIcons {
         }
     }
 
-    // Comment and post options: Report, Tag user.
+    // Comment and post options: Report, Tag user, Filter.
+    val Filter: ImageVector by lazy {
+        outline("Filter") {
+            moveTo(4f, 7f); lineTo(20f, 7f)
+            moveTo(7f, 12f); lineTo(17f, 12f)
+            moveTo(10f, 17f); lineTo(14f, 17f)
+        }
+    }
+
     val Report: ImageVector by lazy {
         outline("Report") {
             moveTo(12f, 3f); arcTo(9f, 9f, 0f, true, true, 12f, 21f); arcTo(9f, 9f, 0f, true, true, 12f, 3f); close()

@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.radixtrator.resync.AppContainer
@@ -66,6 +67,8 @@ fun SettingsScreen(container: AppContainer) {
     val settings by container.settings.settings.collectAsStateWithLifecycle()
     val update = container.settings::update
     val watched by container.watch.watched.collectAsStateWithLifecycle()
+    val watchedPosts by container.watch.posts.collectAsStateWithLifecycle()
+    val filters by container.filters.filters.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (!granted) Toast.makeText(context, "Allow notifications to hear about new messages", Toast.LENGTH_SHORT).show()
@@ -117,10 +120,10 @@ fun SettingsScreen(container: AppContainer) {
                         supportingContent = { Text("Tap Watch on a community to get a notification for each new post") },
                     )
                 }
-                if (watched.isNotEmpty()) {
+                if (watched.isNotEmpty() || watchedPosts.isNotEmpty()) {
                     ListItem(
                         headlineContent = { Text("Check now") },
-                        supportingContent = { Text("Look for new posts without waiting for the hourly check") },
+                        supportingContent = { Text("Look for new posts and comments without waiting for the hourly check") },
                         modifier = Modifier.clickable { WatchWorker.checkNow(context) },
                     )
                 }
@@ -135,6 +138,32 @@ fun SettingsScreen(container: AppContainer) {
                         },
                     )
                 }
+                if (watchedPosts.isNotEmpty()) {
+                    Section("Watched posts")
+                    watchedPosts.values.sortedBy { it.title.lowercase() }.forEach { post ->
+                        ListItem(
+                            headlineContent = { Text(post.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                            supportingContent = { Text("r/${post.subreddit} · new comments are checked every hour") },
+                            trailingContent = {
+                                IconButton(onClick = { container.unwatchPost(post.id) }) { Icon(Icons.Default.Close, "Stop watching") }
+                            },
+                        )
+                    }
+                }
+
+                // Sync's Filter… from post options; this is where to take them back.
+                Section("Filters")
+                if (filters.isEmpty) {
+                    ListItem(
+                        headlineContent = { Text("None yet") },
+                        supportingContent = { Text("Use Filter... in a post's options to hide a community, user or domain from feeds") },
+                    )
+                }
+                filters.subreddits.sorted().forEach { name ->
+                    FilterRow("r/$name", "Hidden outside r/$name itself") { container.filters.filterSubreddit(name, false) }
+                }
+                filters.users.sorted().forEach { name -> FilterRow("u/$name", "Posts hidden from feeds") { container.filters.filterUser(name, false) } }
+                filters.domains.sorted().forEach { domain -> FilterRow(domain, "Links hidden from feeds") { container.filters.filterDomain(domain, false) } }
 
                 Section("Swipe actions")
                 Toggle("Swipe posts", "Drag a post left; drag further for the next action", settings.postSwipe) { v -> update { it.copy(postSwipe = v) } }
@@ -167,6 +196,15 @@ fun SettingsScreen(container: AppContainer) {
             }
         }
     }
+}
+
+@Composable
+private fun FilterRow(title: String, subtitle: String, onRemove: () -> Unit) {
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(subtitle) },
+        trailingContent = { IconButton(onClick = onRemove) { Icon(Icons.Default.Close, "Stop filtering $title") } },
+    )
 }
 
 /** Sync's "First / Second / Third swipe action" rows. */

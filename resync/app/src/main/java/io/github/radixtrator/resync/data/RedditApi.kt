@@ -9,9 +9,13 @@ class RedditApi(private val client: RedditClient) {
 
     // --- Reading ---
 
-    /** [subreddit] null = front page. Also accepts "popular", "all" and "a+b" multis. */
-    suspend fun posts(subreddit: String?, sort: Sort, after: String?, limit: Int = 25): Listing<Post> {
-        val base = if (subreddit == null) "" else "/r/$subreddit"
+    /** [subreddit] null = front page, or with [domain] that site's posts. Also accepts "popular", "all" and "a+b" multis. */
+    suspend fun posts(subreddit: String?, sort: Sort, after: String?, limit: Int = 25, domain: String? = null): Listing<Post> {
+        val base = when {
+            domain != null -> "/domain/$domain"
+            subreddit == null -> ""
+            else -> "/r/$subreddit"
+        }
         val json = client.get(
             "$base/${sort.path}",
             mapOf("after" to after, "limit" to limit.toString(), "t" to sort.time?.param),
@@ -24,6 +28,13 @@ class RedditApi(private val client: RedditClient) {
         val base = if (subreddit == null) "" else "/r/$subreddit"
         return Parser.profileListing(client.get("$base/comments", mapOf("after" to after, "limit" to "25")))
     }
+
+    /**
+     * A post as it is now (its comment count, for watched posts). Reddit answers /by_id and /api/info with 403
+     * for this kind of client, so this asks for the post's page with a single comment.
+     */
+    suspend fun postNow(id: String): Post =
+        Parser.comments(client.get("/comments/$id", mapOf("limit" to "1", "depth" to "1"))).post
 
     /** [focusCommentId] narrows the page to that comment's subtree, with [context] parents above it. */
     suspend fun comments(

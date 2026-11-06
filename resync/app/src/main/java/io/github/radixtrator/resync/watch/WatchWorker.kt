@@ -16,18 +16,20 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.R
 import io.github.radixtrator.resync.ResyncApp
-import io.github.radixtrator.resync.notify.Notifications
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.Sort
 import io.github.radixtrator.resync.data.SortKind
+import io.github.radixtrator.resync.notify.Notifications
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Sync's watched-community check: every hour, each watched community's newest posts are compared with the
- * newest already seen, and each newer post gets a notification.
+ * Sync's watch check, every hour: each watched community's newest posts are compared with the newest already
+ * seen, and each newer post gets a notification; each watched post's comment count is compared with the last
+ * one, and new comments get one notification per post.
  */
 class WatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
@@ -47,7 +49,27 @@ class WatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
             fresh.takeLast(MAX_PER_CHECK).forEach { notify(applicationContext, community.name, it) }
             container.watch.markSeen(community.name, fresh.last().createdUtc)
         }
+        checkPosts(container)
         return Result.success()
+    }
+
+    private suspend fun checkPosts(container: AppContainer) {
+        val watched = container.watch.posts.value
+        if (watched.isEmpty()) return
+        for (id in watched.keys) {
+            val post = try {
+                container.api.postNow(id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Couldn't check watched post $id", e)
+                continue
+            }
+            val added = post.numComments - (watched[post.id]?.comments ?: continue)
+            if (added <= 0) continue
+            notifyComments(applicationContext, post, added)
+            container.watch.markComments(post.id, post.numComments)
+        }
     }
 
     companion object {
@@ -55,7 +77,9 @@ class WatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         private const val WORK = "watched-communities"
         private const val MAX_PER_CHECK = 5
         private const val CHANNEL = "watched"
+        private const val CHANNEL_POSTS = "watched-posts"
         private const val EXTRA_COMMUNITY = "io.github.radixtrator.resync.COMMUNITY"
+        private const val EXTRA_WATCHED_POST = "io.github.radixtrator.resync.WATCHED_POST"
         private const val EXTRA_NOTIFICATION = "io.github.radixtrator.resync.NOTIFICATION"
 
         /** Runs the check hourly while anything is watched, and stops it when nothing is. */
@@ -78,6 +102,36 @@ class WatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
                     .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                     .build(),
             )
+        }
+
+        /** "3 new comments" on a watched post; tapping opens it, "Stop watching" unwatches it. */
+        private fun notifyComments(context: Context, post: Post, added: Int) {
+            if (!Notifications.canNotify(context)) return
+            Notifications.channel(context, CHANNEL_POSTS, "Watched posts", "New comments on posts you watch")
+            val id = ("comments:" + post.id).hashCode()
+            val stop = PendingIntent.getBroadcast(
+                context,
+                id,
+                Intent(context, StopWatchingReceiver::class.java)
+                    .putExtra(EXTRA_WATCHED_POST, post.id)
+                    .putExtra(EXTRA_NOTIFICATION, id),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            val notification = NotificationCompat.Builder(context, CHANNEL_POSTS)
+                .setSmallIcon(R.drawable.ic_notification_watch)
+                .setContentTitle(if (added == 1) "1 new comment" else "$added new comments")
+                .setContentText(post.title)
+                .setSubText("r/${post.subreddit}")
+                .setStyle(NotificationCompat.BigTextStyle().bigText(post.title))
+                .setContentIntent(Notifications.openPost(context, id, post.id))
+                .setAutoCancel(true)
+                .addAction(0, "Stop watching", stop)
+                .build()
+            try {
+                NotificationManagerCompat.from(context).notify(id, notification)
+            } catch (e: SecurityException) {
+                Log.w(TAG, "Notification permission was revoked", e)
+            }
         }
 
         /** "r/pics" over the post's title. Tapping opens the post; "Stop watching" unwatches the community. */
@@ -114,13 +168,19 @@ class WatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         }
     }
 
-    /** The notification's "Stop watching" button (Sync's CancelWatchReceiver). */
+    /** The notification's "Stop watching" button (Sync's CancelWatchReceiver), for a community or a post. */
     class StopWatchingReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            val community = intent.getStringExtra(EXTRA_COMMUNITY) ?: return
-            (context.applicationContext as ResyncApp).container.setWatching(community, false)
+            val container = (context.applicationContext as ResyncApp).container
+            val community = intent.getStringExtra(EXTRA_COMMUNITY)
+            val post = intent.getStringExtra(EXTRA_WATCHED_POST)
+            when {
+                community != null -> container.setWatching(community, false)
+                post != null -> container.unwatchPost(post)
+                else -> return
+            }
             NotificationManagerCompat.from(context).cancel(intent.getIntExtra(EXTRA_NOTIFICATION, 0))
-            Toast.makeText(context, "Stopped watching r/$community", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, if (community != null) "Stopped watching r/$community" else "Stopped watching the post", Toast.LENGTH_SHORT).show()
         }
     }
 }

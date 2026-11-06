@@ -21,7 +21,7 @@ class ResyncApp : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         container = AppContainer(this)
         // KEEP leaves a running schedule alone; this only repairs one lost to a data wipe or an update.
-        WatchWorker.schedule(this, container.watch.watched.value.isNotEmpty())
+        WatchWorker.schedule(this, !container.watch.isEmpty)
         // Sync's message check: keeps the repeating check in line with the setting, or runs "On launch".
         InboxWorker.schedule(this, container.settings.settings.value.messageCheck)
     }

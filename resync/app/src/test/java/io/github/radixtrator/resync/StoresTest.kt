@@ -3,10 +3,13 @@ package io.github.radixtrator.resync
 import android.content.SharedPreferences
 import io.github.radixtrator.resync.data.ExploreSection
 import io.github.radixtrator.resync.data.ExploreStore
+import io.github.radixtrator.resync.data.FilterStore
 import io.github.radixtrator.resync.data.InboxItem
 import io.github.radixtrator.resync.data.NotifiedMessages
+import io.github.radixtrator.resync.data.Parser
 import io.github.radixtrator.resync.data.PostMemoryStore
 import io.github.radixtrator.resync.data.Recent
+import io.github.radixtrator.resync.data.RedditClient
 import io.github.radixtrator.resync.data.UserTags
 import io.github.radixtrator.resync.data.VisitedStore
 import io.github.radixtrator.resync.data.WatchStore
@@ -15,6 +18,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.jsonObject
 
 /** Just enough SharedPreferences for the stores, which only read and write strings. */
 private class FakePrefs : SharedPreferences {
@@ -84,6 +88,38 @@ class StoresTest {
         assertEquals("admin", UserTags(prefs).tagOf("spez"))
         tags.set("spez", " ")
         assertNull(UserTags(prefs).tagOf("SPEZ"))
+    }
+
+    @Test
+    fun `filters hide users and domains everywhere, communities outside themselves`() {
+        fun post(sub: String, author: String, domain: String) = Parser.post(
+            RedditClient.JSON.parseToJsonElement("""{"id":"x","title":"t","subreddit":"$sub","author":"$author","domain":"$domain"}""").jsonObject,
+        )
+        val store = FilterStore(FakePrefs())
+        store.filterSubreddit("Pics")
+        store.filterUser("Spammer")
+        store.filterDomain("Example.com")
+        val filters = store.filters.value
+        assertTrue(filters.hides(post("pics", "a", "i.redd.it"), feedCommunity = null))
+        assertTrue(!filters.hides(post("pics", "a", "i.redd.it"), feedCommunity = "PICS"))
+        assertTrue(filters.hides(post("gifs", "spammer", "i.redd.it"), feedCommunity = "gifs"))
+        assertTrue(filters.hides(post("gifs", "a", "example.com"), feedCommunity = "gifs"))
+        store.filterUser("spammer", on = false)
+        assertTrue(!store.filters.value.hides(post("gifs", "Spammer", "i.redd.it"), feedCommunity = null))
+    }
+
+    @Test
+    fun `watched posts remember their comment count`() {
+        val prefs = FakePrefs()
+        val post = Parser.post(RedditClient.JSON.parseToJsonElement("""{"id":"p1","title":"t","subreddit":"pics","num_comments":5}""").jsonObject)
+        WatchStore(prefs).watchPost(post)
+        val store = WatchStore(prefs)
+        assertEquals(5, store.posts.value["p1"]?.comments)
+        store.markComments("p1", 9)
+        store.markComments("p1", 7)
+        assertEquals(9, WatchStore(prefs).posts.value["p1"]?.comments)
+        store.unwatchPost("p1")
+        assertTrue(WatchStore(prefs).isEmpty)
     }
 
     @Test

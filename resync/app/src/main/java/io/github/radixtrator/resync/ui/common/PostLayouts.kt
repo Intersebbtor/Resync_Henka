@@ -495,7 +495,7 @@ fun distinguishedMarks(): Map<String, InlineTextContent> {
 }
 
 /** Sync drops ".com" ("thehill", "reddit") and keeps other hosts ("i.redd.it"); self posts show none. */
-private fun shortDomain(post: Post): String? = when {
+internal fun shortDomain(post: Post): String? = when {
     post.isSelf || post.domain.isEmpty() || post.domain.startsWith("self.") -> null
     else -> post.domain.removeSuffix(".com")
 }

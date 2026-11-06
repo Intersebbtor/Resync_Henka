@@ -9,8 +9,10 @@ import io.github.radixtrator.resync.data.ApiConfigStore
 import io.github.radixtrator.resync.data.AvatarCache
 import io.github.radixtrator.resync.data.Comment
 import io.github.radixtrator.resync.data.ExploreStore
+import io.github.radixtrator.resync.data.FilterStore
 import io.github.radixtrator.resync.data.MediaDownloads
 import io.github.radixtrator.resync.data.NotifiedMessages
+import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostMemoryStore
 import io.github.radixtrator.resync.data.RedditApi
 import io.github.radixtrator.resync.data.RedditClient
@@ -51,6 +53,7 @@ class AppContainer(context: Context) {
     val watch = WatchStore(prefs)
     val notifiedMessages = NotifiedMessages(prefs)
     val tags = UserTags(prefs)
+    val filters = FilterStore(prefs)
     val readAloud = ReadAloud(context)
     private val appContext = context.applicationContext
     private val accountStore = AccountStore(prefs)
@@ -101,7 +104,18 @@ class AppContainer(context: Context) {
     /** Sync's Watch: notify about [community]'s posts from now on, keeping the hourly check scheduled only while needed. */
     fun setWatching(community: String, on: Boolean) {
         if (on) watch.watch(community, since = System.currentTimeMillis() / 1000) else watch.unwatch(community)
-        WatchWorker.schedule(appContext, watch.watched.value.isNotEmpty())
+        WatchWorker.schedule(appContext, !watch.isEmpty)
+    }
+
+    /** Sync's post Watch: notify about new comments on [post] from now on. */
+    fun setWatchingPost(post: Post, on: Boolean) {
+        if (on) watch.watchPost(post) else watch.unwatchPost(post.id)
+        WatchWorker.schedule(appContext, !watch.isEmpty)
+    }
+
+    fun unwatchPost(id: String) {
+        watch.unwatchPost(id)
+        WatchWorker.schedule(appContext, !watch.isEmpty)
     }
 
     fun emit(event: ContentEvent) {

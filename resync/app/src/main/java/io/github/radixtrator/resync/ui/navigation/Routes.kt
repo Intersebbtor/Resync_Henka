@@ -21,9 +21,9 @@ data object SettingsRoute : NavKey
 @Serializable
 data class InboxRoute(val home: Boolean = false) : NavKey
 
-/** [subreddit] null = front page. See [InboxRoute] for [home]. */
+/** [subreddit] null = front page, unless [domain] asks for a site's posts (Sync's "Explore domain"). See [InboxRoute] for [home]. */
 @Serializable
-data class FeedRoute(val subreddit: String? = null, val home: Boolean = false) : NavKey
+data class FeedRoute(val subreddit: String? = null, val home: Boolean = false, val domain: String? = null) : NavKey
 
 /** [commentId] opens just that comment's thread, with [context] parent comments above it. */
 @Serializable

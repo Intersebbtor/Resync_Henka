@@ -2,6 +2,10 @@
 
 package io.github.radixtrator.resync.ui.common
 
+import android.Manifest
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,9 +15,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
@@ -30,17 +36,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.radixtrator.resync.data.NsfwMode
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.SwipeAction
+import io.github.radixtrator.resync.notify.Notifications
 import io.github.radixtrator.resync.ui.navigation.ComposeMode
 import io.github.radixtrator.resync.ui.navigation.ComposeRoute
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.LocalAccount
+import io.github.radixtrator.resync.ui.navigation.LocalContainer
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import io.github.radixtrator.resync.ui.navigation.PostRoute
@@ -143,8 +153,27 @@ fun PostActionsSheet(
     val isOwn = LocalAccount.current?.equals(post.author, ignoreCase = true) == true
     val permalink = "https://www.reddit.com${post.permalink}"
     var copying by remember { mutableStateOf(false) }
+    var filtering by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var reporting by remember { mutableStateOf(false) }
+    val container = LocalContainer.current
+    val context = LocalContext.current
+    val watchedPosts by container.watch.posts.collectAsStateWithLifecycle()
+    val watching = post.id in watchedPosts
+    val domain = shortDomain(post)
+
+    fun toast(message: String) = Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+
+    fun watch() {
+        container.setWatchingPost(post, true)
+        toast("Watching: you'll get a notification when new comments arrive")
+        onDismiss()
+    }
+
+    // The sheet stays open while Android asks, so the answer still has somewhere to land.
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) watch() else toast("Allow notifications to watch posts")
+    }
 
     fun act(block: () -> Unit) {
         onDismiss()
@@ -152,6 +181,11 @@ fun PostActionsSheet(
     }
 
     fun copy(text: String) = act { clipboard.setText(AnnotatedString(text)) }
+
+    fun filter(message: String, block: () -> Unit) = act {
+        block()
+        toast(message)
+    }
 
     if (reporting) {
         ReportSheet(post.fullname, post.subreddit, comment = false, onDismiss = onDismiss)
@@ -166,18 +200,44 @@ fun PostActionsSheet(
                 OptionRow("Copy permalink", AppIcons.Link, onClick = { copy(permalink) })
                 if (!post.isSelf) OptionRow("Copy link", AppIcons.Link, onClick = { copy(post.url) })
                 OptionRow("Copy username", Icons.Outlined.Person, onClick = { copy(post.author) })
+            } else if (filtering) {
+                SheetTitle("Filter", topPadding = 0.dp)
+                OptionRow("Filter /r/${post.subreddit}", AppIcons.Compass, onClick = {
+                    filter("Filtered r/${post.subreddit}") { container.filters.filterSubreddit(post.subreddit) }
+                })
+                OptionRow("Filter /u/${post.author}", Icons.Outlined.AccountCircle, onClick = {
+                    filter("Filtered u/${post.author}") { container.filters.filterUser(post.author) }
+                })
+                if (domain != null) {
+                    OptionRow("Filter domain ($domain)", AppIcons.Link, onClick = {
+                        filter("Filtered ${post.domain}") { container.filters.filterDomain(post.domain) }
+                    })
+                }
             } else {
                 SheetTitle("Post options", topPadding = 0.dp)
                 onHide?.let { hide -> OptionRow("Hide", Icons.Default.Close, onClick = { act(hide) }) }
                 onMarkRead?.let { markRead -> OptionRow("Mark as read", Icons.Default.Check, onClick = { act(markRead) }) }
                 OptionRow("Share", Icons.Outlined.Share, onClick = { act { nav.share(permalink, post.title) } })
+                OptionRow(if (watching) "Stop watching" else "Watch", if (watching) Icons.Filled.Notifications else Icons.Outlined.Notifications, onClick = {
+                    when {
+                        watching -> {
+                            container.setWatchingPost(post, false)
+                            toast("Stopped watching")
+                            onDismiss()
+                        }
+                        Notifications.canNotify(context) -> watch()
+                        else -> notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                })
                 if (!isOwn) OptionRow("Report", AppIcons.Report, onClick = { reporting = true })
                 HorizontalDivider()
                 OptionRow("/u/${post.author}", Icons.Outlined.AccountCircle, onClick = { act { nav.push(UserRoute(post.author)) } })
                 OptionRow("/r/${post.subreddit}", AppIcons.Compass, onClick = { act { nav.push(FeedRoute(post.subreddit)) } })
+                if (domain != null) OptionRow("Explore domain ($domain)", AppIcons.Compass, onClick = { act { nav.push(FeedRoute(domain = post.domain)) } })
                 OptionRow("Open in browser", AppIcons.OpenExternal, onClick = { act { nav.openExternal(permalink) } })
                 HorizontalDivider()
                 OptionRow("Copy...", AppIcons.Copy, onClick = { copying = true })
+                OptionRow("Filter...", AppIcons.Filter, onClick = { filtering = true })
                 if (isOwn && post.isSelf) {
                     OptionRow("Edit", Icons.Outlined.Edit, onClick = {
                         act { nav.push(ComposeRoute(ComposeMode.EDIT, target = post.fullname, quote = post.title, initial = post.selfText)) }

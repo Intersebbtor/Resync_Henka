@@ -103,7 +103,7 @@ import kotlinx.coroutines.launch
 fun FeedScreen(route: FeedRoute, container: AppContainer) {
     val subreddit = route.subreddit
     val nav = LocalNavigator.current
-    val vm = viewModel { FeedViewModel(container, subreddit) }
+    val vm = viewModel { FeedViewModel(container, subreddit, route.domain) }
     val state by vm.state.collectAsStateWithLifecycle()
     val sort by vm.sort.collectAsStateWithLifecycle()
     val about by vm.about.collectAsStateWithLifecycle()
@@ -111,7 +111,9 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val gridState = rememberLazyStaggeredGridState()
     val settings = LocalSettings.current
-    val layout = settings.layoutFor(subreddit)
+    // Each feed keeps its own view; a domain's is kept apart from the front page's.
+    val layoutFeed = route.domain?.let { "domain:$it" } ?: subreddit
+    val layout = settings.layoutFor(layoutFeed)
     val columns = layout.columns(LocalConfiguration.current.screenWidthDp)
     val scope = rememberCoroutineScope()
     var sortOpen by rememberSaveable { mutableStateOf(false) }
@@ -125,8 +127,13 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     val community = about?.name ?: subreddit
     val toggleWatch = rememberWatchToggle(container) { message -> scope.launch { snackbar.showSnackbar(message) } }
     val callbacks = remember(vm) { vm.postCallbacks() }
-    val posts = state.items.visiblePosts { (it as? ProfileItem.PostItem)?.post }
-    val title = Format.feedName(subreddit)
+    val filters by container.filters.filters.collectAsStateWithLifecycle()
+    val posts = state.items.visiblePosts { (it as? ProfileItem.PostItem)?.post }.let { items ->
+        remember(items, filters) {
+            if (filters.isEmpty) items else items.filterNot { (it as? ProfileItem.PostItem)?.post?.let { post -> filters.hides(post, subreddit) } == true }
+        }
+    }
+    val title = route.domain ?: Format.feedName(subreddit)
     // The toolbar shows the title only once the big header has scrolled away.
     val headerGone by remember { derivedStateOf { gridState.firstVisibleItemIndex > 0 } }
     val openAbout = {
@@ -187,7 +194,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
                             watching = watching,
                             onWatch = { community?.let(toggleWatch) },
                             // Sync offers Random on the front page.
-                            onRandom = if (subreddit == null) {
+                            onRandom = if (subreddit == null && route.domain == null) {
                                 { nav.openRandomCommunity(container.subscriptions.value) }
                             } else null,
                         )
@@ -206,7 +213,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     }
 
     if (sortOpen) SortSheet(current = sort, options = vm.sortOptions, onDismiss = { sortOpen = false }, onPick = vm::setSort)
-    if (viewOpen) ChangeViewSheet(container, subreddit, current = layout, onDismiss = { viewOpen = false })
+    if (viewOpen) ChangeViewSheet(container, layoutFeed, current = layout, onDismiss = { viewOpen = false })
     if (aboutOpen) {
         SubredditInfoSheet(
             about = about,

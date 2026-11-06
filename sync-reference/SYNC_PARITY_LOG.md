@@ -455,7 +455,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Comment sorts | Top/Best/New/Old/Controversial/Q&A | same | ✅ |
 | Search sorts | Relevance/New/Hot/Top/Comments + search modes (sub, multi, subs, profile, domain) | Relevance/Hot/New/Top×2/Comments, sub scope | ◐ |
 | More actions grid (configurable, 24 actions) | yes | grid of 9 (Search, Profile, About, Submit, Dark mode, Settings, Change view, Refresh, Saved) | ◐ (not configurable) |
-| Post options sheet | ~22 actions incl. Copy…, Filter…, Watch, Explore domain, Add to multi | Sync's layout and order: Hide, Mark as read, Share, Report / u, r, Open in browser / Copy… (title, permalink, link, username), Edit, Delete | ◐ (no Watch, Explore domain, Filter…, Add to multi, share-type ⋮) |
+| Post options sheet | ~22 actions incl. Copy…, Filter…, Watch, Explore domain, Add to multi | Sync's layout and order: Hide, Mark as read, Share, Watch (new-comment notifications), Report / u, r, Explore domain (the site's feed), Open in browser / Copy… (title, permalink, link, username), Filter… (community, user, domain; undone in Settings), Edit, Delete | ◐ (no Add to multi or share-type ⋮) |
 | Read-state dimming, Hide read | yes | opened posts dim in feeds (local) | ◐ (no Hide read) |
 | Comment rails | 5-color cycle, 16 dp indent | Sync's palette, a rail for every ancestor level, 16dp indent | ✅ |
 | Comment profile pictures ("Show profile pictures") | yes | authors' avatars from Reddit's account data, fetched in batches as comments load; NSFW ones and missing ones fall back to the initial; setting to turn off | ✅ |
