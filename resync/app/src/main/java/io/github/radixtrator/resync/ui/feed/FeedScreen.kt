@@ -2,6 +2,9 @@
 
 package io.github.radixtrator.resync.ui.feed
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,9 +24,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -98,6 +104,7 @@ import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import io.github.radixtrator.resync.ui.navigation.PostRoute
 import io.github.radixtrator.resync.ui.navigation.SearchRoute
 import io.github.radixtrator.resync.ui.navigation.SubmitRoute
+import io.github.radixtrator.resync.watch.WatchWorker
 import kotlinx.coroutines.launch
 
 @Composable
@@ -120,6 +127,29 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     var aboutOpen by rememberSaveable { mutableStateOf(false) }
     var wikiOpen by rememberSaveable { mutableStateOf(false) }
     var flairsOpen by rememberSaveable { mutableStateOf(false) }
+    val watched by container.watch.watched.collectAsStateWithLifecycle()
+    val watching = vm.isCommunity && subreddit?.lowercase() in watched
+    val context = LocalContext.current
+    fun watch(name: String) {
+        container.setWatching(name, true)
+        scope.launch { snackbar.showSnackbar("Watching r/$name: you'll get a notification for each new post") }
+    }
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val name = about?.name ?: subreddit ?: return@rememberLauncherForActivityResult
+        if (granted) watch(name) else scope.launch { snackbar.showSnackbar("Allow notifications to watch communities") }
+    }
+    val toggleWatch: () -> Unit = {
+        val name = about?.name ?: subreddit
+        when {
+            name == null -> Unit
+            watching -> {
+                container.setWatching(name, false)
+                scope.launch { snackbar.showSnackbar("Stopped watching r/$name") }
+            }
+            WatchWorker.canNotify(context) -> watch(name)
+            else -> notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
     val callbacks = remember(vm) { vm.postCallbacks() }
     val posts = state.items.visiblePosts { (it as? ProfileItem.PostItem)?.post }
     val title = Format.feedName(subreddit)
@@ -180,6 +210,8 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
                             onAbout = openAbout,
                             onWiki = { wikiOpen = true },
                             onFlairs = { flairsOpen = true },
+                            watching = watching,
+                            onWatch = toggleWatch,
                             // Sync offers Random on the front page.
                             onRandom = if (subreddit == null) {
                                 { nav.openRandomCommunity(container.subscriptions.value) }
@@ -239,6 +271,8 @@ private fun FeedHeader(
     onAbout: () -> Unit,
     onWiki: () -> Unit,
     onFlairs: () -> Unit,
+    watching: Boolean,
+    onWatch: () -> Unit,
     onRandom: (() -> Unit)?,
 ) {
     LargeHeader(
@@ -263,6 +297,11 @@ private fun FeedHeader(
             HeaderChip("About", Icons.Outlined.Info, onAbout)
             HeaderChip("Wiki", AppIcons.Book, onWiki)
             HeaderChip("Flairs", AppIcons.Tag, onFlairs, dropdown = true)
+            HeaderChip(
+                if (watching) "Watching" else "Watch",
+                if (watching) Icons.Filled.Notifications else Icons.Outlined.Notifications,
+                onWatch,
+            )
         }
         HeaderChip("Change view", AppIcons.ViewStack, onChangeView)
         onRandom?.let { HeaderChip("Random", AppIcons.Dice, it) }

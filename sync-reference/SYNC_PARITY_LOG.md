@@ -448,7 +448,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Light theme + Monet palette, AMOLED, extra-colorful tweaks | yes | Sync's sampled Monet palette (light + dark) as the default theme, black, Material You, Dark mode quick toggle | ◐ (no tweaks/manual seed) |
 | Mod tools (modqueue, reports, spam, edited, unmoderated) | yes | — | ❌ |
 | Tablet mode (nav rail, dual pane, tabbed comments) | yes (off here) | — | ❌ |
-| Collapsing large title + chip row | everywhere | feeds (front page: sort, Change view, Random; communities: sort, Join, About, Wiki, Flairs, Change view) and inbox; small title returns on scroll-up | ◐ (profile, search pending; no Watch chip) |
+| Collapsing large title + chip row | everywhere | feeds (front page: sort, Change view, Random; communities: sort, Join, About, Wiki, Flairs, Watch, Change view) and inbox; small title returns on scroll-up | ◐ (profile, search pending) |
 | Feed view modes | 6 (List, Compact, Smaller cards, Small cards, Cards, Slides), per feed, 2-col staggered grid on wide screens | all 6, per feed, staggered 2 columns from 480dp; list rows expand inline | ✅ (no Customize view screen) |
 | Customize view | per-mode toggles, fonts, live preview | — | ❌ |
 | Feed sorts | Best/Hot/New/Rising/Top×6/Controversial×6/Comments | all of them in Sync's top sheet; "Comments" shows the feed's newest comments as Sync's cards (italic post title, author, score, age, sub) and opens each in its thread | ✅ |
@@ -472,7 +472,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Galleries | broken in Sync | gallery viewer | ✅ (better) |
 | Explore sheet: Favorites / Subscriptions / Moderated / Most visited (+counts) / Follows, per-sub menu | yes | Favorites, Subscriptions (with icons), Moderated, Top (counts, Default tag, default in accent), opt-in Feeds; Sync's 42 dp rows and 51 dp headers; row ⋮ (favorite, set as default, about, unsubscribe, reset viewed), options ⋮ (section visibility, duplicate favorites, reload, clear) | ◐ (no Follows/Custom feeds sections, no favorite reordering) |
 | Recently searched & visited | yes | toolbar search opens Explore with recent feeds and searches; typing shows Search all (+ "Search r/<sub>"), bolded matches, suggested communities with "Search all subs", Open u/ and r/ | ✅ |
-| Subreddit header chips: Join, About, Wiki, Flairs, Watch, Favorite | yes | Join, About, Wiki, Flairs (Reddit's list, or the flairs on its 200 recent posts; picking one searches the community); Random opens one of your communities | ◐ (no Watch; About sheet isn't Sync's yet) |
+| Subreddit header chips: Join, About, Wiki, Flairs, Watch, Favorite | yes | Join, About, Wiki, Flairs (Reddit's list, or the flairs on its 200 recent posts; picking one searches the community); Random opens one of your communities; Watch notifies about each new post (hourly WorkManager check, "Stop watching" on the notification, list and "Check now" in Settings) | ◐ (no Favorite; About sheet isn't Sync's yet; Sync's Watch sheet options unknown) |
 | Wiki viewer | yes | the wiki's front page in a "pics - index" sheet, without Reddit's table of contents | ◐ (index page only; wiki links open in the browser) |
 | Inbox sections | 9 (incl. DMs, comment/post replies, mentions, mod) | All, Unread, DMs, Sent, Comment replies, Post replies, Mentions | ◐ (no mod boxes) |
 | Profile sections | 7 (incl. Downvoted, Hidden) + About/Trophies/Tag/Block/Share | 5 sections, karma | ◐ |

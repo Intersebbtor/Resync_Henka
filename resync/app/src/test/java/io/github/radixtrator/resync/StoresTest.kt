@@ -6,6 +6,8 @@ import io.github.radixtrator.resync.data.ExploreStore
 import io.github.radixtrator.resync.data.PostMemoryStore
 import io.github.radixtrator.resync.data.Recent
 import io.github.radixtrator.resync.data.VisitedStore
+import io.github.radixtrator.resync.data.WatchStore
+import io.github.radixtrator.resync.data.WatchedCommunity
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -69,6 +71,19 @@ class StoresTest {
         assertTrue(store.state.value.isDefault(""))
         store.toggleFavorite("Pics")
         assertTrue(store.state.value.favorites.isEmpty())
+    }
+
+    @Test
+    fun `watched communities only move forward and survive a reload`() {
+        val prefs = FakePrefs()
+        val store = WatchStore(prefs)
+        store.watch("Pics", since = 100)
+        assertTrue(store.isWatching("pics"))
+        store.markSeen("pics", 150)
+        store.markSeen("PICS", 120) // an older post never rewinds the mark
+        assertEquals(WatchedCommunity("Pics", 150), WatchStore(prefs).watched.value["pics"])
+        store.unwatch("pics")
+        assertTrue(WatchStore(prefs).watched.value.isEmpty())
     }
 
     @Test

@@ -1,6 +1,7 @@
 package io.github.radixtrator.resync
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -8,9 +9,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,6 +55,7 @@ import io.github.radixtrator.resync.ui.setup.SetupScreen
 import io.github.radixtrator.resync.ui.theme.BASE_FONT_SCALE
 import io.github.radixtrator.resync.ui.theme.FullSizeText
 import io.github.radixtrator.resync.ui.theme.ResyncTheme
+import io.github.radixtrator.resync.watch.WatchWorker
 
 class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
@@ -59,19 +64,28 @@ class MainActivity : ComponentActivity() {
         applyOverrideConfiguration(Configuration().apply { fontScale = newBase.resources.configuration.fontScale * BASE_FONT_SCALE })
     }
 
+    /** A post to open, from a tapped watched-community notification. */
+    private var openPost by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) openPost = intent.getStringExtra(WatchWorker.EXTRA_POST)
         val container = (application as ResyncApp).container
         setContent {
             val settings by container.settings.settings.collectAsStateWithLifecycle()
-            ResyncTheme(settings) { ResyncNavHost(container) }
+            ResyncTheme(settings) { ResyncNavHost(container, openPost, onPostOpened = { openPost = null }) }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra(WatchWorker.EXTRA_POST)?.let { openPost = it }
     }
 }
 
 @Composable
-private fun ResyncNavHost(container: AppContainer) {
+private fun ResyncNavHost(container: AppContainer, openPost: String?, onPostOpened: () -> Unit) {
     val backStack = rememberNavBackStack(if (container.isConfigured) homeRoute(container) else SetupRoute)
     val context = LocalContext.current
     val settings by container.settings.settings.collectAsStateWithLifecycle()
@@ -79,6 +93,10 @@ private fun ResyncNavHost(container: AppContainer) {
     val visited by container.visited.ids.collectAsStateWithLifecycle()
     val currentSettings by rememberUpdatedState(settings)
     val navigator = remember(backStack) { Navigator(context, backStack) { currentSettings } }
+    LaunchedEffect(openPost) {
+        if (openPost != null && container.isConfigured) navigator.push(PostRoute(openPost))
+        if (openPost != null) onPostOpened()
+    }
 
     CompositionLocalProvider(
         LocalNavigator provides navigator,

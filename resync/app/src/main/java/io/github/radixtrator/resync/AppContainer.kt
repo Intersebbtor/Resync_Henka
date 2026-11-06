@@ -14,6 +14,8 @@ import io.github.radixtrator.resync.data.RedditClient
 import io.github.radixtrator.resync.data.SettingsStore
 import io.github.radixtrator.resync.data.Subreddit
 import io.github.radixtrator.resync.data.VisitedStore
+import io.github.radixtrator.resync.data.WatchStore
+import io.github.radixtrator.resync.watch.WatchWorker
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -37,6 +39,8 @@ class AppContainer(context: Context) {
     val postMemory = PostMemoryStore(prefs)
     val explore = ExploreStore(prefs)
     val downloads = MediaDownloads(context)
+    val watch = WatchStore(prefs)
+    private val appContext = context.applicationContext
     private val accountStore = AccountStore(prefs)
     val client = RedditClient(configStore, accountStore, context.assets)
     val api = RedditApi(client)
@@ -70,6 +74,12 @@ class AppContainer(context: Context) {
     val events: SharedFlow<ContentEvent> = _events.asSharedFlow()
 
     val isConfigured: Boolean get() = configStore.load() != null || configStore.demoMode
+
+    /** Sync's Watch: notify about [community]'s posts from now on, keeping the hourly check scheduled only while needed. */
+    fun setWatching(community: String, on: Boolean) {
+        if (on) watch.watch(community, since = System.currentTimeMillis() / 1000) else watch.unwatch(community)
+        WatchWorker.schedule(appContext, watch.watched.value.isNotEmpty())
+    }
 
     fun emit(event: ContentEvent) {
         _events.tryEmit(event)

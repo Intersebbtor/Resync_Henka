@@ -14,6 +14,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -34,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -49,12 +51,15 @@ import io.github.radixtrator.resync.data.VideoQuality
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.SetupRoute
+import io.github.radixtrator.resync.watch.WatchWorker
 
 @Composable
 fun SettingsScreen(container: AppContainer) {
     val nav = LocalNavigator.current
     val settings by container.settings.settings.collectAsStateWithLifecycle()
     val update = container.settings::update
+    val watched by container.watch.watched.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     SwipeBack(enabled = settings.swipeBack, onBack = nav::pop) {
         Scaffold(
@@ -80,6 +85,32 @@ fun SettingsScreen(container: AppContainer) {
                 Choice("Post media preview size", MediaPreviewSize.entries, settings.postMediaPreview, MediaPreviewSize::label) { v -> update { it.copy(postMediaPreview = v) } }
                 Toggle("Start videos muted", null, settings.muteVideos) { v -> update { it.copy(muteVideos = v) } }
                 Choice("HD Reddit video quality", VideoQuality.entries, settings.hdVideo, VideoQuality::label) { v -> update { it.copy(hdVideo = v) } }
+
+                Section("Watched communities")
+                if (watched.isEmpty()) {
+                    ListItem(
+                        headlineContent = { Text("None yet") },
+                        supportingContent = { Text("Tap Watch on a community to get a notification for each new post") },
+                    )
+                }
+                if (watched.isNotEmpty()) {
+                    ListItem(
+                        headlineContent = { Text("Check now") },
+                        supportingContent = { Text("Look for new posts without waiting for the hourly check") },
+                        modifier = Modifier.clickable { WatchWorker.checkNow(context) },
+                    )
+                }
+                watched.values.sortedBy { it.name.lowercase() }.forEach { community ->
+                    ListItem(
+                        headlineContent = { Text("r/${community.name}") },
+                        supportingContent = { Text("Checked every hour") },
+                        trailingContent = {
+                            IconButton(onClick = { container.setWatching(community.name, false) }) {
+                                Icon(Icons.Default.Close, "Stop watching r/${community.name}")
+                            }
+                        },
+                    )
+                }
 
                 Section("Swipe actions")
                 Toggle("Swipe posts", "Drag a post left; drag further for the next action", settings.postSwipe) { v -> update { it.copy(postSwipe = v) } }
