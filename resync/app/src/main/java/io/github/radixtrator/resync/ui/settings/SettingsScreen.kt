@@ -127,6 +127,7 @@ fun SettingsScreen(container: AppContainer) {
                     // The scale lives in the activity's configuration, which only a restart rebuilds.
                     (context as? android.app.Activity)?.recreate()
                 }
+                Toggle("Tablet mode", "On wide screens, a navigation rail replaces the bottom bar", settings.tabletMode) { v -> update { it.copy(tabletMode = v) } }
                 Choice("Default post layout", PostLayout.entries, settings.layout, PostLayout::label) { v -> update { it.copy(layout = v) } }
 
                 Section("Content")

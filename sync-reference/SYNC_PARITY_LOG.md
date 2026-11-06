@@ -447,7 +447,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Submit | Text / Link / Photo, flair, rules, spoiler, NSFW, replies toggle | text + link posts, flair picker, community rules sheet, spoiler / NSFW / send-replies toggles (unverified on device) | ◐ (photo posts via Reddit media upload added, unverified) |
 | Light theme + Monet palette, AMOLED, extra-colorful tweaks | yes | Sync's sampled Monet palette (light + dark) as the default theme, black, Material You, Dark mode quick toggle | ◐ (no tweaks/manual seed) |
 | Mod tools (modqueue, reports, spam, edited, unmoderated) | yes | About ⋮ → Mod tools (only for communities you moderate) opens a Moderator screen: section menu, posts and comments with Approve / Remove / Spam (unverified on device; may need the modposts scope at login) | ◐ (no mod inbox boxes or mod mail, no Comments section) |
-| Tablet mode (nav rail, dual pane, tabbed comments) | yes (off here) | — | ❌ |
+| Tablet mode (nav rail, dual pane, tabbed comments) | yes (off here) | Settings › Tablet mode: navigation rail instead of the bottom bar at 600 dp+ (unverified) | ◐ (no dual pane, no tabbed comments; Sync's look not captured) |
 | Collapsing large title + chip row | everywhere | feeds (front page: sort, Change view, Random; communities: sort, Join, About, Wiki, Flairs, Watch, Change view) and inbox; small title returns on scroll-up | ◐ (profile, search pending) |
 | Feed view modes | 6 (List, Compact, Smaller cards, Small cards, Cards, Slides), per feed, 2-col staggered grid on wide screens | all 6, per feed, staggered 2 columns from 480dp; list rows expand inline | ✅ (no Customize view screen) |
 | Customize view | per-mode toggles, fonts, live preview | — | ❌ |

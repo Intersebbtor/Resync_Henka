@@ -89,6 +89,8 @@ data class Settings(
     val commentSort: CommentSort = CommentSort.BEST,
     val postMediaPreview: MediaPreviewSize = MediaPreviewSize.CROPPED,
     val swipeBack: Boolean = true,
+    /** Sync's Tablet mode: on wide screens, a navigation rail replaces the bottom bar. */
+    val tabletMode: Boolean = false,
     val baseFontSize: BaseFontSize = BaseFontSize.SMALLER,
     val typeface: Typeface = Typeface.ROBOTO,
     /** Sync's "Action visibility": labels of More actions buttons switched off. */

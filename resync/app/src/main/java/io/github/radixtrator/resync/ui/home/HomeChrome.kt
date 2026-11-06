@@ -59,6 +59,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -146,12 +148,15 @@ fun ShellScaffold(
     var explore by rememberSaveable { mutableStateOf<ExploreMode?>(null) }
     // The nav bar and FAB slide away with the toolbar, as Sync's autohide does.
     val hidden = scrollBehavior.state.collapsedFraction
+    // Tablet mode: on a wide screen the Posts / Explore / Inbox bar becomes a rail down the left edge.
+    val rail = home && LocalSettings.current.tabletMode && LocalConfiguration.current.screenWidthDp >= 600
+    val bar = home && !rail
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         contentWindowInsets = WindowInsets(0),
-        snackbarHost = { SnackbarHost(snackbar, Modifier.padding(bottom = if (home) NavBarHeight + navInset else navInset)) },
+        snackbarHost = { SnackbarHost(snackbar, Modifier.padding(bottom = if (bar) NavBarHeight + navInset else navInset)) },
         topBar = {
             TopAppBar(
                 scrollBehavior = scrollBehavior,
@@ -178,25 +183,53 @@ fun ShellScaffold(
         },
     ) { padding ->
         Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize().padding(start = if (rail) 80.dp else 0.dp)) {
             content(
                 PaddingValues(
                     top = padding.calculateTopPadding(),
                     // Room for the last item to scroll clear of the nav bar and the FAB.
-                    bottom = (if (home) NavBarHeight else 0.dp) + navInset + FabSize + 24.dp,
+                    bottom = (if (bar) NavBarHeight else 0.dp) + navInset + FabSize + 24.dp,
                 ),
             )
+            }
             MoreFab(
                 onClick = { fabMoreOpen = true },
                 onLongClick = { explore = ExploreMode.SEARCH },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 24.dp, bottom = 16.dp + navInset + if (home) NavBarHeight else 0.dp)
+                    .padding(end = 24.dp, bottom = 16.dp + navInset + if (bar) NavBarHeight else 0.dp)
                     .graphicsLayer {
-                        val travel = 16.dp.toPx() + FabSize.toPx() + if (home) NavBarHeight.toPx() + navInset.toPx() else navInset.toPx()
+                        val travel = 16.dp.toPx() + FabSize.toPx() + if (bar) NavBarHeight.toPx() + navInset.toPx() else navInset.toPx()
                         translationY = hidden * travel
                     },
             )
-            if (home) {
+            if (rail) {
+                androidx.compose.material3.NavigationRail(
+                    modifier = Modifier.align(Alignment.CenterStart).fillMaxHeight(),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ) {
+                    Spacer(Modifier.weight(1f))
+                    androidx.compose.material3.NavigationRailItem(
+                        selected = tab == HomeTab.POSTS, onClick = { if (tab == HomeTab.POSTS) onReselectTab() else nav.popWhile { it is InboxRoute } },
+                        icon = { Icon(if (tab == HomeTab.POSTS) Icons.Filled.Home else Icons.Outlined.Home, null) }, label = { Text("Posts", style = NavLabel) },
+                    )
+                    androidx.compose.material3.NavigationRailItem(
+                        selected = false, onClick = { explore = ExploreMode.BROWSE },
+                        icon = { Icon(AppIcons.Compass, null) }, label = { Text("Explore", style = NavLabel) },
+                    )
+                    androidx.compose.material3.NavigationRailItem(
+                        selected = tab == HomeTab.INBOX, onClick = { if (tab == HomeTab.INBOX) onReselectTab() else nav.push(InboxRoute(home = true)) },
+                        icon = {
+                            BadgedBox(badge = { if (inboxCount > 0) Badge { Text("$inboxCount") } }) {
+                                Icon(if (tab == HomeTab.INBOX) Icons.Filled.Email else Icons.Outlined.Email, null)
+                            }
+                        },
+                        label = { Text("Inbox", style = NavLabel) },
+                    )
+                    Spacer(Modifier.weight(1f))
+                }
+            }
+            if (bar) {
                 HomeNavigationBar(
                     tab = tab,
                     inboxCount = inboxCount,
