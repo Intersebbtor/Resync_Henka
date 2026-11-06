@@ -109,6 +109,11 @@ import io.github.radixtrator.resync.data.MediaPreviewSize
 import io.github.radixtrator.resync.data.MoreComments
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostMedia
+import io.github.radixtrator.resync.ui.common.isImageLink
+import io.github.radixtrator.resync.ui.navigation.Navigator
+import io.github.radixtrator.resync.ui.navigation.SearchRoute
+import io.github.radixtrator.resync.ui.navigation.ImageRoute
+import io.github.radixtrator.resync.data.CommentNode
 import io.github.radixtrator.resync.data.SwipeAction
 import io.github.radixtrator.resync.data.VisibleNode
 import io.github.radixtrator.resync.ui.common.AppIcons
@@ -383,7 +388,7 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
                     QuickAction("Settings", Icons.Outlined.Settings) { nav.push(SettingsRoute) },
                     QuickAction("Sort", AppIcons.Sort) { sortOpen = true },
                     QuickAction("Search", Icons.Outlined.Search) { searchOpen = true },
-                ),
+                ) + commentActionExtras(post, state.comments, nav),
                 onPicked = { actionsOpen = false },
             )
         }
@@ -908,4 +913,32 @@ private fun CommentSearchSheet(rows: List<VisibleNode>, onDismiss: () -> Unit, o
             }
         }
     }
+}
+
+
+private val HREF = Regex("""href="([^"]+)"""")
+
+/**
+ * Sync's other Comment actions: Other discussions (the same link posted elsewhere), View images (the post's
+ * and the comments' images in the viewer) and Translate (the post's text in Google Translate).
+ */
+private fun commentActionExtras(post: Post, comments: List<CommentNode>, nav: Navigator): List<QuickAction> = buildList {
+    if (!post.isSelf && post.url.startsWith("http")) {
+        add(QuickAction("Other discussions", AppIcons.Link) { nav.push(SearchRoute(query = "url:${post.url}")) })
+    }
+    val images = buildList {
+        when (val m = post.media) {
+            is PostMedia.Image -> add(m.url)
+            is PostMedia.Gallery -> addAll(m.images.map { it.url })
+            else -> {}
+        }
+        comments.forEach { node ->
+            (node as? Comment)?.let { c -> HREF.findAll(c.bodyHtml).map { it.groupValues[1].replace("&amp;", "&") }.filter(::isImageLink).forEach(::add) }
+        }
+    }.distinct()
+    if (images.isNotEmpty()) add(QuickAction("View images", AppIcons.Image) { nav.push(ImageRoute(images, postId = post.id)) })
+    add(QuickAction("Translate", AppIcons.Text) {
+        val text = java.net.URLEncoder.encode(post.title, "UTF-8")
+        nav.openExternal("https://translate.google.com/?sl=auto&op=translate&text=$text")
+    })
 }
