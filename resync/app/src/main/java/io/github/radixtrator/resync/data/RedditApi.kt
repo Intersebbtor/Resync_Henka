@@ -17,6 +17,12 @@ class RedditApi(private val client: RedditClient) {
         return Parser.postListing(json)
     }
 
+    /** The newest comments in [subreddit] (null = the front page's communities), for Sync's "Comments" sort. */
+    suspend fun feedComments(subreddit: String?, after: String?): Listing<ProfileItem> {
+        val base = if (subreddit == null) "" else "/r/$subreddit"
+        return Parser.profileListing(client.get("$base/comments", mapOf("after" to after, "limit" to "25")))
+    }
+
     /** [focusCommentId] narrows the page to that comment's subtree, with [context] parents above it. */
     suspend fun comments(
         postId: String,

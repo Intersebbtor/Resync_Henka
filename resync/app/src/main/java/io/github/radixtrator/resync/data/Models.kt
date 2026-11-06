@@ -99,6 +99,8 @@ enum class SortKind(val path: String, val label: String, val timed: Boolean = fa
     RISING("rising", "Rising"),
     TOP("top", "Top", timed = true),
     CONTROVERSIAL("controversial", "Controversial", timed = true),
+    /** Sync's "Comments" sort: the feed's newest comments instead of its posts. */
+    COMMENTS("comments", "Comments"),
 }
 
 enum class TimeRange(val param: String, val label: String) {
@@ -157,8 +159,12 @@ data class UserComment(
     val postTitle: String,
     val likes: Boolean?,
     val saved: Boolean,
+    val scoreHidden: Boolean = false,
+    val authorFlair: String? = null,
+    val distinguished: String? = null,
 )
 
+/** A post or a comment: profiles mix them, and so do feeds on Sync's "Comments" sort. */
 sealed interface ProfileItem {
     val fullname: String
 

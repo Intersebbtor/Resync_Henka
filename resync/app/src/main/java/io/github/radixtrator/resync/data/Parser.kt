@@ -114,6 +114,9 @@ object Parser {
             postTitle = d.string("link_title").orEmpty(),
             likes = d.boolOrNull("likes"),
             saved = d.bool("saved"),
+            scoreHidden = d.bool("score_hidden"),
+            authorFlair = flair(d, "author"),
+            distinguished = d.string("distinguished"),
         )
     }
 

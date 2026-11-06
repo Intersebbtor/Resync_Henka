@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.data.Listing
 import io.github.radixtrator.resync.data.Post
+import io.github.radixtrator.resync.data.ProfileItem
 import io.github.radixtrator.resync.data.Sort
 import io.github.radixtrator.resync.data.SortKind
 import io.github.radixtrator.resync.data.Subreddit
@@ -12,7 +13,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class FeedViewModel(container: AppContainer, val subreddit: String?) : ListingViewModel<Post>(container) {
+/** A feed's posts, or on the "Comments" sort its newest comments. */
+class FeedViewModel(container: AppContainer, val subreddit: String?) : ListingViewModel<ProfileItem>(container) {
 
     private val _sort = MutableStateFlow(defaultSort(container.username.value))
     val sort = _sort.asStateFlow()
@@ -45,10 +47,15 @@ class FeedViewModel(container: AppContainer, val subreddit: String?) : ListingVi
 
     private fun defaultSort(user: String?) = if (subreddit == null && user != null) Sort.BEST else Sort.HOT
 
-    override suspend fun fetch(after: String?): Listing<Post> = container.api.posts(subreddit, _sort.value, after)
-    override fun keyOf(item: Post) = item.fullname
-    override fun postOf(item: Post) = item
-    override fun withPost(item: Post, post: Post) = post
+    override suspend fun fetch(after: String?): Listing<ProfileItem> {
+        if (_sort.value.kind == SortKind.COMMENTS) return container.api.feedComments(subreddit, after)
+        val page = container.api.posts(subreddit, _sort.value, after)
+        return Listing(page.items.map(ProfileItem::PostItem), page.after)
+    }
+
+    override fun keyOf(item: ProfileItem) = item.fullname
+    override fun postOf(item: ProfileItem) = (item as? ProfileItem.PostItem)?.post
+    override fun withPost(item: ProfileItem, post: Post) = ProfileItem.PostItem(post)
 
     fun setSort(sort: Sort) {
         if (sort == _sort.value) return

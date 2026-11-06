@@ -3,6 +3,8 @@
 package io.github.radixtrator.resync.ui.feed
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Add
@@ -29,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -46,17 +51,24 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.data.PostLayout
+import io.github.radixtrator.resync.data.ProfileItem
 import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.data.Sort
 import io.github.radixtrator.resync.data.SortKind
 import io.github.radixtrator.resync.data.Subreddit
 import io.github.radixtrator.resync.data.TimeRange
+import io.github.radixtrator.resync.data.UserComment
 import io.github.radixtrator.resync.ui.common.AppIcons
 import io.github.radixtrator.resync.ui.common.Format
 import io.github.radixtrator.resync.ui.common.HeaderChip
@@ -65,13 +77,16 @@ import io.github.radixtrator.resync.ui.common.MessageEffect
 import io.github.radixtrator.resync.ui.common.OptionRow
 import io.github.radixtrator.resync.ui.common.PagedGrid
 import io.github.radixtrator.resync.ui.common.PostListItem
+import io.github.radixtrator.resync.ui.common.RedditBodyText
 import io.github.radixtrator.resync.ui.common.SheetHandle
 import io.github.radixtrator.resync.ui.common.SheetTitle
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.common.TopSheet
 import io.github.radixtrator.resync.ui.common.columns
+import io.github.radixtrator.resync.ui.common.distinguishedMarks
 import io.github.radixtrator.resync.ui.common.gutter
 import io.github.radixtrator.resync.ui.common.postCallbacks
+import io.github.radixtrator.resync.ui.common.rememberRedditHtml
 import io.github.radixtrator.resync.ui.common.spacing
 import io.github.radixtrator.resync.ui.common.visiblePosts
 import io.github.radixtrator.resync.ui.home.HomeTab
@@ -80,6 +95,7 @@ import io.github.radixtrator.resync.ui.home.quickActions
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
+import io.github.radixtrator.resync.ui.navigation.PostRoute
 import io.github.radixtrator.resync.ui.navigation.SubmitRoute
 import kotlinx.coroutines.launch
 
@@ -102,7 +118,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     var viewOpen by rememberSaveable { mutableStateOf(false) }
     var aboutOpen by rememberSaveable { mutableStateOf(false) }
     val callbacks = remember(vm) { vm.postCallbacks() }
-    val posts = state.items.visiblePosts { it }
+    val posts = state.items.visiblePosts { (it as? ProfileItem.PostItem)?.post }
     val title = Format.feedName(subreddit)
     // The toolbar shows the title only once the big header has scrolled away.
     val headerGone by remember { derivedStateOf { gridState.firstVisibleItemIndex > 0 } }
@@ -148,7 +164,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
                     spacing = layout.spacing,
                     gridState = gridState,
                     bottomPadding = padding.calculateBottomPadding(),
-                    emptyText = "No posts here",
+                    emptyText = if (sort.kind == SortKind.COMMENTS) "No comments here" else "No posts here",
                     header = {
                         FeedHeader(
                             title = title,
@@ -161,8 +177,14 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
                             onAbout = openAbout,
                         )
                     },
-                ) { post ->
-                    PostListItem(post, showSubreddit = !vm.isCommunity, callbacks = callbacks, layout = layout, standalone = false)
+                ) { item ->
+                    when (item) {
+                        is ProfileItem.PostItem ->
+                            PostListItem(item.post, showSubreddit = !vm.isCommunity, callbacks = callbacks, layout = layout, standalone = false)
+                        is ProfileItem.CommentItem -> CommentCard(item.comment) {
+                            nav.push(PostRoute(item.comment.postId, item.comment.id, context = 3))
+                        }
+                    }
                 }
             }
         }
@@ -237,6 +259,45 @@ private fun sortIcon(kind: SortKind): ImageVector = when (kind) {
     SortKind.RISING -> AppIcons.TrendingUp
     SortKind.TOP -> AppIcons.Bars
     SortKind.CONTROVERSIAL -> AppIcons.TrendingDown
+    SortKind.COMMENTS -> AppIcons.Comment
+}
+
+/**
+ * A comment on Sync's "Comments" sort: its post's title in italics, then "author [flair] 5 points • 2h • sub"
+ * with the author in the accent color, then the comment itself. Tapping opens it in its thread.
+ */
+@Composable
+private fun CommentCard(comment: UserComment, onOpen: () -> Unit) {
+    val accent = MaterialTheme.colorScheme.primary
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val flairBg = MaterialTheme.colorScheme.surfaceVariant
+    val meta = buildAnnotatedString {
+        withStyle(SpanStyle(color = accent)) { append(comment.author) }
+        comment.distinguished?.takeIf { it == "moderator" || it == "admin" }?.let {
+            append(" ")
+            appendInlineContent(it, "[$it]")
+        }
+        comment.authorFlair?.let {
+            append(" ")
+            withStyle(SpanStyle(background = flairBg)) { append(" $it ") }
+        }
+        append(" ")
+        append(
+            when {
+                comment.scoreHidden -> "[score hidden]"
+                comment.score == 1 -> "1 point"
+                else -> "${Format.count(comment.score)} points"
+            },
+        )
+        append(" • ${Format.timeAgo(comment.createdUtc)} • ${comment.subreddit}")
+    }
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.combinedClickable(onClick = onOpen).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(comment.postTitle, style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic)
+            Text(meta, style = MaterialTheme.typography.bodyMedium, color = muted, inlineContent = distinguishedMarks())
+            RedditBodyText(rememberRedditHtml(comment.bodyHtml), MaterialTheme.typography.bodyMedium.copy(lineHeight = TextUnit.Unspecified))
+        }
+    }
 }
 
 /**

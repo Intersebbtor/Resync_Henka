@@ -15,7 +15,7 @@ object Format {
     fun timeAgo(epochSeconds: Long, nowSeconds: Long = System.currentTimeMillis() / 1000): String {
         val s = (nowSeconds - epochSeconds).coerceAtLeast(0)
         return when {
-            s < 60 -> "now"
+            s < 60 -> "just now"
             s < 3_600 -> "${s / 60}m"
             s < 86_400 -> "${s / 3_600}h"
             s < 86_400 * 30 -> "${s / 86_400}d"

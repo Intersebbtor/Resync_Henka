@@ -393,7 +393,7 @@ class ParserTest {
         assertEquals("123k", Format.count(123_456))
         assertEquals("1.5m", Format.count(1_500_000))
         assertEquals("33.6M", Format.members(33_600_000))
-        assertEquals("now", Format.timeAgo(1000, 1030))
+        assertEquals("just now", Format.timeAgo(1000, 1030))
         assertEquals("5h", Format.timeAgo(0, 5 * 3600 + 59))
         assertEquals("2y", Format.timeAgo(0, 2L * 365 * 86_400))
     }
