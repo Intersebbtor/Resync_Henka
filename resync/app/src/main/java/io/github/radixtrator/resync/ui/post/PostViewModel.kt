@@ -47,6 +47,7 @@ class PostViewModel(
 
     companion object {
         const val SPORTS_REFRESH_MS = 30_000L
+        private const val AUTOMOD = "AutoModerator"
     }
 
     private val _state = MutableStateFlow(State(sort = container.settings.settings.value.commentSort))
@@ -311,8 +312,4 @@ class PostViewModel(
     }
 
     fun messageShown() = _state.update { it.copy(message = null) }
-
-    private companion object {
-        const val AUTOMOD = "AutoModerator"
-    }
 }
