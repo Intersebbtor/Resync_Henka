@@ -152,14 +152,17 @@ private fun ZoomableImage(url: String, onTap: () -> Unit, onZoomChange: (Boolean
         if (value <= 1f) offset = Offset.Zero
         onZoomChange(value > 1f)
     }
+    // Original size, so deep zoom shows real pixels rather than a screen-sized downsample.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val request = remember(url) { coil3.request.ImageRequest.Builder(context).data(url).size(coil3.size.Size.ORIGINAL).build() }
     SubcomposeAsyncImage(
-        model = url,
+        model = request,
         contentDescription = null,
         contentScale = ContentScale.Fit,
         modifier = Modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                detectTapGestures(onTap = { onTap() }, onDoubleTap = { setScale(if (scale > 1f) 1f else 2.5f) })
+                detectTapGestures(onTap = { onTap() }, onDoubleTap = { setScale(if (scale < 2.4f) 2.5f else if (scale < 7f) 8f else 1f) })
             }
             .pointerInput(Unit) {
                 awaitEachGesture {
@@ -167,7 +170,7 @@ private fun ZoomableImage(url: String, onTap: () -> Unit, onZoomChange: (Boolean
                     do {
                         val event = awaitPointerEvent()
                         if (event.changes.size > 1 || scale > 1f) {
-                            setScale((scale * event.calculateZoom()).coerceIn(1f, 6f))
+                            setScale((scale * event.calculateZoom()).coerceIn(1f, 20f))
                             if (scale > 1f) offset += event.calculatePan()
                             event.changes.forEach { if (it.positionChanged()) it.consume() }
                         }
