@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.em
 private const val SPOILER_URL = "resync-spoiler:reveal"
 private val PARAGRAPH_BREAK = Regex("""</p>\s*<p>""")
 private val HORIZONTAL_RULE = Regex("""<hr\s*/?>""")
+private val HEADING_END = Regex("""</h([1-6])>\s*(?=<)""")
 private val SPOILER = Regex("""<span class="md-spoiler-text">(.*?)</span>""", RegexOption.DOT_MATCHES_ALL)
 
 /**
@@ -35,6 +36,7 @@ private val SPOILER = Regex("""<span class="md-spoiler-text">(.*?)</span>""", Re
  * through [RedditBodyText] just shows a blank line there.
  */
 const val RULE = '\u2063'
+private val RULE_GAP = Regex("<p>$RULE</p><br>(?=<p>$RULE</p>)")
 
 /**
  * Renders the HTML Reddit generates from markdown (body_html / selftext_html).
@@ -76,8 +78,12 @@ fun redditMarkup(html: String, revealSpoilers: Boolean): String {
     // Reddit emits site-relative links (/r/foo, /u/bar) that no URI handler can open as-is.
     var source = html.replace("href=\"/", "href=\"https://www.reddit.com/")
     source = HORIZONTAL_RULE.replace(source, "<p>$RULE</p>")
-    // fromHtml runs paragraphs together; Reddit (and Sync) leave a blank line between them.
+    // fromHtml runs paragraphs together, and headings into what follows; Reddit (and Sync) leave a blank
+    // line after each.
     source = PARAGRAPH_BREAK.replace(source, "</p><br><p>")
+    source = HEADING_END.replace(source, "</h$1><br>")
+    // Rules in a row sit a line apart in Sync, not a paragraph apart.
+    source = RULE_GAP.replace(source, "<p>$RULE</p>")
     return SPOILER.replace(source) { m ->
         if (revealSpoilers) "<i>${m.groupValues[1]}</i>" else "<a href=\"$SPOILER_URL\">[spoiler]</a>"
     }

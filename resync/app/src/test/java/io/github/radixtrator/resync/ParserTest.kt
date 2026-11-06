@@ -7,6 +7,7 @@ import io.github.radixtrator.resync.data.Comment
 import io.github.radixtrator.resync.data.CommentSort
 import io.github.radixtrator.resync.data.CommentTree
 import io.github.radixtrator.resync.data.DemoWrites
+import io.github.radixtrator.resync.data.LinkFlair
 import io.github.radixtrator.resync.data.MoreComments
 import io.github.radixtrator.resync.data.NsfwMode
 import io.github.radixtrator.resync.data.Parser
@@ -28,6 +29,7 @@ import io.github.radixtrator.resync.data.ThemeMode
 import io.github.radixtrator.resync.data.DashTracks
 import io.github.radixtrator.resync.data.dashTracks
 import io.github.radixtrator.resync.data.fileName
+import io.github.radixtrator.resync.data.flairsOf
 import io.github.radixtrator.resync.ui.common.Format
 import io.github.radixtrator.resync.ui.common.RULE
 import io.github.radixtrator.resync.ui.common.hasSpoiler
@@ -247,6 +249,24 @@ class ParserTest {
     }
 
     @Test
+    fun `link flairs parse, dropping blank and repeated ones`() {
+        val flairs = Parser.linkFlairs(
+            RedditClient.JSON.parseToJsonElement(
+                """[{"text":"OC","background_color":"#0dd3bb"},{"text":"  ","background_color":""},
+                   {"text":"Politics","background_color":""},{"text":"OC","background_color":"#000000"}]""",
+            ),
+        )
+        assertEquals(listOf(LinkFlair("OC", 0xFF0DD3BB.toInt()), LinkFlair("Politics", null)), flairs)
+
+        // When Reddit won't list them, they come from posts, most used first.
+        fun post(id: String, flair: String?) = Parser.post(
+            RedditClient.JSON.parseToJsonElement("""{"id":"$id","title":"t","link_flair_text":${flair?.let { "\"$it\"" } ?: "null"}}""").jsonObject,
+        )
+        val used = flairsOf(listOf(post("1", "Art"), post("2", "OC"), post("3", null), post("4", "OC")))
+        assertEquals(listOf("OC", "Art"), used.map { it.text })
+    }
+
+    @Test
     fun `api errors surface as exceptions and posted comments parse`() {
         val error = RedditClient.JSON.parseToJsonElement(
             """{"json":{"errors":[["SUBREDDIT_NOEXIST","that community doesn't exist","sr"]]}}""",
@@ -342,6 +362,11 @@ class ParserTest {
         assertEquals(
             "<div class=\"md\"><p>Thanks!</p><br><p>$RULE</p><br><p><a href=\"https://www.reddit.com/r/pics\">r/pics</a></p>\n</div>",
             redditMarkup(html, revealSpoilers = true),
+        )
+        assertEquals("<h2 id=\"wiki_a\">Rules</h2><br><p>Be nice</p>", redditMarkup("<h2 id=\"wiki_a\">Rules</h2>\n\n<p>Be nice</p>", revealSpoilers = true))
+        assertEquals(
+            "<p>a</p><br><p>$RULE</p><p>$RULE</p><p>$RULE</p><br><p>b</p>",
+            redditMarkup("<p>a</p>\n<hr/>\n<hr/>\n<hr/>\n<p>b</p>", revealSpoilers = true),
         )
     }
 

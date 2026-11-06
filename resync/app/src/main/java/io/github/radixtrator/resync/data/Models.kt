@@ -122,6 +122,17 @@ data class Sort(val kind: SortKind, val time: TimeRange? = null) {
     }
 }
 
+/** One of a community's post flairs, for the Flairs chip. [color] is its background (ARGB), if it has one. */
+data class LinkFlair(val text: String, val color: Int?)
+
+/** The post flairs used in [posts], most used first. */
+fun flairsOf(posts: List<Post>): List<LinkFlair> = posts
+    .mapNotNull { post -> post.flair?.let { LinkFlair(it, post.flairColor) } }
+    .groupBy { it.text }
+    .entries
+    .sortedByDescending { it.value.size }
+    .map { it.value.first() }
+
 data class Subreddit(
     val name: String,
     val fullname: String,

@@ -245,6 +245,30 @@ object AppIcons {
         }
     }
 
+    // Community header chips: Wiki, Flairs, Random.
+    val Book: ImageVector by lazy {
+        outline("Book") {
+            moveTo(6f, 3.5f); lineTo(18f, 3.5f); lineTo(18f, 20.5f); lineTo(6f, 20.5f); close()
+            moveTo(10f, 3.5f); lineTo(10f, 10.5f); lineTo(12f, 9f); lineTo(14f, 10.5f); lineTo(14f, 3.5f)
+        }
+    }
+
+    val Tag: ImageVector by lazy {
+        outline("Tag") {
+            moveTo(3.5f, 7f); lineTo(15f, 7f); lineTo(20f, 12f); lineTo(15f, 17f); lineTo(3.5f, 17f); close()
+        }
+    }
+
+    val Dice: ImageVector by lazy {
+        outline("Dice") {
+            moveTo(10f, 7f); lineTo(10f, 3.5f); lineTo(20.5f, 3.5f); lineTo(20.5f, 14f); lineTo(17f, 14f)
+            moveTo(3.5f, 10f); lineTo(14f, 10f); lineTo(14f, 20.5f); lineTo(3.5f, 20.5f); close()
+            moveTo(6.5f, 13f); lineTo(7f, 13f)
+            moveTo(10.5f, 17.5f); lineTo(11f, 17.5f)
+            moveTo(16.5f, 6.5f); lineTo(17f, 6.5f)
+        }
+    }
+
     // Media viewer controls (Sync's video bar and info sheet).
     val Pause: ImageVector by lazy {
         filled("Pause") {

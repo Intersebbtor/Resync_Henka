@@ -216,6 +216,13 @@ object Parser {
         )
     }
 
+    /** /r/sub/api/link_flair_v2: an array of flair templates. Blank ones (emoji-only) are dropped. */
+    fun linkFlairs(root: JsonElement): List<LinkFlair> = (root as? JsonArray).orEmpty().mapNotNull { element ->
+        val d = element as? JsonObject ?: return@mapNotNull null
+        val text = d.string("text")?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+        LinkFlair(text, flairColor(d.string("background_color")))
+    }.distinctBy { it.text }
+
     /** "#46d160" → opaque ARGB; "" or "transparent" (no color set) → null. */
     private fun flairColor(hex: String?): Int? {
         val digits = hex?.removePrefix("#")?.takeIf { it.length == 6 } ?: return null

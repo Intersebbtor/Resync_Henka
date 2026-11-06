@@ -96,6 +96,7 @@ import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import io.github.radixtrator.resync.ui.navigation.PostRoute
+import io.github.radixtrator.resync.ui.navigation.SearchRoute
 import io.github.radixtrator.resync.ui.navigation.SubmitRoute
 import kotlinx.coroutines.launch
 
@@ -117,6 +118,8 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     var sortOpen by rememberSaveable { mutableStateOf(false) }
     var viewOpen by rememberSaveable { mutableStateOf(false) }
     var aboutOpen by rememberSaveable { mutableStateOf(false) }
+    var wikiOpen by rememberSaveable { mutableStateOf(false) }
+    var flairsOpen by rememberSaveable { mutableStateOf(false) }
     val callbacks = remember(vm) { vm.postCallbacks() }
     val posts = state.items.visiblePosts { (it as? ProfileItem.PostItem)?.post }
     val title = Format.feedName(subreddit)
@@ -175,6 +178,12 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
                             onChangeView = { viewOpen = true },
                             onJoin = vm::toggleSubscribe,
                             onAbout = openAbout,
+                            onWiki = { wikiOpen = true },
+                            onFlairs = { flairsOpen = true },
+                            // Sync offers Random on the front page.
+                            onRandom = if (subreddit == null) {
+                                { nav.openRandomCommunity(container.subscriptions.value) }
+                            } else null,
                         )
                     },
                 ) { item ->
@@ -192,6 +201,19 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
 
     if (sortOpen) SortSheet(current = sort, options = vm.sortOptions, onDismiss = { sortOpen = false }, onPick = vm::setSort)
     if (viewOpen) ChangeViewSheet(container, subreddit, current = layout, onDismiss = { viewOpen = false })
+    val community = about?.name ?: subreddit
+    if (wikiOpen && community != null) WikiSheet(container, community, onDismiss = { wikiOpen = false })
+    if (flairsOpen && community != null) {
+        FlairsSheet(
+            container,
+            community,
+            onPick = { flair ->
+                flairsOpen = false
+                nav.push(SearchRoute("flair_name:\"${flair.text}\"", subreddit = community))
+            },
+            onDismiss = { flairsOpen = false },
+        )
+    }
     if (aboutOpen) {
         SubredditInfoSheet(
             about = about,
@@ -215,6 +237,9 @@ private fun FeedHeader(
     onChangeView: () -> Unit,
     onJoin: () -> Unit,
     onAbout: () -> Unit,
+    onWiki: () -> Unit,
+    onFlairs: () -> Unit,
+    onRandom: (() -> Unit)?,
 ) {
     LargeHeader(
         title = title,
@@ -236,8 +261,11 @@ private fun FeedHeader(
             val joined = about?.isSubscribed == true
             HeaderChip(if (joined) "Joined" else "Join", if (joined) Icons.Outlined.Check else Icons.Outlined.Add, onJoin)
             HeaderChip("About", Icons.Outlined.Info, onAbout)
+            HeaderChip("Wiki", AppIcons.Book, onWiki)
+            HeaderChip("Flairs", AppIcons.Tag, onFlairs, dropdown = true)
         }
         HeaderChip("Change view", AppIcons.ViewStack, onChangeView)
+        onRandom?.let { HeaderChip("Random", AppIcons.Dice, it) }
     }
 }
 

@@ -2,17 +2,19 @@ package io.github.radixtrator.resync.data
 
 import kotlinx.serialization.json.jsonObject
 
+private val WIKI_TOC = Regex("""<div class="toc">.*?</div>""", RegexOption.DOT_MATCHES_ALL)
+
 /** The endpoints the app uses, on top of [RedditClient]. */
 class RedditApi(private val client: RedditClient) {
 
     // --- Reading ---
 
     /** [subreddit] null = front page. Also accepts "popular", "all" and "a+b" multis. */
-    suspend fun posts(subreddit: String?, sort: Sort, after: String?): Listing<Post> {
+    suspend fun posts(subreddit: String?, sort: Sort, after: String?, limit: Int = 25): Listing<Post> {
         val base = if (subreddit == null) "" else "/r/$subreddit"
         val json = client.get(
             "$base/${sort.path}",
-            mapOf("after" to after, "limit" to "25", "t" to sort.time?.param),
+            mapOf("after" to after, "limit" to limit.toString(), "t" to sort.time?.param),
         )
         return Parser.postListing(json)
     }
@@ -72,6 +74,31 @@ class RedditApi(private val client: RedditClient) {
             after = page.after
         } while (after != null && subs.size < 1000)
         return subs.sortedBy { it.name.lowercase() }
+    }
+
+    /**
+     * A community's wiki page as HTML; "index" is the wiki's front page. Reddit opens the page with a generated
+     * table of contents, which Sync leaves out.
+     */
+    suspend fun wikiPage(subreddit: String, page: String = "index"): String {
+        val html = client.get("/r/$subreddit/wiki/$page").jsonObject.obj("data")?.string("content_html")
+            ?: throw RedditException("r/$subreddit has no wiki page \"$page\"")
+        return WIKI_TOC.replace(html, "")
+    }
+
+    /**
+     * A community's post flairs. Reddit only lists them to people allowed to set their own (that refusal is
+     * why Sync's Flairs chip errors), so otherwise they're gathered from its 100 hottest and newest posts,
+     * most used first.
+     */
+    suspend fun linkFlairs(subreddit: String): List<LinkFlair> {
+        try {
+            Parser.linkFlairs(client.get("/r/$subreddit/api/link_flair_v2")).takeIf { it.isNotEmpty() }?.let { return it }
+        } catch (e: RedditException) {
+            if (e.code != 403 && e.code != 404) throw e
+        }
+        val posts = listOf(Sort.HOT, Sort(SortKind.NEW)).flatMap { posts(subreddit, it, after = null, limit = 100).items }.distinctBy { it.id }
+        return flairsOf(posts)
     }
 
     suspend fun subredditAbout(name: String): Subreddit {

@@ -78,6 +78,12 @@ class Navigator(
         context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
+    /** Sync's Random. Reddit dropped its random-community endpoint (Sync now errors), so this picks one you joined. */
+    fun openRandomCommunity(subscriptions: List<String>) {
+        val pick = subscriptions.randomOrNull()
+        if (pick == null) Toast.makeText(context, "Join some communities first", Toast.LENGTH_SHORT).show() else push(FeedRoute(pick))
+    }
+
     /** What tapping a post's media does: viewer for images/galleries, player for video, else the link. */
     fun openMedia(post: Post) {
         when (val m = post.media) {

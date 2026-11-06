@@ -492,11 +492,16 @@ private fun shortDomain(post: Post): String? = when {
 /** A rounded flair chip, tinted with the subreddit's flair color when it has one. */
 @Composable
 fun FlairChip(post: Post, modifier: Modifier = Modifier) {
-    val flair = post.flair ?: return
+    FlairChip(post.flair ?: return, post.flairColor, modifier)
+}
+
+/** A flair chip for [text], tinted with [color] (ARGB) when the community set one. */
+@Composable
+fun FlairChip(text: String, color: Int?, modifier: Modifier = Modifier) {
     // Sync mutes flair colors toward the card so bright subreddit colors don't shout.
-    val bg = post.flairColor?.let { Color(it).copy(alpha = 0.45f) } ?: MaterialTheme.colorScheme.surfaceVariant
+    val bg = color?.let { Color(it).copy(alpha = 0.45f) } ?: MaterialTheme.colorScheme.surfaceVariant
     Text(
-        flair,
+        text,
         style = CardMeta,
         color = MaterialTheme.colorScheme.onSurface,
         maxLines = 1,

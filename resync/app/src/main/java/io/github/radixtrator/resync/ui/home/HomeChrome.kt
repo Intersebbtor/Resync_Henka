@@ -266,6 +266,7 @@ fun quickActions(
         if (me != null) add(QuickAction("Profile", Icons.Outlined.Person) { nav.push(UserRoute(me)) })
         onAbout?.let { add(QuickAction("About", Icons.Outlined.Info, onClick = it)) }
         add(QuickAction("Submit", Icons.Outlined.Create) { nav.push(SubmitRoute(subreddit)) })
+        add(QuickAction("Random", AppIcons.Dice) { nav.openRandomCommunity(container.subscriptions.value) })
         add(QuickAction("Dark mode", AppIcons.Moon, active = dark) {
             container.settings.update { it.copy(theme = if (dark) ThemeMode.LIGHT else ThemeMode.DARK) }
         })
