@@ -6,6 +6,7 @@ import io.github.radixtrator.resync.data.DraftStore
 import io.github.radixtrator.resync.data.ExploreSection
 import io.github.radixtrator.resync.data.ExploreStore
 import io.github.radixtrator.resync.data.FilterStore
+import io.github.radixtrator.resync.data.FilterType
 import io.github.radixtrator.resync.data.InboxItem
 import io.github.radixtrator.resync.data.NotifiedMessages
 import io.github.radixtrator.resync.data.Parser
@@ -155,6 +156,34 @@ class StoresTest {
         assertTrue(!filters.hides(post("hello", "memes"), feedCommunity = null))
         store.filterKeyword("spoiler alert", on = false)
         assertTrue(!store.filters.value.hides(post("spoiler alert", null), feedCommunity = null))
+    }
+
+    @Test
+    fun `filter editor entries are normalized, removable and clearable per list`() {
+        assertEquals("pics", FilterType.SUBREDDITS.normalize(" /r/Pics/ "))
+        assertEquals("spez", FilterType.USERS.normalize("u/Spez"))
+        assertEquals("spez", FilterType.USERS.normalize("/user/spez"))
+        assertEquals("example.com", FilterType.DOMAINS.normalize("https://www.Example.com/a/b?c=d"))
+        assertEquals("i.redd.it", FilterType.DOMAINS.normalize("i.redd.it"))
+        assertEquals("spoiler alert", FilterType.KEYWORDS.normalize("  Spoiler Alert "))
+        assertEquals("r/meta", FilterType.FLAIRS.normalize("R/Meta"))
+        assertEquals("r/pics", FilterType.SUBREDDITS.describe("pics"))
+        assertEquals("\"word\"", FilterType.KEYWORDS.describe("word"))
+
+        val prefs = FakePrefs()
+        val store = FilterStore(prefs)
+        store.set(FilterType.SUBREDDITS, "r/Pics")
+        store.set(FilterType.SUBREDDITS, "gifs")
+        store.set(FilterType.DOMAINS, "http://www.youtube.com/watch?v=x")
+        store.set(FilterType.USERS, "   ")
+        assertEquals(setOf("pics", "gifs"), FilterType.SUBREDDITS.of(store.filters.value))
+        assertEquals(setOf("youtube.com"), FilterType.DOMAINS.of(FilterStore(prefs).filters.value))
+        assertTrue(FilterType.USERS.of(store.filters.value).isEmpty())
+        store.remove(FilterType.SUBREDDITS, "pics")
+        assertEquals(setOf("gifs"), store.filters.value.subreddits)
+        store.clear(FilterType.SUBREDDITS)
+        assertTrue(store.filters.value.subreddits.isEmpty())
+        assertEquals(setOf("youtube.com"), FilterStore(prefs).filters.value.domains)
     }
 
     @Test

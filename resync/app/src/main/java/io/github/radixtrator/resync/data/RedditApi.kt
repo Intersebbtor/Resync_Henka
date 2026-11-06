@@ -1,6 +1,9 @@
 package io.github.radixtrator.resync.data
 
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 
 private val WIKI_TOC = Regex("""<div class="toc">.*?</div>""", RegexOption.DOT_MATCHES_ALL)
 
@@ -9,6 +12,22 @@ fun multiSearchPath(multi: String): String {
     val parts = multi.trim().trim('/').removePrefix("user/").removePrefix("u/").split('/').filter { it.isNotEmpty() && it != "m" }
     return "/user/${parts.getOrElse(0) { "" }}/m/${parts.getOrElse(1) { "" }}/search"
 }
+
+/**
+ * The URL name Reddit wants for a new custom feed called [displayName]: letters, digits and underscores,
+ * starting with a letter or digit, 3 to 50 long. The display name keeps whatever was typed.
+ */
+fun multiName(displayName: String): String {
+    val name = displayName.trim().replace(Regex("[^A-Za-z0-9]+"), "_").trim('_').take(50).trimEnd('_')
+    return if (name.length >= 3) name else (name + "_feed").trimStart('_')
+}
+
+/** The `model` JSON of /api/multi writes; null fields are left out, so a PUT only changes what's given. */
+fun multiModel(displayName: String? = null, subreddits: List<String>? = null, visibility: String? = null): String = buildJsonObject {
+    displayName?.let { put("display_name", it) }
+    subreddits?.let { subs -> putJsonArray("subreddits") { subs.forEach { name -> add(buildJsonObject { put("name", name) }) } } }
+    visibility?.let { put("visibility", it) }
+}.toString()
 
 /** The endpoints the app uses, on top of [RedditClient]. */
 class RedditApi(private val client: RedditClient) {
@@ -237,6 +256,25 @@ class RedditApi(private val client: RedditClient) {
 
     suspend fun removeFromMulti(multiPath: String, subreddit: String) {
         client.delete("/api/multi/${multiPath.trim('/')}/r/$subreddit")
+    }
+
+    /**
+     * Creates an empty private custom feed for [user] called [displayName] and returns its path
+     * ("user/bob/m/my_feed"). Reddit answers 409 when that URL name is taken.
+     */
+    suspend fun createMulti(user: String, displayName: String): String {
+        val path = "user/$user/m/${multiName(displayName)}"
+        client.post("/api/multi/$path", mapOf("model" to multiModel(displayName.trim(), emptyList(), "private")))
+        return path
+    }
+
+    /** Renames the custom feed at [multiPath]; only its display name changes, its URL stays. */
+    suspend fun renameMulti(multiPath: String, displayName: String) {
+        client.put("/api/multi/${multiPath.trim('/')}", mapOf("model" to multiModel(displayName = displayName.trim())))
+    }
+
+    suspend fun deleteMulti(multiPath: String) {
+        client.delete("/api/multi/${multiPath.trim('/')}")
     }
 
     // --- Writing ---
