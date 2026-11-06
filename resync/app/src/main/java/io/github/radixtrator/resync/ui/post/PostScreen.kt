@@ -88,6 +88,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -117,6 +118,7 @@ import io.github.radixtrator.resync.ui.common.PostStats
 import io.github.radixtrator.resync.ui.common.PostTitle
 import io.github.radixtrator.resync.ui.common.QuickAction
 import io.github.radixtrator.resync.ui.common.QuickActionGrid
+import io.github.radixtrator.resync.ui.common.RedditBodyText
 import io.github.radixtrator.resync.ui.common.SheetTitle
 import io.github.radixtrator.resync.ui.common.SwipeActions
 import io.github.radixtrator.resync.ui.common.SwipeBack
@@ -399,7 +401,8 @@ private fun PostHeader(post: Post, onVote: (Int) -> Unit, onToggleSave: () -> Un
     Column {
         if (post.hasCardPreview()) CardPreview(post, onClick = { nav.openMedia(post) })
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
-            PostTitle(post, MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp, lineHeight = 23.sp), dimWhenRead = false)
+            // Sync's 16sp title at its "Smaller" base font size; Sync draws it in Product Sans, which can't be bundled.
+            PostTitle(post, MaterialTheme.typography.bodyLarge.copy(fontSize = 14.4.sp, lineHeight = TextUnit.Unspecified), dimWhenRead = false)
             Spacer(Modifier.height(4.dp))
             PostMeta(post, showSubreddit = false, maxLines = 3, suffix = post.upvoteRatio?.let { "${(it * 100).roundToInt()}% upvoted" })
             if (post.flair != null) {
@@ -413,7 +416,7 @@ private fun PostHeader(post: Post, onVote: (Int) -> Unit, onToggleSave: () -> Un
             post.selfTextHtml?.takeIf { it.isNotBlank() }?.let { html ->
                 val body = rememberRedditText(html, footnotes = LocalSettings.current.linkCards)
                 Spacer(Modifier.height(10.dp))
-                Text(body.text, style = CommentBody)
+                RedditBodyText(body.text, CommentBody)
                 LinkCards(body.links, Modifier.padding(top = 12.dp))
             }
         }
@@ -444,8 +447,12 @@ private fun PostHeader(post: Post, onVote: (Int) -> Unit, onToggleSave: () -> Un
 private val INDENT = 16.dp
 private const val MAX_DEPTH = 10
 
+/**
+ * Selftext and comment bodies: Sync's 14sp at its default "Smaller" base font size (0.9x), measured from
+ * sync-reference 23 and 55. The font's own line spacing, like Sync, so lines holding a larger link grow.
+ */
 private val CommentBody: TextStyle
-    @Composable get() = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.sp)
+    @Composable get() = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.6.sp, lineHeight = TextUnit.Unspecified)
 
 private fun railColor(level: Int) = ResyncColors.Depth[(level - 1) % ResyncColors.Depth.size]
 
@@ -511,7 +518,7 @@ private fun CommentRow(
                 if (!collapsed || hiddenCount > 0) {
                     val body = rememberRedditText(comment.bodyHtml, footnotes = settings.linkCards)
                     Spacer(Modifier.height(6.dp))
-                    Text(body.text, style = CommentBody)
+                    RedditBodyText(body.text, CommentBody)
                     LinkCards(body.links, Modifier.padding(top = 10.dp))
                 }
             }

@@ -65,6 +65,7 @@ import io.github.radixtrator.resync.ui.common.ListingViewModel
 import io.github.radixtrator.resync.ui.common.MessageEffect
 import io.github.radixtrator.resync.ui.common.PagedList
 import io.github.radixtrator.resync.ui.common.PostListItem
+import io.github.radixtrator.resync.ui.common.RedditBodyText
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.common.postCallbacks
 import io.github.radixtrator.resync.ui.common.rememberRedditHtml
@@ -223,7 +224,7 @@ fun ProfileCommentRow(comment: UserComment, onOpen: () -> Unit) {
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(rememberRedditHtml(comment.bodyHtml), style = MaterialTheme.typography.bodyMedium, maxLines = 8, overflow = TextOverflow.Ellipsis)
+            RedditBodyText(rememberRedditHtml(comment.bodyHtml), MaterialTheme.typography.bodyMedium, maxLines = 8, overflow = TextOverflow.Ellipsis)
             Text(
                 "${Format.count(comment.score)} points · ${Format.timeAgo(comment.createdUtc)}",
                 style = MaterialTheme.typography.labelMedium,

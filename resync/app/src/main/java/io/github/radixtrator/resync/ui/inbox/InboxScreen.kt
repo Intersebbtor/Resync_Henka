@@ -67,6 +67,7 @@ import io.github.radixtrator.resync.ui.common.Format
 import io.github.radixtrator.resync.ui.common.ListingViewModel
 import io.github.radixtrator.resync.ui.common.MessageEffect
 import io.github.radixtrator.resync.ui.common.PagedList
+import io.github.radixtrator.resync.ui.common.RedditBodyText
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.common.rememberRedditHtml
 import io.github.radixtrator.resync.ui.navigation.ComposeMode
@@ -255,9 +256,9 @@ private fun InboxRow(item: InboxItem, sent: Boolean, onOpen: () -> Unit, onReply
             modifier = Modifier.combinedClickable { nav.push(UserRoute(if (sent) item.dest else item.author)) },
         )
         item.postTitle?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-        Text(
+        RedditBodyText(
             rememberRedditHtml(item.bodyHtml),
-            style = MaterialTheme.typography.bodyMedium,
+            MaterialTheme.typography.bodyMedium,
             maxLines = if (expanded || item.isComment) Int.MAX_VALUE else 3,
             overflow = TextOverflow.Ellipsis,
         )

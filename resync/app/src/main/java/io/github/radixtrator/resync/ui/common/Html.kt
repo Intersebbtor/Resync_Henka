@@ -1,24 +1,40 @@
 package io.github.radixtrator.resync.ui.common
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.LinkInteractionListener
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.fromHtml
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 
 private const val SPOILER_URL = "resync-spoiler:reveal"
 private val PARAGRAPH_BREAK = Regex("""</p>\s*<p>""")
+private val HORIZONTAL_RULE = Regex("""<hr\s*/?>""")
 private val SPOILER = Regex("""<span class="md-spoiler-text">(.*?)</span>""", RegexOption.DOT_MATCHES_ALL)
+
+/**
+ * Stands in for a horizontal rule (`---`) as its own paragraph. It's invisible, so text that doesn't go
+ * through [RedditBodyText] just shows a blank line there.
+ */
+const val RULE = '\u2063'
 
 /**
  * Renders the HTML Reddit generates from markdown (body_html / selftext_html).
@@ -43,23 +59,63 @@ fun redditHtml(
     revealSpoilers: Boolean = true,
     onLink: ((String) -> Unit)? = null,
 ): AnnotatedString {
-    // Reddit emits site-relative links (/r/foo, /u/bar) that no URI handler can open as-is.
-    var source = html.replace("href=\"/", "href=\"https://www.reddit.com/")
-    // fromHtml runs paragraphs together; Reddit (and Sync) leave a blank line between them.
-    source = PARAGRAPH_BREAK.replace(source, "</p><br><p>")
-    source = SPOILER.replace(source) { m ->
-        if (revealSpoilers) "<i>${m.groupValues[1]}</i>" else "<a href=\"$SPOILER_URL\">[spoiler]</a>"
-    }
     val listener = onLink?.let { handler ->
         LinkInteractionListener { link -> (link as? LinkAnnotation.Url)?.url?.let(handler) }
     }
     val parsed = AnnotatedString.fromHtml(
-        source,
-        // Sync's "Show larger links": links read a touch bigger than the text around them.
-        linkStyles = TextLinkStyles(SpanStyle(color = linkColor, fontSize = 1.1.em)),
+        redditMarkup(html, revealSpoilers),
+        // Sync's "Show larger links": links are a quarter bigger than the text around them.
+        linkStyles = TextLinkStyles(SpanStyle(color = linkColor, fontSize = 1.25.em)),
         linkInteractionListener = listener,
     )
     return parsed.subSequence(0, parsed.text.trimEnd().length)
+}
+
+/** Reddit's HTML rewritten for fromHtml, which knows nothing of rules, spoilers or site-relative links. */
+fun redditMarkup(html: String, revealSpoilers: Boolean): String {
+    // Reddit emits site-relative links (/r/foo, /u/bar) that no URI handler can open as-is.
+    var source = html.replace("href=\"/", "href=\"https://www.reddit.com/")
+    source = HORIZONTAL_RULE.replace(source, "<p>$RULE</p>")
+    // fromHtml runs paragraphs together; Reddit (and Sync) leave a blank line between them.
+    source = PARAGRAPH_BREAK.replace(source, "</p><br><p>")
+    return SPOILER.replace(source) { m ->
+        if (revealSpoilers) "<i>${m.groupValues[1]}</i>" else "<a href=\"$SPOILER_URL\">[spoiler]</a>"
+    }
+}
+
+/** [Text] that draws each [RULE] as a line across its full width, like Sync's horizontal rules. */
+@Composable
+fun RedditBodyText(
+    text: AnnotatedString,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip,
+) {
+    if (RULE !in text.text) {
+        Text(text, modifier, style = style, maxLines = maxLines, overflow = overflow)
+        return
+    }
+    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    val color = MaterialTheme.colorScheme.onSurface
+    Text(
+        text,
+        modifier.fillMaxWidth().drawBehind {
+            val result = layout ?: return@drawBehind
+            // With maxLines, rules past the cut would otherwise land on the last visible line.
+            val shown = result.getLineEnd(result.lineCount - 1, visibleEnd = true)
+            text.text.forEachIndexed { i, c ->
+                if (c != RULE || i >= shown) return@forEachIndexed
+                val line = result.getLineForOffset(i)
+                val y = (result.getLineTop(line) + result.getLineBottom(line)) / 2
+                drawLine(color, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.3.dp.toPx())
+            }
+        },
+        style = style,
+        maxLines = maxLines,
+        overflow = overflow,
+        onTextLayout = { layout = it },
+    )
 }
 
 /** Rendered text plus the links Sync would footnote, in order: link n is marked ⁿ in [text]. */

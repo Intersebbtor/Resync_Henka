@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import io.github.radixtrator.resync.data.Subreddit
 import io.github.radixtrator.resync.ui.common.Format
+import io.github.radixtrator.resync.ui.common.RedditBodyText
 import io.github.radixtrator.resync.ui.common.rememberRedditHtml
 
 /** Community header + sidebar, with join/leave. */
@@ -87,7 +88,7 @@ fun SubredditInfoSheet(
                 if (about.publicDescription.isNotBlank()) Text(about.publicDescription)
                 about.descriptionHtml?.let { html ->
                     HorizontalDivider()
-                    Text(rememberRedditHtml(html), style = MaterialTheme.typography.bodyMedium)
+                    RedditBodyText(rememberRedditHtml(html), MaterialTheme.typography.bodyMedium)
                 }
             }
         }

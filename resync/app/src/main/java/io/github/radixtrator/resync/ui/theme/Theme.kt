@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -13,6 +14,12 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.text.font.FontWeight
+import io.github.radixtrator.resync.R
 import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.data.ThemeMode
 
@@ -90,6 +97,38 @@ object ResyncColors {
     )
 }
 
+/**
+ * Sync bundles Roboto and draws everything in it rather than the device font (One UI's is wider, and
+ * drew italics upright). res/font/roboto.ttf is Android's variable Roboto: one file, every weight.
+ */
+private val Roboto = FontFamily(
+    (100..900 step 100).flatMap { weight ->
+        listOf(FontStyle.Normal, FontStyle.Italic).map { style ->
+            Font(R.font.roboto, FontWeight(weight), style, variationSettings = FontVariation.Settings(FontWeight(weight), style))
+        }
+    },
+)
+
+private val ResyncTypography = Typography().run {
+    copy(
+        displayLarge = displayLarge.copy(fontFamily = Roboto),
+        displayMedium = displayMedium.copy(fontFamily = Roboto),
+        displaySmall = displaySmall.copy(fontFamily = Roboto),
+        headlineLarge = headlineLarge.copy(fontFamily = Roboto),
+        headlineMedium = headlineMedium.copy(fontFamily = Roboto),
+        headlineSmall = headlineSmall.copy(fontFamily = Roboto),
+        titleLarge = titleLarge.copy(fontFamily = Roboto),
+        titleMedium = titleMedium.copy(fontFamily = Roboto),
+        titleSmall = titleSmall.copy(fontFamily = Roboto),
+        bodyLarge = bodyLarge.copy(fontFamily = Roboto),
+        bodyMedium = bodyMedium.copy(fontFamily = Roboto),
+        bodySmall = bodySmall.copy(fontFamily = Roboto),
+        labelLarge = labelLarge.copy(fontFamily = Roboto),
+        labelMedium = labelMedium.copy(fontFamily = Roboto),
+        labelSmall = labelSmall.copy(fontFamily = Roboto),
+    )
+}
+
 /** Pure black surfaces for OLED screens; cards stay a hair lighter so they still read as cards. */
 private fun ColorScheme.blackened() = copy(
     background = Color.Black,
@@ -117,6 +156,7 @@ fun ResyncTheme(settings: Settings, content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalDarkTheme provides dark) {
         MaterialTheme(
             colorScheme = if (settings.theme == ThemeMode.BLACK) base.blackened() else base,
+            typography = ResyncTypography,
             content = content,
         )
     }

@@ -68,6 +68,14 @@ these tonal palettes. The dark surfaces above map to roughly N1-900 (cards) and 
 bold, slab, slab light, condensed, condensed bold, italic), System, and Product Sans (regular, medium, bold, italic). Title, description and selftext fonts
 are each configurable (typeface + relative size). Page titles use a large display style, about 34 sp ("Frontpage", "Inbox", "Settings").
 
+**Measured text sizes** (fitting Roboto to sync-reference screenshots; the reference phone runs at font scale 1.08, so a measured size
+divided by 1.08 is the sp to use). Sync bundles its fonts, so it draws in Roboto whatever the device font is; everything except titles is Roboto.
+- Base font size is "Smaller" by default on phones, which reads as 0.9× the usual sp.
+- Selftext and comment bodies: 13.67 dp measured → 12.6 sp (14 × 0.9), at the font's natural line spacing (≈16.2 dp per line).
+- Links ("Show larger links"): 1.25× the text around them. Lines holding one grow taller, so link lists sit further apart.
+- Post title in the post view: Product Sans, as wide as Roboto at 14.4 sp (16 × 0.9). Product Sans can't be bundled, so Resync uses Roboto.
+- Horizontal rules (`---`): a ≈1.3 dp onSurface line across the text width, a blank line above and below.
+
 **Measurements** (px ÷ 2.25):
 
 | Element | Size |
@@ -199,7 +207,7 @@ Settings = PreferencesActivity (root + 25 subscreens)
 - **Header:**
   - Full-width image or link preview, title, and meta "author • age • domain • **98% upvoted**", then flair.
   - Bottom row: points/comments (left); ▲ ▼ 🔖 ⋮ (right).
-- **Selftext rendering:** full markdown. Links are drawn larger in accent color with **superscript footnote numbers**. Below the body, each link gets a
+- **Selftext rendering:** full markdown, including italics and horizontal rules. Links are drawn larger in accent color with **superscript footnote numbers**. Below the body, each link gets a
   **preview card** (thumbnail + "(n) URL"). This also applies to links inside comments.
 - **Badges:** pinned 📌, mod 🛡, emoji flair, edited "21d*" + "(last edited 1d)".
 - **Comment rows** (no card, no divider between nested replies; a thick gap separates top-level threads):
@@ -465,7 +473,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Filters (sub/user/domain/flair/keyword) | yes | — | ❌ |
 | Multis: add to multi, custom feeds section | yes | multis listed | ◐ |
 | Settings breadth | ~350 keys / 25 screens | theme, layout, NSFW, spoilers, behavior | ◐ (see catalogue) |
-| Typeface choices (Product Sans, Roboto variants…) | yes | — | ❌ |
+| Typeface choices (Product Sans, Roboto variants…) | yes | Roboto bundled and used everywhere, like Sync's default; post body sizes measured | ◐ (no picker; feed, header and Explore sizes still need the 1.08 font-scale correction) |
 | Monet theme + theme management | yes | Material You toggle | ◐ |
 
 ---

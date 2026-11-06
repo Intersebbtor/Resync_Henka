@@ -26,7 +26,9 @@ import io.github.radixtrator.resync.data.RedditException
 import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.data.ThemeMode
 import io.github.radixtrator.resync.ui.common.Format
+import io.github.radixtrator.resync.ui.common.RULE
 import io.github.radixtrator.resync.ui.common.hasSpoiler
+import io.github.radixtrator.resync.ui.common.redditMarkup
 import io.github.radixtrator.resync.ui.compose.insertLink
 import io.github.radixtrator.resync.ui.compose.prefixLines
 import io.github.radixtrator.resync.ui.compose.wrap
@@ -318,6 +320,15 @@ class ParserTest {
         assertEquals("And the winners are...\n…", firstParagraph("And the winners are...\n\ndrumroll\n\n☆ Night Sky"))
         assertEquals("Just one line", firstParagraph("  Just one line \n\n"))
         assertEquals(null, firstParagraph(" \n "))
+    }
+
+    @Test
+    fun `rules become their own paragraph between blank lines`() {
+        val html = "<div class=\"md\"><p>Thanks!</p>\n\n<hr/>\n\n<p><a href=\"/r/pics\">r/pics</a></p>\n</div>"
+        assertEquals(
+            "<div class=\"md\"><p>Thanks!</p><br><p>$RULE</p><br><p><a href=\"https://www.reddit.com/r/pics\">r/pics</a></p>\n</div>",
+            redditMarkup(html, revealSpoilers = true),
+        )
     }
 
     @Test

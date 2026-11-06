@@ -249,10 +249,10 @@ private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, fl
             if (post.thumbnail() != null && !post.isSelf) {
                 CardPreview(post, onClick = actions.onMedia, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).clip(RoundedCornerShape(8.dp)))
             } else if (post.selfText.isNotBlank()) {
-                Text(
+                RedditBodyText(
                     post.selfTextHtml?.let { rememberRedditHtml(it) } ?: AnnotatedString(post.selfText),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                    MaterialTheme.typography.bodyMedium,
+                    Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
                 )
             }
         }
