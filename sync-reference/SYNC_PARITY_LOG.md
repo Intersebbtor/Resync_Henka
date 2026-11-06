@@ -467,7 +467,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Link footnotes + link preview cards in selftext/comments | yes | superscript numbers on off-Reddit links, "(n) url" cards with image thumbnails, larger links, blank line between paragraphs | ✅ |
 | "98% upvoted", edited "*" + "(last edited)", OP pill, pinned/mod badges | yes | upvote %, "21d* (last edited 1d)" on posts, rounded OP pill, OP / shield / pin icons, shield after mod authors; "33.6M" counts, no online count | ✅ (comments show "*" only; Sync's comment format unverified) |
 | Restore scroll position / collapsed state per post | yes | persisted per post (200 most recent), setting to turn off | ✅ |
-| Composer formatting bar | 17 tools incl. preview, emoji, drafts, image, spoiler, numbered list | markdown toolbar | ◐ |
+| Composer formatting bar | 17 tools incl. preview, emoji, drafts, image, spoiler, numbered list | markdown toolbar plus numbered list, heading, code block, rule, emoji picker (unverified) | ◐ (no preview, drafts, image upload) |
 | Image viewer info sheet (download, link info, copy/share/comments) | yes | tap to close, swipe up for the sheet: download, host, URL, original resolution and file size, Comments / Open in browser / Copy / Share | ◐ (no debug log, no colorful backdrop, no deep zoom) |
 | Video player: HD toggle, speed, download, mute | yes | Sync's bar (seek, HD, restart, play/pause, mute, time, download, ⋮) and ⋮ panel (speed, link info, actions); HD Reddit video quality setting; downloads mux v.redd.it audio | ◐ (no debug log, no zoomable video) |
 | Galleries | broken in Sync | gallery viewer | ✅ (better) |

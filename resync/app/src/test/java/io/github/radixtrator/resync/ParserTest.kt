@@ -12,6 +12,8 @@ import io.github.radixtrator.resync.data.MoreComments
 import io.github.radixtrator.resync.data.NsfwMode
 import io.github.radixtrator.resync.data.Parser
 import io.github.radixtrator.resync.data.Wiki
+import io.github.radixtrator.resync.ui.compose.insert
+import io.github.radixtrator.resync.ui.compose.numberLines
 import io.github.radixtrator.resync.data.WikiLink
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.ReportReason
@@ -530,5 +532,14 @@ class SearchPathTest {
     fun `custom feed search paths`() {
         org.junit.Assert.assertEquals("/user/bob/m/news/search", io.github.radixtrator.resync.data.multiSearchPath("bob/news"))
         org.junit.Assert.assertEquals("/user/bob/m/news/search", io.github.radixtrator.resync.data.multiSearchPath("/u/bob/m/news/"))
+    }
+}
+
+class MarkdownToolsTest {
+    @org.junit.Test
+    fun `numbers lines and inserts snippets`() {
+        val v = TextFieldValue("a\nb", TextRange(0, 3))
+        org.junit.Assert.assertEquals("1. a\n2. b", v.numberLines().text)
+        org.junit.Assert.assertEquals("a🔥", TextFieldValue("a", TextRange(1)).insert("🔥").text)
     }
 }
