@@ -6,19 +6,15 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -46,15 +42,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.data.NsfwMode
 import io.github.radixtrator.resync.data.Post
-import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.PostMedia
 import io.github.radixtrator.resync.data.ProfileItem
 import io.github.radixtrator.resync.data.SortKind
 import io.github.radixtrator.resync.ui.common.AppIcons
 import io.github.radixtrator.resync.ui.common.Format
 import io.github.radixtrator.resync.ui.common.PostActionsSheet
-import io.github.radixtrator.resync.ui.common.PostActions
-import io.github.radixtrator.resync.ui.common.PostLayoutItem
 import io.github.radixtrator.resync.ui.common.postCallbacks
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.home.ExploreMode
@@ -67,10 +60,10 @@ import io.github.radixtrator.resync.ui.navigation.SearchRoute
 import io.github.radixtrator.resync.ui.navigation.SwipeModeRoute
 
 /**
- * Sync's Swipe mode: one post per page, swipe horizontally for the next or previous one. Each page is the
- * Slides layout (header, title, media, vote / comments / save row, ⋮) and scrolls if the post is tall.
- * The page after the last loaded one triggers the next load. The toolbar's feed name (▾) opens Explore to
- * switch feeds in place, Sort re-sorts, and a bottom bar downloads the current post's media.
+ * Sync's Swipe mode: one post per page, swipe horizontally for the next or previous one. Each page is a
+ * [SwipePage] (header and title over centered media), and the bottom bar ([SwipeBottomBar]) acts on the post
+ * on screen: vote, save, comments, download and post options. Pages near the end trigger the next load.
+ * The toolbar's feed name (▾) opens Explore to switch feeds in place, and Sort re-sorts.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -82,6 +75,7 @@ fun SwipeModeScreen(subreddit: String?, container: AppContainer) {
     val sort by vm.sort.collectAsStateWithLifecycle()
     val callbacks = remember(vm) { vm.postCallbacks() }
     val filters by container.filters.filters.collectAsStateWithLifecycle()
+    val icons by container.subredditIcons.collectAsStateWithLifecycle()
     val posts = remember(state.items, filters, settings.nsfw) {
         state.items.mapNotNull { (it as? ProfileItem.PostItem)?.post }
             .filterNot { filters.hides(it, subreddit) || (settings.nsfw == NsfwMode.HIDE && it.over18) }
@@ -90,8 +84,17 @@ fun SwipeModeScreen(subreddit: String?, container: AppContainer) {
     LaunchedEffect(pager, posts.size) {
         snapshotFlow { pager.currentPage }.collect { page -> if (page >= posts.size - 3) vm.loadMore() }
     }
+    // History › "Mark posts as read on scroll": in Swipe mode, the pages swiped past count as read.
+    if (settings.markReadOnScroll) {
+        LaunchedEffect(pager, posts) {
+            snapshotFlow { pager.currentPage }.collect { page -> posts.take(page).forEach { callbacks.onMarkRead(it) } }
+        }
+    }
     var exploreOpen by rememberSaveable { mutableStateOf(false) }
     var sortOpen by rememberSaveable { mutableStateOf(false) }
+    // The post whose options sheet is open, from the bottom bar's ⋮ or a long-press on a page's header.
+    // Kept as the fullname so the sheet sees the post's latest state (saved, voted).
+    var sheetFor by remember { mutableStateOf<String?>(null) }
     val download = rememberDownloader(container.downloads)
     val current = posts.getOrNull(pager.currentPage)
 
@@ -123,13 +126,18 @@ fun SwipeModeScreen(subreddit: String?, container: AppContainer) {
                 )
             },
             bottomBar = {
-                // Sync's bottom-bar download, for the post on screen when it has an image, gallery or video.
-                val urls = current?.let(::downloadUrls).orEmpty()
-                if (urls.isNotEmpty()) {
-                    BottomAppBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-                        Spacer(Modifier.weight(1f))
-                        IconButton(onClick = { urls.forEach(download) }) { Icon(AppIcons.Download, "Download") }
-                    }
+                // Sync's bottom bar, for the post on screen. Download saves its image, every gallery image, or its video.
+                current?.let { post ->
+                    val urls = downloadUrls(post)
+                    SwipeBottomBar(
+                        post = post,
+                        canDownload = urls.isNotEmpty(),
+                        onVote = { callbacks.onVote(post, it) },
+                        onToggleSave = { callbacks.onToggleSave(post) },
+                        onComments = { nav.push(PostRoute(post.id)) },
+                        onDownload = { urls.forEach(download) },
+                        onMore = { sheetFor = post.fullname },
+                    )
                 }
             },
         ) { padding ->
@@ -144,33 +152,28 @@ fun SwipeModeScreen(subreddit: String?, container: AppContainer) {
                     }
                     else -> HorizontalPager(pager, Modifier.fillMaxSize(), key = { posts[it].fullname }) { page ->
                         val post = posts[page]
-                        var sheetOpen by remember { mutableStateOf(false) }
-                        val actions = remember(post, callbacks) {
-                            PostActions(
-                                onOpen = { nav.push(PostRoute(post.id)) },
-                                onMedia = { nav.openMedia(post) },
-                                onMore = { sheetOpen = true },
-                                onVote = { callbacks.onVote(post, it) },
-                                onToggleSave = { callbacks.onToggleSave(post) },
-                            )
-                        }
-                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                            PostLayoutItem(PostLayout.SLIDES, post, showSubreddit = true, actions = actions)
-                        }
-                        if (sheetOpen) {
-                            PostActionsSheet(
-                                post = post,
-                                onDismiss = { sheetOpen = false },
-                                onHide = callbacks.onHide?.let { hide -> { hide(post) } },
-                                onDelete = { callbacks.onDelete(post) },
-                            )
-                        }
+                        SwipePage(
+                            post = post,
+                            iconUrl = icons[post.subreddit.lowercase()],
+                            onOpen = { nav.push(PostRoute(post.id)) },
+                            onMedia = { nav.openMedia(post) },
+                            onMore = { sheetFor = post.fullname },
+                        )
                     }
                 }
             }
         }
     }
 
+    sheetFor?.let { id -> posts.firstOrNull { it.fullname == id } }?.let { post ->
+        PostActionsSheet(
+            post = post,
+            onDismiss = { sheetFor = null },
+            onHide = callbacks.onHide?.let { hide -> { hide(post) } },
+            onDelete = { callbacks.onDelete(post) },
+            onMarkRead = { callbacks.onMarkRead(post) },
+        )
+    }
     if (sortOpen) {
         // The Comments sort is a comment stream, with no posts to page through here.
         SortSheet(current = sort, options = vm.sortOptions - SortKind.COMMENTS, onDismiss = { sortOpen = false }, onPick = vm::setSort)
