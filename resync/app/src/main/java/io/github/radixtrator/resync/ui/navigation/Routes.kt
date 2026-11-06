@@ -48,6 +48,10 @@ data class SearchRoute(val query: String = "", val subreddit: String? = null, va
 @Serializable
 data class SwipeModeRoute(val subreddit: String? = null) : NavKey
 
+/** Sync's Moderator screen for [subreddit]: modqueue, reports, spam, edited and unmoderated. */
+@Serializable
+data class ModRoute(val subreddit: String) : NavKey
+
 @Serializable
 data class SubmitRoute(val subreddit: String? = null) : NavKey
 

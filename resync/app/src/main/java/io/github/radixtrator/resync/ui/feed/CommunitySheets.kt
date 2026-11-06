@@ -65,6 +65,7 @@ import io.github.radixtrator.resync.ui.common.rememberRedditText
 import io.github.radixtrator.resync.ui.navigation.ComposeMode
 import io.github.radixtrator.resync.ui.navigation.ComposeRoute
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
+import io.github.radixtrator.resync.ui.navigation.ModRoute
 import io.github.radixtrator.resync.ui.navigation.Navigator
 import io.github.radixtrator.resync.ui.navigation.SearchRoute
 import io.github.radixtrator.resync.ui.navigation.UserRoute
@@ -85,6 +86,7 @@ fun CommunityActionSheet(container: AppContainer, community: String, action: Abo
         AboutAction.FLAIRS -> FlairsSheet(container, community, onPick = { leave(SearchRoute("flair_name:\"${it.text}\"", subreddit = community)) }, onDismiss)
         AboutAction.RULES -> RulesSheet(container, community, onDismiss)
         AboutAction.ADD_TO_MULTI -> AddToMultiSheet(container, community, onDismiss)
+        AboutAction.MOD_TOOLS -> leave(ModRoute(community))
         AboutAction.MODS -> ModeratorsSheet(container, community, onOpen = { leave(UserRoute(it)) }, onDismiss)
         AboutAction.SHARE, AboutAction.MESSAGE_MODS -> Unit
     }

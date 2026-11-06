@@ -198,6 +198,19 @@ class RedditApi(private val client: RedditClient) {
     suspend fun searchSubreddits(query: String, after: String?): Listing<Subreddit> =
         Parser.subredditListing(client.get("/subreddits/search", mapOf("q" to query, "after" to after, "limit" to "25")))
 
+    /** A mod section's posts and comments (needs the "modposts" scope and moderator rights). */
+    suspend fun modListing(subreddit: String, section: ModSection, after: String?): Listing<ProfileItem> =
+        Parser.profileListing(client.get("/r/$subreddit/about/${section.path}", mapOf("after" to after, "limit" to "25", "only" to null)))
+
+    suspend fun approve(fullname: String) {
+        client.post("/api/approve", mapOf("id" to fullname))
+    }
+
+    /** Removes [fullname]; [spam] also trains Reddit's spam filter. */
+    suspend fun remove(fullname: String, spam: Boolean) {
+        client.post("/api/remove", mapOf("id" to fullname, "spam" to spam.toString()))
+    }
+
     suspend fun multis(): List<Multi> = Parser.multis(client.get("/api/multi/mine"))
 
     /** Adds [subreddit] to the custom feed at [multiPath] ("user/bob/m/news"). */

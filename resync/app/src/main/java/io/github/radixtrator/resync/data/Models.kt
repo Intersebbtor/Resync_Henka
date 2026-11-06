@@ -280,3 +280,12 @@ data class Multi(val name: String, val path: String, val subreddits: List<String
     /** The feed route's community string for it: "a+b+c", which the listing endpoints accept. */
     val feedName: String get() = subreddits.joinToString("+")
 }
+
+/** Sync's moderator sections for one community; [path] is under /r/<sub>/about/. */
+enum class ModSection(val path: String, val label: String) {
+    MODQUEUE("modqueue", "Modqueue"),
+    REPORTS("reports", "Reports"),
+    SPAM("spam", "Spam"),
+    EDITED("edited", "Edited"),
+    UNMODERATED("unmoderated", "Unmoderated"),
+}

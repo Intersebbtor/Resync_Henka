@@ -41,6 +41,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import io.github.radixtrator.resync.ui.navigation.LocalContainer
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,6 +74,7 @@ enum class AboutAction(val label: String, val icon: ImageVector) {
     SHARE("Share", Icons.Outlined.Share),
     MESSAGE_MODS("Message mods", Icons.Outlined.Email),
     MODS("View mods", Icons.Outlined.Person),
+    MOD_TOOLS("Mod tools", AppIcons.Shield),
 }
 
 /**
@@ -100,7 +103,7 @@ fun SubredditInfoSheet(
             return@ModalBottomSheet
         }
         // No online count: Reddit reports 0 for every community now.
-        AboutHeader(about.bannerUrl, about.iconUrl, about.name, menu = { AboutMenu(onAction, it) }) {
+        AboutHeader(about.bannerUrl, about.iconUrl, about.name, menu = { AboutMenu(about.name, onAction, it) }) {
             AboutStat(Icons.Outlined.Person, Format.members(about.subscribers))
         }
         Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
@@ -190,12 +193,14 @@ fun AboutStat(icon: ImageVector, text: String) {
 }
 
 @Composable
-private fun AboutMenu(onAction: (AboutAction) -> Unit, modifier: Modifier) {
+private fun AboutMenu(community: String, onAction: (AboutAction) -> Unit, modifier: Modifier) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
         IconButton(onClick = { open = true }) { Icon(Icons.Default.MoreVert, "More", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            AboutAction.entries.forEach { action ->
+            // Mod tools only for communities you moderate.
+            val moderated = LocalContainer.current.moderated.collectAsStateWithLifecycle().value
+            AboutAction.entries.filter { it != AboutAction.MOD_TOOLS || moderated.any { m -> m.equals(community, ignoreCase = true) } }.forEach { action ->
                 DropdownMenuItem(
                     text = { Text(action.label) },
                     leadingIcon = { Icon(action.icon, null) },
