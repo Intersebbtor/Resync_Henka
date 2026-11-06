@@ -20,6 +20,34 @@ enum class PostLayout(val label: String) {
     SLIDES("Slides"),
 }
 
+/**
+ * Sync's per-view-type display options (Settings > View type, sync-reference/settings-catalogue.md "View type").
+ * Each layout reads only the options its Sync screen offers; the rest keep their defaults. The defaults are
+ * Sync's, which are also how Resync's layouts looked before these existed. Sync shares a few keys between
+ * List, Compact and Smaller cards (`type_indicators`, `compact_single_lines`); here every layout has its own.
+ */
+@Serializable
+data class ViewOptions(
+    /** Slides: `slide_image_previews`, the big image/video/link preview. */
+    val imagePreviews: Boolean = true,
+    /** Slides and Cards: `slide_selftext_previews` / `card_selftext_previews`, a text post's first paragraph. */
+    val selftextPreviews: Boolean = true,
+    /** Slides: `slide_subreddit_thumbnail`, the community icon before "r/sub". */
+    val subredditIcons: Boolean = true,
+    /** Slides: `slide_selftext_border`, the outline around the text preview. */
+    val selftextBorder: Boolean = true,
+    /** Cards: `card_image_above`; off puts the preview under the title and meta. */
+    val imageAboveTitle: Boolean = true,
+    /** Small cards: `small_cards_thumbnail_align_left`; off keeps the thumbnail top-right. */
+    val thumbnailLeft: Boolean = false,
+    /** List and Compact: `compact_thumbnails`. */
+    val thumbnails: Boolean = true,
+    /** List, Compact and Smaller cards: `type_indicators`, the link/image/gallery/play icon on the right. */
+    val typeIndicators: Boolean = true,
+    /** List, Compact and Smaller cards: `compact_single_lines`, "Limit title to a single line". */
+    val singleLineTitle: Boolean = false,
+)
+
 enum class NsfwMode(val label: String) { HIDE("Hide NSFW posts"), BLUR("Blur previews"), SHOW("Show") }
 
 /**
@@ -85,8 +113,12 @@ data class Settings(
     val commentSwipeActions: List<SwipeAction> = DEFAULT_COMMENT_SWIPES,
     /** Per-feed overrides of [layout], keyed by [feedKey], like Sync's per-subreddit view. */
     val feedLayouts: Map<String, PostLayout> = emptyMap(),
+    /** Sync's Customize view choices, per layout; a layout missing here uses the [ViewOptions] defaults. */
+    val viewOptions: Map<PostLayout, ViewOptions> = emptyMap(),
 ) {
     fun layoutFor(subreddit: String?): PostLayout = feedLayouts[feedKey(subreddit)] ?: layout
+
+    fun viewOptionsFor(layout: PostLayout): ViewOptions = viewOptions[layout] ?: ViewOptions()
 
     /** The three post swipe stages, repairing a stored list that isn't three valid entries. */
     val postSwipeStages: List<SwipeAction>
