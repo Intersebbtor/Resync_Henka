@@ -5,7 +5,7 @@ running app over ADB.
 
 - **Device:** Galaxy Z Fold (SM-F971U1) cover screen, 1248×1972 px, density override 360 dpi (**2.25 px = 1 dp**), Android 17,
   dark mode, Material You colors from the wallpaper.
-- **Screenshots:** [`screens/`](screens/), WebP at 50% scale. The UI dumps behind them (view ids, bounds, text) are in the session
+- **Screenshots:** kept locally in `screens/` (git-ignored: they show personal account data), WebP at 50% scale. The UI dumps behind them (view ids, bounds, text) are in the session
   scratchpad, not in this folder.
 - **Full settings tree:** [`settings-catalogue.md`](settings-catalogue.md). It lists all 36 screens and ~350 keys with types, defaults and
   list values, extracted from the APK's preference XML. This log covers only what can be seen and done in the app.
@@ -42,10 +42,10 @@ Colors were sampled from the dark theme with a Monet palette. Accent colors foll
 | Comment depth rails | `#4484F6` → `#9C27B0` → `#4CAF50` → `#FF9800` → `#E91E63`, then repeats | 1–5, then back to blue at 6; same in light theme |
 | Swipe action backgrounds | comment: upvote `#FF7500`, save `#EBCA3F`, reply `#3ABF6D`; post: downvote `#9494FF`, hide `#B71C1C` | revealed behind the item while swiping |
 
-**Light theme** (Dark mode → Light, [89](screens/89-light-feed.webp), [90](screens/90-light-comments.webp)): window `#EEEDF3`, cards/chips `#FEFBFF`,
+**Light theme** (Dark mode → Light, 89, 90): window `#EEEDF3`, cards/chips `#FEFBFF`,
 bottom nav `#E1E2ED`, nav pill `#C0C6DC`, FAB `#505E81`, neutral flair `#F1F0F6`. Layout is identical to dark.
 
-**Monet palette in use** (Theme management → Visualise monet palette, [64b](screens/64b-monet-palette.webp)). Sync builds every surface from
+**Monet palette in use** (Theme management → Visualise monet palette, 64b). Sync builds every surface from
 these tonal palettes. The dark surfaces above map to roughly N1-900 (cards) and A1-700 (FAB); the light ones map to N1-10/N1-50 and A1-600.
 
 | tone | N1 | N2 | A1 | A2 | A3 |
@@ -241,18 +241,18 @@ Settings = PreferencesActivity (root + 25 subscreens)
   quote, bulleted list, numbered list, promo (insert Sync signature), info, bug report, settings.
 
 ### 3.10 Media viewers
-- **Image** ([31](screens/31-image-viewer.webp), [32](screens/32-image-options-sheet.webp)):
+- **Image** (31, 32):
   - Fullscreen, deep-zoom (subsampling), dark backdrop. A single tap closes it.
   - Swipe up from the bottom for a translucent sheet with:
     - download ⤓ and close ✕
     - link info: domain, URL, resolution, file size
     - a debug log ("Detected standard image… Deepzoom image loaded")
     - a bottom bar: Comments, Open in browser, Copy, Share
-- **Video** ([34](screens/34-video-player.webp), [35](screens/35-video-options-sheet.webp)):
+- **Video** (34, 35):
   - ExoPlayer (HLS from v.redd.it). Bottom controls: seek bar, HD toggle, restart ⏮, play/pause, mute, "00:02 / 00:10", download, ⋮.
   - The ⋮ sheet raises the controls and adds playback speed (− 1x +), link info, a debug log, and the same 4-button bottom bar.
 - **Gallery** (MultiImageActivity): **broken in patched Sync.** It opens and immediately closes with the toast "Error loading album"
-  ([33](screens/33-gallery-error-toast.webp)). A MorpheApp post, "Sync for Reddit – Loading Comments and Reddit Galleries fix", was in the search results.
+  (33). A MorpheApp post, "Sync for Reddit – Loading Comments and Reddit Galleries fix", was in the search results.
 
 ### 3.11 Explore tab (subreddit picker)
   
@@ -266,23 +266,23 @@ Settings = PreferencesActivity (root + 25 subscreens)
   - Section visibility (Favorites, Feeds, Custom feeds, Subscriptions, Most visited, Moderated, Follows)
   - Toggles: Highlight default, Duplicate favs, Expand on open, Remember position, Fast scroller
   - Actions: Reload subscriptions, Reset fav order, Clear search history, Clear top visited
-- **Typing a query** ([40](screens/40-explore-search.webp)):
+- **Typing a query** (40):
   - Buttons: "Search all" (plus "Search r/<current>" when inside a sub).
   - Results: **Subscribed** matches; **Suggested subreddit results** with subscriber counts ("33.58m subs") and a "Search all subs" link;
     **Actions** "Open u/<q>", "Open r/<q>".
 - **Toolbar Search** opens this same sheet with the keyboard up and a "Recently searched & visited" list. Past queries are listed
-  as `"voice" in /r/ObsidianMD` ([46](screens/46-fab-longpress-recents.webp), [52](screens/52-search.webp)).
+  as `"voice" in /r/ObsidianMD` (46, 52).
 
 ### 3.12 Subreddit feed
 
 - **Header:** sub icon (large, left of title), small "👤 33.6M  📡 0" counts above the big "pics" title.
 - **Chips:** Hot ▾, Join, About, Wiki, Flairs ▾, Watch.
 - **Pinned posts** show a 📌 after the title. Mod authors get a 🛡 and an emoji flair.
-- **About** ([42](screens/42-subreddit-about.webp)):
+- **About** (42):
   - Bottom sheet: banner, centered icon, name, counts, chips Join / Watch / Favorite.
   - Sidebar markdown in a rounded card. Relative links show their target in parentheses, e.g. "(/wiki/)".
   - ⋮: View wiki, Filter by flair, View rules, Share, Message mods, View mods, Edit flair, Add to multi.
-- **Wiki** ([43](screens/43-subreddit-wiki.webp)): bottom sheet titled "pics - index", rendered markdown.
+- **Wiki** (43): bottom sheet titled "pics - index", rendered markdown.
 - **Flairs** chip: **broken**, shows the toast "Error loading post flairs".
 - The "online" count shows 0 because Reddit no longer reports it. Hide it or drop it.
 
@@ -330,14 +330,14 @@ Settings = PreferencesActivity (root + 25 subscreens)
 | Other | Restore purchases, Privacy, Security (biometric lock), Everything else |
 
 ### 3.17 Settings subscreens
-Screenshots: [General](screens/58-settings-general.webp), [Sync Ultra](screens/59-settings-sync-ultra.webp), [Legacy](screens/60-settings-legacy-settings.webp),
-[Experimental](screens/61-settings-experimental.webp), [Tablet](screens/62-settings-tablet.webp), [Animations](screens/63-settings-animations.webp),
-[Theme management](screens/64-settings-theme-management.webp), [Dark mode](screens/80-settings-dark-mode.webp), [Comments](screens/65-settings-comments.webp),
-[Awards](screens/66-settings-awards.webp), [Reddit web prefs](screens/67-settings-reddit-web-preferences.webp), [Post options](screens/68-settings-post-options.webp),
-[Comment options](screens/69-settings-comment-options.webp), [Messaging](screens/70-settings-messaging.webp), [Media](screens/71-settings-media.webp),
-[Link handling](screens/72-settings-link-handling.webp), [History](screens/73-settings-history.webp), [Data options](screens/74-settings-data-options.webp),
-[Filters](screens/75-settings-filters.webp), [Backup](screens/76-settings-backup.webp), [Privacy](screens/77-settings-privacy.webp),
-[Security](screens/78-settings-security.webp), [Everything else](screens/79-settings-everything-else.webp). Values: [settings-current-values.md](settings-current-values.md).
+Screenshots: General, Sync Ultra, Legacy,
+Experimental, Tablet, Animations,
+Theme management, Dark mode, Comments,
+Awards, Reddit web prefs, Post options,
+Comment options, Messaging, Media,
+Link handling, History, Data options,
+Filters, Backup, Privacy,
+Security, Everything else. Values: [settings-current-values.md](settings-current-values.md).
 
 - **Shared layout:** ← and a reset icon (gear with arrow) in the toolbar, a large title, accent-colored category headers, and rows with title +
   gray summary. List rows show their current value as the summary. Switches are M3 with a check-mark thumb. Row icons are inconsistent:

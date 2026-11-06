@@ -13,3 +13,6 @@ local.properties
 
 # Third-party tools used by patch_sync.py (download apktool yourself)
 tools/*.jar
+
+# Sync screenshots stay local (personal account data)
+sync-reference/screens/
