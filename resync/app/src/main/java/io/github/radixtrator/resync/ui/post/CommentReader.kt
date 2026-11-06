@@ -18,18 +18,28 @@ data class ReaderItem(val label: String, val text: String)
 
 /**
  * What Sync's comment text-to-speech player reads: the post (title, then its text), then each loaded top-level
- * comment, prefixed with its author. Deleted and removed comments are skipped. [plain] turns a body's HTML (or,
- * failing that, its markdown fallback) into speakable text.
+ * comment, prefixed with its author, and with [replies] every loaded reply too, in thread order ("author replies.").
+ * Deleted and removed comments are skipped. [plain] turns a body's HTML (or, failing that, its markdown fallback)
+ * into speakable text.
  */
-fun readerQueue(post: Post, comments: List<CommentNode>, plain: (html: String?, fallback: String) -> String): List<ReaderItem> = buildList {
+fun readerQueue(
+    post: Post,
+    comments: List<CommentNode>,
+    plain: (html: String?, fallback: String) -> String,
+    replies: Boolean = false,
+): List<ReaderItem> = buildList {
     val selfText = plain(post.selfTextHtml, post.selfText).trim()
     add(ReaderItem("Post", if (selfText.isEmpty()) post.title else "${post.title}.\n$selfText"))
     comments.forEach { node ->
         val comment = node as? Comment ?: return@forEach
-        if (comment.depth != 0) return@forEach
+        if (comment.depth != 0 && !replies) return@forEach
         val text = plain(comment.bodyHtml, comment.body).trim()
         if (text.isEmpty() || text == "[deleted]" || text == "[removed]") return@forEach
-        add(ReaderItem("u/${comment.author}", "${comment.author}.\n$text"))
+        if (comment.depth == 0) {
+            add(ReaderItem("u/${comment.author}", "${comment.author}.\n$text"))
+        } else {
+            add(ReaderItem("u/${comment.author} · reply", "${comment.author} replies.\n$text"))
+        }
     }
 }
 
@@ -37,6 +47,7 @@ fun readerQueue(post: Post, comments: List<CommentNode>, plain: (html: String?, 
  * Sync's comment TTS player (`view_tts`): reads a [readerQueue] item by item on the device's text-to-speech
  * engine, with play/pause, previous, next and stop. The engine can't pause mid-sentence, so resuming starts
  * the current item again. The engine starts on first [start]; call [release] when the page goes away.
+ * [setSpeechRate] sets the pace (the player's ⋮ speed).
  */
 class CommentReader(context: Context) {
     data class State(val items: List<ReaderItem> = emptyList(), val index: Int = 0, val playing: Boolean = false) {
@@ -51,6 +62,7 @@ class CommentReader(context: Context) {
 
     private var engine: TextToSpeech? = null
     private var ready = false
+    private var speechRate = 1.0f
 
     /** Bumped whenever speech is cut off, so callbacks from what was flushed are ignored. */
     private var generation = 0
@@ -71,6 +83,31 @@ class CommentReader(context: Context) {
             _state.value = s.copy(playing = true)
             speakCurrent()
         }
+    }
+
+    /**
+     * Sets the speech rate (1.0 is the engine's normal pace). The engine only applies it to new speech, so an item
+     * being read starts again at the new pace.
+     */
+    fun setSpeechRate(rate: Float) {
+        if (rate == speechRate) return
+        speechRate = rate
+        if (!ready) return // applied once the engine is up
+        engine?.setSpeechRate(rate)
+        if (_state.value.playing) speakCurrent()
+    }
+
+    /**
+     * Swaps in a new queue (the "Read replies" switch) without stopping: reading carries on with the same item if
+     * the new queue has it, or else with the nearest earlier item the two share.
+     */
+    fun replaceItems(items: List<ReaderItem>) {
+        val s = _state.value
+        if (!s.active || items.isEmpty()) return
+        val index = s.items.subList(0, s.index + 1).asReversed().firstNotNullOfOrNull { item ->
+            items.indexOf(item).takeIf { it >= 0 }
+        } ?: 0
+        _state.value = s.copy(items = items, index = index)
     }
 
     fun next() = moveTo(_state.value.index + 1)
@@ -104,6 +141,7 @@ class CommentReader(context: Context) {
             main.post {
                 if (status == TextToSpeech.SUCCESS) {
                     ready = true
+                    engine?.setSpeechRate(speechRate)
                     if (_state.value.playing) speakCurrent()
                 } else {
                     Toast.makeText(context, "Text-to-speech isn't available", Toast.LENGTH_SHORT).show()

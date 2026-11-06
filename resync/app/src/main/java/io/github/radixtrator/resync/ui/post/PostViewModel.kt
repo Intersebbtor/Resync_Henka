@@ -41,12 +41,11 @@ class PostViewModel(
         val error: String? = null,
         val message: String? = null,
         val postDeleted: Boolean = false,
-        /** Sports mode: comments reload by themselves every [SPORTS_REFRESH_MS]. */
+        /** Sports mode: comments reload by themselves every [sportsRefreshSeconds]. */
         val sportsMode: Boolean = false,
     )
 
     companion object {
-        const val SPORTS_REFRESH_MS = 30_000L
         private const val AUTOMOD = "AutoModerator"
     }
 
@@ -113,8 +112,11 @@ class PostViewModel(
 
     private var sportsJob: Job? = null
 
+    /** Sync's "Live comments refresh rate": sports mode's interval, read afresh for every wait. */
+    val sportsRefreshSeconds: Int get() = settings.liveRefresh.seconds
+
     /**
-     * Sync's "Sports mode" (live threads): sort by New and reload the comments every [SPORTS_REFRESH_MS]
+     * Sync's "Sports mode" (live threads): sort by New and reload the comments every [sportsRefreshSeconds]
      * until it's turned off. Rows are keyed by comment id, so the list stays on what the user was reading.
      */
     fun setSportsMode(on: Boolean) {
@@ -126,7 +128,7 @@ class PostViewModel(
         if (_state.value.sort != CommentSort.NEW) setSort(CommentSort.NEW)
         sportsJob = viewModelScope.launch {
             while (true) {
-                delay(SPORTS_REFRESH_MS)
+                delay(sportsRefreshSeconds * 1000L)
                 // Don't cut off a load the user started (pull to refresh, a sort change).
                 if (loadJob?.isActive != true) load(refresh = true, quiet = true)
             }

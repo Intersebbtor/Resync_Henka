@@ -61,6 +61,7 @@ import io.github.radixtrator.resync.data.CommentCount
 import io.github.radixtrator.resync.data.CommentSort
 import io.github.radixtrator.resync.data.DataSaving
 import io.github.radixtrator.resync.data.Typeface
+import io.github.radixtrator.resync.data.LiveRefresh
 import io.github.radixtrator.resync.data.MediaPreviewSize
 import io.github.radixtrator.resync.data.MessageCheck
 import io.github.radixtrator.resync.data.NsfwMode
@@ -141,6 +142,7 @@ fun SettingsScreen(container: AppContainer) {
                 if (settings.tabletMode) {
                     Toggle("Dual pane (landscape)", "Show comments next to posts in landscape", settings.dualPaneLandscape) { v -> update { it.copy(dualPaneLandscape = v) } }
                     Toggle("Dual pane (portrait)", "The same in portrait, on wide screens", settings.dualPanePortrait) { v -> update { it.copy(dualPanePortrait = v) } }
+                    Toggle("Tabbed comments", "Show a post and its comments as tabs", settings.tabbedComments) { v -> update { it.copy(tabbedComments = v) } }
                 }
                 Toggle("Drawer navigation", "A side drawer, opened from your avatar, replaces the bottom bar", settings.drawerNavigation) { v -> update { it.copy(drawerNavigation = v) } }
                 Choice("Default post layout", PostLayout.entries, settings.layout, PostLayout::label) { v -> update { it.copy(layout = v) } }
@@ -167,6 +169,7 @@ fun SettingsScreen(container: AppContainer) {
                 Section("Comments")
                 Toggle("Show user flair", null, settings.commentFlair) { v -> update { it.copy(commentFlair = v) } }
                 Toggle("Hide AutoMod comments", "And the replies to them", settings.hideAutoMod) { v -> update { it.copy(hideAutoMod = v) } }
+                Choice("Live comments refresh rate", LiveRefresh.entries, settings.liveRefresh, LiveRefresh::label) { v -> update { it.copy(liveRefresh = v) } }
 
                 Section("Comment options")
                 Toggle("Collapse all threads by default", "The first time you open a post", settings.collapseAllByDefault) { v -> update { it.copy(collapseAllByDefault = v) } }

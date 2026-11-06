@@ -100,6 +100,14 @@ enum class CommentCount(val label: String, val limit: Int) {
     ALL("All (up to 500)", 500),
 }
 
+/** Sync's "Live comments refresh rate" (`live_comments_refresh`): how often sports mode reloads the comments. */
+enum class LiveRefresh(val label: String, val seconds: Int) {
+    S10("Every 10 seconds", 10),
+    S15("Every 15 seconds", 15),
+    S30("Every 30 seconds", 30),
+    S60("Every 60 seconds", 60),
+}
+
 /** Sync's "Post media preview size" for the image or video above a post's comments. */
 enum class MediaPreviewSize(val label: String) { CROPPED("Cropped height"), FULL("Full height") }
 
@@ -137,6 +145,11 @@ data class Settings(
     val dualPaneLandscape: Boolean = true,
     /** Tablet › "Dual pane (portrait)" (`tablet_dual_pane_portrait`): the same in portrait, on wide enough windows. */
     val dualPanePortrait: Boolean = false,
+    /**
+     * Tablet › "Tabbed comments" (`tablet_tabs`): with Tablet mode on, a post page splits into Post and Comments tabs
+     * instead of one scroll. Sync's default is on; off keeps Resync's single scroll.
+     */
+    val tabbedComments: Boolean = false,
     /**
      * General › "Confirm exit" (`exit_preference`): back on the last page asks before closing the app. Sync's default
      * is on; off keeps Resync's old behavior.
@@ -186,6 +199,12 @@ data class Settings(
     val collapseAllByDefault: Boolean = false,
     /** Comment options › "Initial comment count". 200 is what Resync always asked for (Sync's default is 75). */
     val commentCount: CommentCount = CommentCount.C200,
+    /** Comments › "Live comments refresh rate": sports mode's reload interval. 15 s is Sync's default. */
+    val liveRefresh: LiveRefresh = LiveRefresh.S15,
+    /** The comment reader's ⋮ › "Read replies": read every loaded comment, not just the top-level ones. */
+    val readerReplies: Boolean = false,
+    /** The comment reader's ⋮ speed: TextToSpeech's speech rate, 1.0 being the engine's normal pace. */
+    val readerSpeechRate: Float = 1.0f,
     /** Media › "Tap to close" the image viewer. */
     val tapToClose: Boolean = true,
     /** Media › "Swipe to close" the image and video viewers with a vertical fling. */
