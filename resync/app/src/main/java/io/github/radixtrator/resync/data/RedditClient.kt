@@ -16,7 +16,9 @@ import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -98,6 +100,29 @@ class RedditClient(
         if (configStore.demoMode) return DemoWrites.respond(path, form)
         val body = FormBody.Builder().apply { form.forEach { (k, v) -> add(k, v) } }.build()
         return execute(Request.Builder().url("$API_BASE$path").post(body))
+    }
+
+    /**
+     * Uploads an image to Reddit's media storage (lease from /api/media/asset.json, then a multipart POST to the
+     * returned S3 form) and returns the hosted URL a "kind=image" submission takes.
+     */
+    suspend fun uploadImage(filename: String, mime: String, bytes: ByteArray): String {
+        val lease = post("/api/media/asset.json", mapOf("filepath" to filename, "mimetype" to mime)).jsonObject
+        val args = lease.obj("args") ?: throw RedditException("Reddit didn't offer an upload")
+        val action = args.string("action") ?: throw RedditException("Reddit didn't offer an upload")
+        val uploadUrl = if (action.startsWith("//")) "https:$action" else action
+        val fields = args.arr("fields").orEmpty().mapNotNull { it as? JsonObject }
+        val form = okhttp3.MultipartBody.Builder().setType(okhttp3.MultipartBody.FORM).apply {
+            fields.forEach { f -> addFormDataPart(f.string("name").orEmpty(), f.string("value").orEmpty()) }
+            // S3 wants the file last.
+            addFormDataPart("file", filename, bytes.toRequestBody(mime.toMediaType()))
+        }.build()
+        val key = fields.firstOrNull { it.string("name") == "key" }?.string("value") ?: throw RedditException("Reddit's upload form had no key")
+        val code = withContext(Dispatchers.IO) {
+            http.newCall(Request.Builder().url(uploadUrl).post(form).build()).execute().use { it.code }
+        }
+        if (code !in 200..299) throw RedditException("Image upload failed ($code)", code)
+        return uploadUrl.trimEnd('/') + "/" + key
     }
 
     suspend fun put(path: String, form: Map<String, String>): JsonElement {

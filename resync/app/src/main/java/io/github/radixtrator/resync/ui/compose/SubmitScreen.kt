@@ -51,6 +51,8 @@ import io.github.radixtrator.resync.data.LinkFlair
 import io.github.radixtrator.resync.ui.feed.RulesSheet
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.PostRoute
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -77,6 +79,27 @@ class SubmitViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /** A photo post from the picked image at [uri]; finishes with its id, or goes back with a note if Reddit hasn't listed it yet. */
+    fun submitPhoto(context: android.content.Context, subreddit: String, title: String, uri: android.net.Uri, nsfw: Boolean, spoiler: Boolean, sendReplies: Boolean, flair: LinkFlair?) {
+        if (_state.value.sending) return
+        val me = container.username.value
+        if (me == null) {
+            _state.value = State(error = "Log in to post")
+            return
+        }
+        _state.value = State(sending = true)
+        viewModelScope.launch {
+            runCatching {
+                val resolver = context.contentResolver
+                val mime = resolver.getType(uri) ?: "image/jpeg"
+                val bytes = withContext(Dispatchers.IO) { resolver.openInputStream(uri)?.use { it.readBytes() } } ?: error("Couldn't read that image")
+                val name = "photo." + (mime.substringAfter('/', "jpg").substringBefore(';').let { if (it == "jpeg") "jpg" else it })
+                container.api.submitImage(subreddit.trim().removePrefix("r/").removePrefix("/r/"), title.trim(), me, name, mime, bytes, nsfw, spoiler, sendReplies, flair)
+            }.onSuccess { id -> _state.value = if (id != null) State(postId = id) else State(error = "Posted. Reddit is still processing the photo; check your profile") }
+                .onFailure { e -> _state.value = State(error = e.message ?: "Couldn't post") }
+        }
+    }
+
     fun errorShown() = _state.update { it.copy(error = null) }
 }
 
@@ -89,6 +112,12 @@ fun SubmitScreen(initialSubreddit: String?, container: AppContainer) {
     var subreddit by rememberSaveable { mutableStateOf(initialSubreddit.orEmpty()) }
     var title by rememberSaveable { mutableStateOf("") }
     var isLink by rememberSaveable { mutableStateOf(false) }
+    var isPhoto by rememberSaveable { mutableStateOf(false) }
+    var photo by rememberSaveable { mutableStateOf<String?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) photo = uri.toString()
+    }
     var body by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
     var url by rememberSaveable { mutableStateOf("") }
     var nsfw by rememberSaveable { mutableStateOf(false) }
@@ -101,7 +130,7 @@ fun SubmitScreen(initialSubreddit: String?, container: AppContainer) {
     var rulesOpen by rememberSaveable { mutableStateOf(false) }
     val community = subreddit.trim().removePrefix("r/").removePrefix("/r/")
     val snackbar = remember { SnackbarHostState() }
-    val canPost = subreddit.isNotBlank() && title.isNotBlank() && (!isLink || url.startsWith("http")) && !state.sending
+    val canPost = subreddit.isNotBlank() && title.isNotBlank() && (isPhoto && photo != null || !isPhoto && (!isLink || url.startsWith("http"))) && !state.sending
 
     LaunchedEffect(state.postId) { state.postId?.let { nav.replaceTop(PostRoute(it)) } }
     LaunchedEffect(state.error) {
@@ -135,7 +164,11 @@ fun SubmitScreen(initialSubreddit: String?, container: AppContainer) {
                             enabled = canPost,
                             onClick = {
                                 val flair = flairText?.let { LinkFlair(it, flairColor, flairId) }
-                                vm.submit(subreddit, title, isLink, if (isLink) url else body.text, nsfw, spoiler, sendReplies, flair)
+                                if (isPhoto) {
+                                    vm.submitPhoto(context, subreddit, title, android.net.Uri.parse(photo), nsfw, spoiler, sendReplies, flair)
+                                } else {
+                                    vm.submit(subreddit, title, isLink, if (isLink) url else body.text, nsfw, spoiler, sendReplies, flair)
+                                }
                             },
                         ) { Text("Post") }
                     }
@@ -174,8 +207,9 @@ fun SubmitScreen(initialSubreddit: String?, container: AppContainer) {
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = !isLink, onClick = { isLink = false }, label = { Text("Text") })
-                FilterChip(selected = isLink, onClick = { isLink = true }, label = { Text("Link") })
+                FilterChip(selected = !isLink && !isPhoto, onClick = { isLink = false; isPhoto = false }, label = { Text("Text") })
+                FilterChip(selected = isLink && !isPhoto, onClick = { isLink = true; isPhoto = false }, label = { Text("Link") })
+                FilterChip(selected = isPhoto, onClick = { isPhoto = true }, label = { Text("Photo") })
             }
             OutlinedTextField(
                 value = title,
@@ -184,7 +218,12 @@ fun SubmitScreen(initialSubreddit: String?, container: AppContainer) {
                 supportingText = { Text("${title.length}/300") },
                 modifier = Modifier.fillMaxWidth(),
             )
-            if (isLink) {
+            if (isPhoto) {
+                TextButton(onClick = { picker.launch("image/*") }) { Text(if (photo == null) "Choose a photo" else "Photo chosen: change") }
+                photo?.let {
+                    coil3.compose.AsyncImage(model = it, contentDescription = null, modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp))
+                }
+            } else if (isLink) {
                 OutlinedTextField(
                     value = url,
                     onValueChange = { url = it.trim() },

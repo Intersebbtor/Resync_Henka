@@ -284,6 +284,41 @@ class RedditApi(private val client: RedditClient) {
         ),
     )
 
+    /**
+     * A photo post: uploads [bytes], then submits it. Reddit answers image posts before they exist (the id arrives
+     * over a websocket), so this looks for the author's newest post afterwards; null if it hasn't shown up yet.
+     */
+    suspend fun submitImage(
+        subreddit: String,
+        title: String,
+        author: String,
+        filename: String,
+        mime: String,
+        bytes: ByteArray,
+        nsfw: Boolean,
+        spoiler: Boolean,
+        sendReplies: Boolean = true,
+        flair: LinkFlair? = null,
+    ): String? {
+        val url = client.uploadImage(filename, mime, bytes)
+        val root = client.post(
+            "/api/submit",
+            mapOf(
+                "api_type" to "json", "sr" to subreddit, "kind" to "image", "title" to title, "url" to url,
+                "nsfw" to nsfw.toString(), "spoiler" to spoiler.toString(), "sendreplies" to sendReplies.toString(),
+                "resubmit" to "true",
+            ) + (flair?.id?.let { mapOf("flair_id" to it, "flair_text" to flair.text) } ?: emptyMap()),
+        )
+        runCatching { Parser.submittedId(root) }.getOrNull()?.let { return it }
+        Parser.checkErrors(root)
+        repeat(4) {
+            kotlinx.coroutines.delay(2000)
+            val latest = (userContent(author, UserWhere.SUBMITTED, UserSort.NEW, null).items.firstOrNull() as? ProfileItem.PostItem)?.post
+            if (latest != null && latest.title == title) return latest.id
+        }
+        return null
+    }
+
     suspend fun sendMessage(to: String, subject: String, markdown: String) {
         Parser.checkErrors(
             client.post("/api/compose", mapOf("api_type" to "json", "to" to to, "subject" to subject, "text" to markdown)),
