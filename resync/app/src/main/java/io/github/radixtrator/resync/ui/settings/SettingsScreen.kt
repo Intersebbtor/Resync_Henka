@@ -129,6 +129,7 @@ fun SettingsScreen(container: AppContainer) {
                     (context as? android.app.Activity)?.recreate()
                 }
                 Toggle("Tablet mode", "On wide screens, a navigation rail replaces the bottom bar", settings.tabletMode) { v -> update { it.copy(tabletMode = v) } }
+                Toggle("Drawer navigation", "A side drawer, opened from your avatar, replaces the bottom bar", settings.drawerNavigation) { v -> update { it.copy(drawerNavigation = v) } }
                 Choice("Default post layout", PostLayout.entries, settings.layout, PostLayout::label) { v -> update { it.copy(layout = v) } }
                 ListItem(
                     headlineContent = { Text("View type") },

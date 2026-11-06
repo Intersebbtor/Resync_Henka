@@ -118,6 +118,11 @@ data class Settings(
     val swipeBack: Boolean = true,
     /** Sync's Tablet mode: on wide screens, a navigation rail replaces the bottom bar. */
     val tabletMode: Boolean = false,
+    /**
+     * Sync's "Use drawer navigation" (`use_drawer`): home pages lose the bottom bar and the toolbar avatar
+     * opens a side drawer instead. Tablet mode's rail still wins on wide screens.
+     */
+    val drawerNavigation: Boolean = false,
     val baseFontSize: BaseFontSize = BaseFontSize.SMALLER,
     val typeface: Typeface = Typeface.ROBOTO,
     /** Sync's "Action visibility": labels of More actions buttons switched off. */

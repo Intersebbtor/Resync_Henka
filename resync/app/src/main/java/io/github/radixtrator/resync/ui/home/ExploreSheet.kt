@@ -486,9 +486,12 @@ private fun QueryRow(recent: Recent, iconUrl: String?, onClick: () -> Unit) {
     }
 }
 
-/** The front page gets Sync's white house on Reddit orange, Popular and All glyphs, communities their icon or a lettered circle. */
+/**
+ * The front page gets Sync's white house on Reddit orange, Popular and All glyphs, communities their icon or a lettered circle.
+ * Also used by the navigation drawer's feed rows (HomeChrome.kt).
+ */
 @Composable
-private fun FeedIcon(name: String, iconUrl: String?) {
+internal fun FeedIcon(name: String, iconUrl: String?) {
     if (name.isEmpty()) {
         Box(Modifier.size(32.dp).clip(CircleShape).background(FrontpageOrange), contentAlignment = Alignment.Center) {
             Icon(Icons.Outlined.Home, null, tint = Color.White, modifier = Modifier.size(20.dp))

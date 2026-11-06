@@ -61,6 +61,22 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.activity.compose.BackHandler
+import io.github.radixtrator.resync.data.ExploreSection
+import io.github.radixtrator.resync.ui.common.Format
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -149,11 +165,32 @@ fun ShellScaffold(
     // The nav bar and FAB slide away with the toolbar, as Sync's autohide does.
     val hidden = scrollBehavior.state.collapsedFraction
     // Tablet mode: on a wide screen the Posts / Explore / Inbox bar becomes a rail down the left edge.
-    val rail = home && LocalSettings.current.tabletMode && LocalConfiguration.current.screenWidthDp >= 600
-    val bar = home && !rail
+    val settings = LocalSettings.current
+    val rail = home && settings.tabletMode && LocalConfiguration.current.screenWidthDp >= 600
+    // Drawer navigation: no bottom bar; the avatar opens a side drawer. The rail wins on wide screens.
+    val drawer = home && !rail && settings.drawerNavigation
+    val bar = home && !rail && !drawer
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
-    Scaffold(
+    BackHandler(enabled = drawer && drawerState.isOpen) { scope.launch { drawerState.close() } }
+
+    /** Closes the drawer, then runs [action]: animated for sheets over this page, at once before leaving it. */
+    fun fromDrawer(leaves: Boolean, action: () -> Unit) {
+        if (leaves) {
+            // A page left with its drawer open would come back with it open (the drawer state is saved).
+            scope.launch {
+                drawerState.snapTo(DrawerValue.Closed)
+                action()
+            }
+        } else {
+            scope.launch { drawerState.close() }
+            action()
+        }
+    }
+
+    val page: @Composable () -> Unit = { Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         contentWindowInsets = WindowInsets(0),
         snackbarHost = { SnackbarHost(snackbar, Modifier.padding(bottom = if (bar) NavBarHeight + navInset else navInset)) },
@@ -166,7 +203,13 @@ fun ShellScaffold(
                 ),
                 navigationIcon = {
                     if (home) {
-                        AccountButton(container, onClick = { accountOpen = true })
+                        AccountButton(container, onClick = {
+                            if (drawer) {
+                                scope.launch { drawerState.open() }
+                            } else {
+                                accountOpen = true
+                            }
+                        })
                     } else {
                         IconButton(onClick = nav::pop) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
                     }
@@ -242,6 +285,35 @@ fun ShellScaffold(
                 )
             }
         }
+    } }
+
+    if (drawer) {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            // Swipe only to close: an open-swipe would fight the feed's swipe-back and post swipes.
+            gesturesEnabled = drawerState.isOpen,
+            drawerContent = {
+                HomeDrawer(
+                    container = container,
+                    tab = tab,
+                    inboxCount = inboxCount,
+                    onAccount = { fromDrawer(leaves = false) { accountOpen = true } },
+                    onPosts = {
+                        if (tab == HomeTab.POSTS) fromDrawer(leaves = false, onReselectTab)
+                        else fromDrawer(leaves = true) { nav.popWhile { it is InboxRoute } }
+                    },
+                    onExplore = { fromDrawer(leaves = false) { explore = ExploreMode.BROWSE } },
+                    onInbox = {
+                        if (tab == HomeTab.INBOX) fromDrawer(leaves = false, onReselectTab)
+                        else fromDrawer(leaves = true) { nav.push(InboxRoute(home = true)) }
+                    },
+                    onOpenFeed = { name -> fromDrawer(leaves = true) { openFeedFromExplore(nav, name) } },
+                    onSettings = { fromDrawer(leaves = true) { nav.push(SettingsRoute) } },
+                )
+            },
+        ) { page() }
+    } else {
+        page()
     }
 
     if (accountOpen) AccountCard(container, onDismiss = { accountOpen = false })
@@ -356,6 +428,131 @@ private fun HomeNavigationBar(
                     Icon(if (tab == HomeTab.INBOX) Icons.Filled.Email else Icons.Outlined.Email, null)
                 }
             },
+        )
+    }
+}
+
+/**
+ * Sync's drawer navigation (Settings "Use drawer navigation"): your account, Posts / Inbox / Explore,
+ * then your favorites and subscriptions (Explore's lists, same "Duplicate favorites" and hidden-section
+ * choices), then Settings. The header opens the account card.
+ */
+@Composable
+private fun HomeDrawer(
+    container: AppContainer,
+    tab: HomeTab,
+    inboxCount: Int,
+    onAccount: () -> Unit,
+    onPosts: () -> Unit,
+    onExplore: () -> Unit,
+    onInbox: () -> Unit,
+    onOpenFeed: (String?) -> Unit,
+    onSettings: () -> Unit,
+) {
+    val me by container.username.collectAsStateWithLifecycle()
+    val avatar by container.avatar.collectAsStateWithLifecycle()
+    val explore by container.explore.state.collectAsStateWithLifecycle()
+    val subscriptions by container.subscriptions.collectAsStateWithLifecycle()
+    val icons by container.subredditIcons.collectAsStateWithLifecycle()
+    val favorites = if (ExploreSection.FAVORITES in explore.hidden) emptyList() else explore.favorites
+    val subscribed = if (ExploreSection.SUBSCRIPTIONS in explore.hidden) {
+        emptyList()
+    } else {
+        (if (explore.duplicateFavorites) subscriptions else subscriptions.filterNot(explore::isFavorite))
+            .filterNot { it.startsWith("u_", ignoreCase = true) }
+    }
+    val itemPadding = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+
+    ModalDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
+        LazyColumn(Modifier.fillMaxSize()) {
+            item(key = "account") { Column {
+                Row(
+                    Modifier.fillMaxWidth().clickable(onClick = onAccount).padding(horizontal = 28.dp, vertical = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Avatar(avatar, size = 48)
+                    Spacer(Modifier.width(16.dp))
+                    Text(
+                        me ?: "Anonymous",
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Icon(Icons.Default.KeyboardArrowDown, "Accounts")
+                }
+                HorizontalDivider(Modifier.padding(bottom = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            } }
+            item(key = "posts") {
+                NavigationDrawerItem(
+                    label = { Text("Posts") },
+                    icon = { Icon(if (tab == HomeTab.POSTS) Icons.Filled.Home else Icons.Outlined.Home, null) },
+                    selected = tab == HomeTab.POSTS,
+                    onClick = onPosts,
+                    modifier = itemPadding,
+                )
+            }
+            item(key = "inbox") {
+                NavigationDrawerItem(
+                    label = { Text("Inbox") },
+                    icon = { Icon(if (tab == HomeTab.INBOX) Icons.Filled.Email else Icons.Outlined.Email, null) },
+                    badge = { if (inboxCount > 0) Badge { Text("$inboxCount") } },
+                    selected = tab == HomeTab.INBOX,
+                    onClick = onInbox,
+                    modifier = itemPadding,
+                )
+            }
+            item(key = "explore") {
+                NavigationDrawerItem(
+                    label = { Text("Explore") },
+                    icon = { Icon(AppIcons.Compass, null) },
+                    selected = false,
+                    onClick = onExplore,
+                    modifier = itemPadding,
+                )
+            }
+            drawerFeeds(ExploreSection.FAVORITES.header, favorites, icons, itemPadding, onOpenFeed)
+            drawerFeeds(ExploreSection.SUBSCRIPTIONS.header, subscribed, icons, itemPadding, onOpenFeed)
+            item(key = "settings") { Column {
+                HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                NavigationDrawerItem(
+                    label = { Text("Settings") },
+                    icon = { Icon(Icons.Outlined.Settings, null) },
+                    selected = false,
+                    onClick = onSettings,
+                    modifier = itemPadding,
+                )
+                Spacer(Modifier.height(8.dp))
+            } }
+        }
+    }
+}
+
+/** A drawer section: a small header, then a row per feed that opens it on the Posts tab. */
+private fun LazyListScope.drawerFeeds(
+    title: String,
+    names: List<String>,
+    icons: Map<String, String>,
+    itemPadding: Modifier,
+    onOpenFeed: (String?) -> Unit,
+) {
+    if (names.isEmpty()) return
+    item(key = "header:$title") { Column {
+        HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 28.dp, vertical = 12.dp),
+        )
+    } }
+    items(names, key = { "$title:$it" }) { name ->
+        NavigationDrawerItem(
+            label = { Text(Format.feedName(name), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            icon = { FeedIcon(name, icons[name.lowercase()]) },
+            selected = false,
+            onClick = { onOpenFeed(name.ifEmpty { null }) },
+            modifier = itemPadding,
         )
     }
 }
