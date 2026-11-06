@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
+import android.app.Activity
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.ContentTransform
@@ -16,6 +18,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.IntOffset
 import io.github.radixtrator.resync.ui.common.LocalPreviousScreen
@@ -66,6 +71,7 @@ import io.github.radixtrator.resync.ui.navigation.Navigator
 import io.github.radixtrator.resync.ui.navigation.PostRoute
 import io.github.radixtrator.resync.ui.navigation.SearchRoute
 import io.github.radixtrator.resync.ui.navigation.SettingsRoute
+import io.github.radixtrator.resync.ui.navigation.ThemeManagementRoute
 import io.github.radixtrator.resync.ui.navigation.SwipeModeRoute
 import io.github.radixtrator.resync.ui.navigation.ModRoute
 import io.github.radixtrator.resync.ui.feed.ModScreen
@@ -79,6 +85,7 @@ import io.github.radixtrator.resync.ui.profile.ProfileScreen
 import io.github.radixtrator.resync.ui.search.SearchScreen
 import io.github.radixtrator.resync.ui.settings.CustomizeViewScreen
 import io.github.radixtrator.resync.ui.settings.SettingsScreen
+import io.github.radixtrator.resync.ui.settings.ThemeManagementScreen
 import io.github.radixtrator.resync.ui.setup.SetupScreen
 import io.github.radixtrator.resync.data.savedBaseFontScale
 import io.github.radixtrator.resync.ui.theme.LocalBaseFontScale
@@ -170,11 +177,31 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
                 entry<ComposeRoute> { route -> ComposeScreen(route, container) }
                 // Sync's settings don't shrink with its base font size.
                 entry<SettingsRoute> { FullSizeText { SettingsScreen(container) } }
+                entry<ThemeManagementRoute> { FullSizeText { ThemeManagementScreen(container) } }
                 // Its preview stays at feed size; the screen sizes its own option rows like the settings.
                 entry<CustomizeViewRoute> { route -> CustomizeViewScreen(route.layout, container) }
             },
         )
         LaunchedEffect(backStack.size) { SwipeBackState.popping = false }
+        // Sync's "Confirm exit": back on the last page asks first. Only enabled with one page left, when NavDisplay's
+        // own back handling has nothing to pop (and SwipeBack, which only pops, isn't on root pages). It's composed
+        // before NavDisplay, so handlers inside pages (the drawer, sheets, viewers' panels) register later and
+        // still get back first.
+        var confirmingExit by remember { mutableStateOf(false) }
+        BackHandler(enabled = settings.confirmExit && backStack.size == 1) { confirmingExit = true }
+        if (confirmingExit) {
+            AlertDialog(
+                onDismissRequest = { confirmingExit = false },
+                title = { Text("Exit Resync?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmingExit = false
+                        (context as? Activity)?.finish()
+                    }) { Text("Exit") }
+                },
+                dismissButton = { TextButton(onClick = { confirmingExit = false }) { Text("Cancel") } },
+            )
+        }
         val previous: (@Composable () -> Unit)? = entries.getOrNull(entries.size - 2)?.let { entry -> { entry.Content() } }
         // The dual pane scene sets LocalPreviousScreen for each of its panes, so neither redraws the other.
         val sceneStrategies = rememberDualPaneSceneStrategies()

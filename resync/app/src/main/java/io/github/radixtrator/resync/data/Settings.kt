@@ -133,6 +133,17 @@ data class Settings(
     val swipeBack: Boolean = true,
     /** Sync's Tablet mode: on wide screens, a navigation rail replaces the bottom bar. */
     val tabletMode: Boolean = false,
+    /** Tablet › "Dual pane (landscape)" (`tablet_dual_pane_landscape`): a post opens beside its feed in landscape. */
+    val dualPaneLandscape: Boolean = true,
+    /** Tablet › "Dual pane (portrait)" (`tablet_dual_pane_portrait`): the same in portrait, on wide enough windows. */
+    val dualPanePortrait: Boolean = false,
+    /**
+     * General › "Confirm exit" (`exit_preference`): back on the last page asks before closing the app. Sync's default
+     * is on; off keeps Resync's old behavior.
+     */
+    val confirmExit: Boolean = false,
+    /** Theme management's saved themes, in the order they were saved. */
+    val savedThemes: List<SavedTheme> = emptyList(),
     /**
      * Sync's "Use drawer navigation" (`use_drawer`): home pages lose the bottom bar and the toolbar avatar
      * opens a side drawer instead. Tablet mode's rail still wins on wide screens.
@@ -194,6 +205,13 @@ data class Settings(
 
     fun viewOptionsFor(layout: PostLayout): ViewOptions = viewOptions[layout] ?: ViewOptions()
 
+    /**
+     * Whether Tablet mode's dual pane shows in a window [widthDp] wide, held [landscape] or not: Sync's per-orientation
+     * "Dual pane" switches, as long as the window fits two panes ([DUAL_PANE_MIN_WIDTH_DP]).
+     */
+    fun dualPane(landscape: Boolean, widthDp: Int): Boolean =
+        tabletMode && (if (landscape) dualPaneLandscape else dualPanePortrait) && widthDp >= DUAL_PANE_MIN_WIDTH_DP
+
     /** The three post swipe stages, repairing a stored list that isn't three valid entries. */
     val postSwipeStages: List<SwipeAction>
         get() = postSwipeActions.takeIf { l -> l.size == 3 && l.all { it.posts } } ?: DEFAULT_POST_SWIPES
@@ -208,6 +226,12 @@ data class Settings(
 
         /** Front page is ""; subreddits and multis by lowercase name. */
         fun feedKey(subreddit: String?): String = subreddit?.lowercase().orEmpty()
+
+        /**
+         * The narrowest window (dp) that gets the dual pane: two 360 dp panes, the feed's minimum and a phone-sized
+         * post. Most portrait tablets (600-839 dp) clear it, for "Dual pane (portrait)"; phones only do held sideways.
+         */
+        const val DUAL_PANE_MIN_WIDTH_DP = 720
     }
 }
 

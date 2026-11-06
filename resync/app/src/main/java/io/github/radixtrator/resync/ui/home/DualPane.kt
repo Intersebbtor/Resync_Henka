@@ -1,5 +1,6 @@
 package io.github.radixtrator.resync.ui.home
 
+import android.content.res.Configuration
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -25,6 +26,7 @@ import androidx.navigation3.scene.SceneStrategy
 import androidx.navigation3.scene.SceneStrategyScope
 import androidx.navigation3.scene.SinglePaneSceneStrategy
 import androidx.navigation3.ui.NavDisplay
+import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.ui.common.LocalPreviousScreen
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
@@ -36,14 +38,6 @@ import io.github.radixtrator.resync.ui.navigation.Navigator
  * [..., FeedRoute, PostRoute], so back, predictive back and the saved state of both screens work as
  * usual: back closes the post and the feed goes full width again.
  */
-
-/**
- * Window width (dp) from which Tablet mode shows the dual pane: Material's "expanded" width class, so
- * landscape tablets and unfolded foldables held sideways, not portrait tablets (600-839dp), which keep
- * the rail but open posts full screen. Sync's own switches for this are per orientation ("Dual pane
- * (landscape)" on, "(portrait)" off), which this width roughly matches.
- */
-const val DUAL_PANE_MIN_WIDTH_DP = 840
 
 /** The feed's share of the width, and the narrowest it gets. The post takes the rest. */
 private const val LIST_FRACTION = 0.4f
@@ -59,13 +53,18 @@ val DualPaneList: Map<String, Any> = mapOf(LIST_PANE_KEY to true)
 val DualPaneDetail: Map<String, Any> = mapOf(DETAIL_PANE_KEY to true)
 
 /**
- * The scene strategies for NavDisplay: the dual pane while Tablet mode is on and the window is at
- * least [DUAL_PANE_MIN_WIDTH_DP] wide, else one screen at a time.
+ * The scene strategies for NavDisplay: the dual pane while Tablet mode is on, Sync's "Dual pane" switch for the
+ * current orientation is on (landscape by default, portrait not) and the window fits two panes
+ * ([Settings.dualPane]), else one screen at a time.
  */
 @Composable
 fun rememberDualPaneSceneStrategies(): List<SceneStrategy<NavKey>> {
     val navigator = LocalNavigator.current
-    val enabled = LocalSettings.current.tabletMode && LocalConfiguration.current.screenWidthDp >= DUAL_PANE_MIN_WIDTH_DP
+    val configuration = LocalConfiguration.current
+    val enabled = LocalSettings.current.dualPane(
+        landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
+        widthDp = configuration.screenWidthDp,
+    )
     return remember(enabled, navigator) {
         if (enabled) listOf(DualPaneSceneStrategy(navigator.listPane)) else listOf(SinglePaneSceneStrategy())
     }
