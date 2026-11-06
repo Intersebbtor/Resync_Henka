@@ -1067,7 +1067,7 @@ private fun ReaderBar(
 
 /** Sync's comment-page "Recents": the posts opened lately, newest first; picking one opens it. */
 @Composable
-private fun RecentsSheet(posts: List<RecentPost>, onDismiss: () -> Unit, onPick: (RecentPost) -> Unit) {
+internal fun RecentsSheet(posts: List<RecentPost>, onDismiss: () -> Unit, onPick: (RecentPost) -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, dragHandle = { SheetHandle() }) {
         SheetTitle("Recents", topPadding = 0.dp)
         LazyColumn(Modifier.fillMaxWidth().navigationBarsPadding().padding(top = 8.dp, bottom = 8.dp)) {

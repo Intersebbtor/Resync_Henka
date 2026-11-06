@@ -171,6 +171,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
                 subreddit = subreddit.takeIf { vm.isCommunity },
                 onAbout = if (vm.isCommunity) openAbout else null,
                 onChangeView = { viewOpen = true },
+                onScrollToTop = { scope.launch { gridState.scrollToItem(0) } },
             ),
             onReselectTab = { scope.launch { gridState.animateScrollToItem(0) } },
             actions = { IconButton(onClick = { sortOpen = true }) { Icon(AppIcons.Sort, "Sort") } },
@@ -370,7 +371,7 @@ fun CommentCard(comment: UserComment, onOpen: () -> Unit) {
  * to step back out, as Sync does.
  */
 @Composable
-private fun SortSheet(current: Sort, options: List<SortKind>, onDismiss: () -> Unit, onPick: (Sort) -> Unit) {
+internal fun SortSheet(current: Sort, options: List<SortKind>, onDismiss: () -> Unit, onPick: (Sort) -> Unit) {
     var timedKind by remember { mutableStateOf<SortKind?>(null) }
     fun pick(sort: Sort) {
         onDismiss()

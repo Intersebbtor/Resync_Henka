@@ -83,6 +83,10 @@ class AppContainer(context: Context) {
     /** The active account's subscriptions, shared by every feed and the Explore sheet. */
     val subscriptions: StateFlow<List<String>> = _subscriptions.asStateFlow()
 
+    private val _nsfwSubscriptions = MutableStateFlow<List<String>>(emptyList())
+    /** The subscriptions Reddit marks NSFW, for More actions › Random nsfw. */
+    val nsfwSubscriptions: StateFlow<List<String>> = _nsfwSubscriptions.asStateFlow()
+
     private val _moderated = MutableStateFlow<List<String>>(emptyList())
     val moderated: StateFlow<List<String>> = _moderated.asStateFlow()
 
@@ -169,6 +173,7 @@ class AppContainer(context: Context) {
         val user = _username.value
         if (user == null) {
             _subscriptions.value = emptyList()
+            _nsfwSubscriptions.value = emptyList()
             _moderated.value = emptyList()
             subscriptionsLoadedFor = null
             return
@@ -177,6 +182,7 @@ class AppContainer(context: Context) {
         runCatching { api.subscriptions() }.onSuccess { subs ->
             subscriptionsLoadedFor = user // only once it worked, so a failure retries next time
             _subscriptions.value = subs.map { it.name }
+            _nsfwSubscriptions.value = subs.filter { it.over18 }.map { it.name }
             _subredditIcons.value += subs.iconsByName()
         }
         runCatching { api.moderated() }.onSuccess { subs ->
@@ -209,6 +215,7 @@ class AppContainer(context: Context) {
         _inboxCount.value = 0
         _avatar.value = null
         _subscriptions.value = emptyList()
+        _nsfwSubscriptions.value = emptyList()
         _moderated.value = emptyList()
         subscriptionsLoadedFor = null
     }
