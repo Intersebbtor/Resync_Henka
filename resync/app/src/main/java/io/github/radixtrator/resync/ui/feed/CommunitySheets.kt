@@ -4,6 +4,9 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import io.github.radixtrator.resync.ui.common.AppIcons
+import io.github.radixtrator.resync.data.Multi
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -81,8 +84,50 @@ fun CommunityActionSheet(container: AppContainer, community: String, action: Abo
         AboutAction.WIKI -> WikiSheet(container, community, onDismiss)
         AboutAction.FLAIRS -> FlairsSheet(container, community, onPick = { leave(SearchRoute("flair_name:\"${it.text}\"", subreddit = community)) }, onDismiss)
         AboutAction.RULES -> RulesSheet(container, community, onDismiss)
+        AboutAction.ADD_TO_MULTI -> AddToMultiSheet(container, community, onDismiss)
         AboutAction.MODS -> ModeratorsSheet(container, community, onOpen = { leave(UserRoute(it)) }, onDismiss)
         AboutAction.SHARE, AboutAction.MESSAGE_MODS -> Unit
+    }
+}
+
+/**
+ * Sync's "Add to multi": your custom feeds, with a check on the ones that already hold [subreddit]; tapping one
+ * adds or removes it there.
+ */
+@Composable
+fun AddToMultiSheet(container: AppContainer, subreddit: String, onDismiss: () -> Unit) {
+    var multis by remember { mutableStateOf<Result<List<Multi>>?>(null) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(Unit) { multis = load { container.api.multis() } }
+    CommunitySheet("Add r/$subreddit to a multi", onDismiss) {
+        when (val result = multis) {
+            null -> Loading()
+            else -> result.fold(
+                onSuccess = { list ->
+                    if (list.isEmpty()) Problem("You have no custom feeds yet. Create one on reddit.com, then add communities here.")
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        list.forEach { multi ->
+                            val has = subreddit.lowercase() in multi.subreddits.map { it.lowercase() }
+                            OptionRow(multi.name, AppIcons.Gallery, selected = has, onClick = {
+                                scope.launch {
+                                    load {
+                                        if (has) container.api.removeFromMulti(multi.path, subreddit) else container.api.addToMulti(multi.path, subreddit)
+                                    }.fold(
+                                        onSuccess = {
+                                            Toast.makeText(context, if (has) "Removed from ${multi.name}" else "Added to ${multi.name}", Toast.LENGTH_SHORT).show()
+                                            multis = load { container.api.multis() }
+                                        },
+                                        onFailure = { Toast.makeText(context, it.message ?: "Couldn't change the feed", Toast.LENGTH_SHORT).show() },
+                                    )
+                                }
+                            })
+                        }
+                    }
+                },
+                onFailure = { Problem("Couldn't load your custom feeds: ${it.message}") },
+            )
+        }
     }
 }
 

@@ -274,3 +274,9 @@ enum class CommentSort(val param: String, val label: String) {
     OLD("old", "Old"),
     QA("qa", "Q&A"),
 }
+
+/** One of your custom feeds (multireddits). [path] is like "user/bob/m/news"; [subreddits] are lowercase-agnostic names. */
+data class Multi(val name: String, val path: String, val subreddits: List<String>) {
+    /** The feed route's community string for it: "a+b+c", which the listing endpoints accept. */
+    val feedName: String get() = subreddits.joinToString("+")
+}

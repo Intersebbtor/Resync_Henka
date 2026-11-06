@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Notifications
@@ -46,6 +47,7 @@ import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.SwipeAction
 import io.github.radixtrator.resync.notify.Notifications
+import io.github.radixtrator.resync.ui.feed.AddToMultiSheet
 import io.github.radixtrator.resync.ui.navigation.ComposeMode
 import io.github.radixtrator.resync.ui.navigation.ComposeRoute
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
@@ -156,6 +158,7 @@ fun PostActionsSheet(
     var filtering by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var reporting by remember { mutableStateOf(false) }
+    var addingToMulti by remember { mutableStateOf(false) }
     val container = LocalContainer.current
     val context = LocalContext.current
     val watchedPosts by container.watch.posts.collectAsStateWithLifecycle()
@@ -189,6 +192,10 @@ fun PostActionsSheet(
 
     if (reporting) {
         ReportSheet(post.fullname, post.subreddit, comment = false, onDismiss = onDismiss)
+        return
+    }
+    if (addingToMulti) {
+        AddToMultiSheet(container, post.subreddit, onDismiss)
         return
     }
 
@@ -243,6 +250,7 @@ fun PostActionsSheet(
                 HorizontalDivider()
                 OptionRow("Copy...", AppIcons.Copy, onClick = { copying = true })
                 OptionRow("Filter...", AppIcons.Filter, onClick = { filtering = true })
+                OptionRow("Add r/${post.subreddit} to multi...", Icons.Default.Add, onClick = { addingToMulti = true })
                 if (isOwn && post.isSelf) {
                     OptionRow("Edit", Icons.Outlined.Edit, onClick = {
                         act { nav.push(ComposeRoute(ComposeMode.EDIT, target = post.fullname, quote = post.title, initial = post.selfText)) }

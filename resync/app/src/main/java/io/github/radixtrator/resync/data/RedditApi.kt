@@ -198,6 +198,17 @@ class RedditApi(private val client: RedditClient) {
     suspend fun searchSubreddits(query: String, after: String?): Listing<Subreddit> =
         Parser.subredditListing(client.get("/subreddits/search", mapOf("q" to query, "after" to after, "limit" to "25")))
 
+    suspend fun multis(): List<Multi> = Parser.multis(client.get("/api/multi/mine"))
+
+    /** Adds [subreddit] to the custom feed at [multiPath] ("user/bob/m/news"). */
+    suspend fun addToMulti(multiPath: String, subreddit: String) {
+        client.put("/api/multi/${multiPath.trim('/')}/r/$subreddit", mapOf("model" to """{"name":"$subreddit"}"""))
+    }
+
+    suspend fun removeFromMulti(multiPath: String, subreddit: String) {
+        client.delete("/api/multi/${multiPath.trim('/')}/r/$subreddit")
+    }
+
     // --- Writing ---
 
     /** [direction]: 1 up, 0 clear, -1 down. */

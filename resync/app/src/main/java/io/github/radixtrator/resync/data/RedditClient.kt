@@ -100,6 +100,17 @@ class RedditClient(
         return execute(Request.Builder().url("$API_BASE$path").post(body))
     }
 
+    suspend fun put(path: String, form: Map<String, String>): JsonElement {
+        if (configStore.demoMode) return JsonObject(emptyMap())
+        val body = FormBody.Builder().apply { form.forEach { (k, v) -> add(k, v) } }.build()
+        return execute(Request.Builder().url("$API_BASE$path").put(body))
+    }
+
+    suspend fun delete(path: String): JsonElement {
+        if (configStore.demoMode) return JsonObject(emptyMap())
+        return execute(Request.Builder().url("$API_BASE$path").delete())
+    }
+
     private suspend fun execute(builder: Request.Builder): JsonElement {
         var token = accessToken(forceRefresh = false)
         repeat(2) { attempt ->

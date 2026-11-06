@@ -235,6 +235,14 @@ object Parser {
         d.string("profile_img")?.takeIf { it.startsWith("http") }?.let { id to it }
     }.toMap()
 
+    /** /api/multi/mine: an array of LabeledMulti things. */
+    fun multis(root: JsonElement): List<Multi> = (root as? JsonArray).orEmpty().mapNotNull { element ->
+        val d = (element as? JsonObject)?.obj("data") ?: return@mapNotNull null
+        val name = d.string("display_name") ?: d.string("name") ?: return@mapNotNull null
+        val path = d.string("path")?.trim('/') ?: return@mapNotNull null
+        Multi(name, path, d.arr("subreddits").orEmpty().mapNotNull { (it as? JsonObject)?.string("name") })
+    }
+
     /** /r/sub/about/rules, in the community's order. */
     fun rules(root: JsonElement): List<SubredditRule> = root.jsonObject.arr("rules").orEmpty().mapNotNull { element ->
         val d = element as? JsonObject ?: return@mapNotNull null

@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.outlined.Check
@@ -67,6 +68,7 @@ enum class AboutAction(val label: String, val icon: ImageVector) {
     WIKI("View wiki", AppIcons.Book),
     FLAIRS("Filter by flair", AppIcons.Tag),
     RULES("View rules", AppIcons.Text),
+    ADD_TO_MULTI("Add to multi", Icons.Default.Add),
     SHARE("Share", Icons.Outlined.Share),
     MESSAGE_MODS("Message mods", Icons.Outlined.Email),
     MODS("View mods", Icons.Outlined.Person),
