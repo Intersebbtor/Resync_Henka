@@ -64,14 +64,15 @@ import io.github.radixtrator.resync.ui.common.LargeHeader
 import io.github.radixtrator.resync.ui.common.MessageEffect
 import io.github.radixtrator.resync.ui.common.OptionRow
 import io.github.radixtrator.resync.ui.common.PagedGrid
-import io.github.radixtrator.resync.ui.common.columns
-import io.github.radixtrator.resync.ui.common.gutter
-import io.github.radixtrator.resync.ui.common.spacing
 import io.github.radixtrator.resync.ui.common.PostListItem
+import io.github.radixtrator.resync.ui.common.SheetHandle
 import io.github.radixtrator.resync.ui.common.SheetTitle
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.common.TopSheet
+import io.github.radixtrator.resync.ui.common.columns
+import io.github.radixtrator.resync.ui.common.gutter
 import io.github.radixtrator.resync.ui.common.postCallbacks
+import io.github.radixtrator.resync.ui.common.spacing
 import io.github.radixtrator.resync.ui.common.visiblePosts
 import io.github.radixtrator.resync.ui.home.HomeTab
 import io.github.radixtrator.resync.ui.home.ShellScaffold
@@ -282,9 +283,9 @@ private fun SortSheet(current: Sort, options: List<SortKind>, onDismiss: () -> U
 /** Sync's Change view: picks this feed's layout (other feeds keep theirs). */
 @Composable
 private fun ChangeViewSheet(container: AppContainer, subreddit: String?, current: PostLayout, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, dragHandle = { SheetHandle() }) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
-            SheetTitle("Change view", Modifier.padding(top = 0.dp))
+            SheetTitle("Change view", topPadding = 0.dp)
             PostLayout.entries.forEach { layout ->
                 OptionRow(
                     label = layout.label,

@@ -85,6 +85,7 @@ import io.github.radixtrator.resync.data.Recent
 import io.github.radixtrator.resync.data.Subreddit
 import io.github.radixtrator.resync.ui.common.AppIcons
 import io.github.radixtrator.resync.ui.common.Format
+import io.github.radixtrator.resync.ui.common.SheetHandle
 import io.github.radixtrator.resync.ui.feed.SubredditInfoSheet
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.SearchRoute
@@ -504,18 +505,6 @@ private fun ExploreOptionsMenu(container: AppContainer, state: ExploreState) {
             DropdownMenuItem(text = { Text("Clear most visited") }, onClick = { open = false; container.explore.clearVisits() })
         }
     }
-}
-
-/** Sync's handle sits closer to the edge than Material's, putting the search field 24dp below the sheet's top. */
-@Composable
-private fun SheetHandle() {
-    Box(
-        Modifier
-            .padding(top = 12.dp, bottom = 8.dp)
-            .size(width = 32.dp, height = 4.dp)
-            .clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
-    )
 }
 
 @Composable

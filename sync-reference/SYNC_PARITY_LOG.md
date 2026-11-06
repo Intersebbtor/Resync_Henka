@@ -454,7 +454,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Comment sorts | Top/Best/New/Old/Controversial/Q&A | same | ✅ |
 | Search sorts | Relevance/New/Hot/Top/Comments + search modes (sub, multi, subs, profile, domain) | Relevance/Hot/New/Top×2/Comments, sub scope | ◐ |
 | More actions grid (configurable, 24 actions) | yes | grid of 9 (Search, Profile, About, Submit, Dark mode, Settings, Change view, Refresh, Saved) | ◐ (not configurable) |
-| Post options sheet | ~22 actions incl. Copy…, Filter…, Watch, Explore domain, Add to multi | actions sheet (vote/save/hide/delete/share) | ◐ |
+| Post options sheet | ~22 actions incl. Copy…, Filter…, Watch, Explore domain, Add to multi | Sync's layout and order: Hide, Mark as read, Share / u, r, Open in browser / Copy… (title, permalink, link, username), Edit, Delete | ◐ (no Watch, Report, Explore domain, Filter…, Add to multi, share-type ⋮) |
 | Read-state dimming, Hide read | yes | opened posts dim in feeds (local) | ◐ (no Hide read) |
 | Comment rails | 5-color cycle, 16 dp indent | Sync's palette, a rail for every ancestor level, 16dp indent | ✅ |
 | Tap-to-collapse with "+n" pill | yes | tap folds the replies, "+N" pill; the comment itself stays readable | ✅ |

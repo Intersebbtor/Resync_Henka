@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -84,14 +85,29 @@ fun TopSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit)
     }
 }
 
-/** The centered title Sync puts at the top of every sheet ("Subreddit sort", "Post options"...). */
+/**
+ * The centered title Sync puts at the top of every sheet ("Subreddit sort", "Post options"...). Bottom
+ * sheets pass [topPadding] 0: there it sits right under [SheetHandle].
+ */
 @Composable
-fun SheetTitle(title: String, modifier: Modifier = Modifier) {
+fun SheetTitle(title: String, modifier: Modifier = Modifier, topPadding: Dp = 16.dp) {
     Text(
         title,
         style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 1.25.em),
         textAlign = TextAlign.Center,
-        modifier = modifier.fillMaxWidth().padding(top = 16.dp, bottom = 16.dp, start = 48.dp, end = 48.dp),
+        modifier = modifier.fillMaxWidth().padding(top = topPadding, bottom = 16.dp, start = 48.dp, end = 48.dp),
+    )
+}
+
+/** Sync's bottom sheet handle sits closer to the edge than Material's: 12dp above the pill, 8dp below. */
+@Composable
+fun SheetHandle() {
+    Box(
+        Modifier
+            .padding(top = 12.dp, bottom = 8.dp)
+            .size(width = 32.dp, height = 4.dp)
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
     )
 }
 

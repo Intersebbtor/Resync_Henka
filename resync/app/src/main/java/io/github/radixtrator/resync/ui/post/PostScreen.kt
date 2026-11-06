@@ -120,6 +120,7 @@ import io.github.radixtrator.resync.ui.common.PostTitle
 import io.github.radixtrator.resync.ui.common.QuickAction
 import io.github.radixtrator.resync.ui.common.QuickActionGrid
 import io.github.radixtrator.resync.ui.common.RedditBodyText
+import io.github.radixtrator.resync.ui.common.SheetHandle
 import io.github.radixtrator.resync.ui.common.SheetTitle
 import io.github.radixtrator.resync.ui.common.SwipeActions
 import io.github.radixtrator.resync.ui.common.SwipeBack
@@ -136,9 +137,9 @@ import io.github.radixtrator.resync.ui.navigation.PostRoute
 import io.github.radixtrator.resync.ui.navigation.SettingsRoute
 import io.github.radixtrator.resync.ui.navigation.UserRoute
 import io.github.radixtrator.resync.ui.theme.ResyncColors
-import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 // Sync's comment page (sync-reference/SYNC_PARITY_LOG.md §3.8): one surface for toolbar, post and
 // comments; colored rails for every ancestor level; tap collapses a thread, long-press opens an
@@ -729,15 +730,15 @@ private fun CommentOptionsSheet(comment: Comment, post: Post, onDismiss: () -> U
         block()
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, dragHandle = { SheetHandle() }) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 8.dp)) {
             if (copying) {
-                SheetTitle("Copy", Modifier.padding(top = 0.dp))
+                SheetTitle("Copy", topPadding = 0.dp)
                 OptionRow("Copy text", AppIcons.Text, onClick = { act { clipboard.setText(AnnotatedString(comment.body)) } })
                 OptionRow("Copy permalink", AppIcons.Link, onClick = { act { clipboard.setText(AnnotatedString(permalink)) } })
                 OptionRow("Copy username", Icons.Outlined.Person, onClick = { act { clipboard.setText(AnnotatedString(comment.author)) } })
             } else {
-                SheetTitle("Comment options", Modifier.padding(top = 0.dp))
+                SheetTitle("Comment options", topPadding = 0.dp)
                 OptionRow("Share", Icons.Outlined.Share, onClick = { act { nav.share(permalink, post.title) } })
                 OptionRow("Open in browser", AppIcons.OpenExternal, onClick = { act { nav.openExternal(permalink) } })
                 OptionRow("Select text", AppIcons.Text, onClick = { selecting = true })

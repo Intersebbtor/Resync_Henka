@@ -3,51 +3,42 @@
 package io.github.radixtrator.resync.ui.inbox
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.rememberCoroutineScope
-import io.github.radixtrator.resync.ui.common.AppIcons
-import io.github.radixtrator.resync.ui.common.HeaderChip
-import io.github.radixtrator.resync.ui.common.LargeHeader
-import io.github.radixtrator.resync.ui.common.OptionRow
-import io.github.radixtrator.resync.ui.common.SheetTitle
-import io.github.radixtrator.resync.ui.home.HomeTab
-import io.github.radixtrator.resync.ui.home.ShellScaffold
-import io.github.radixtrator.resync.ui.home.quickActions
-import io.github.radixtrator.resync.ui.navigation.InboxRoute
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,15 +54,25 @@ import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.data.InboxBox
 import io.github.radixtrator.resync.data.InboxItem
 import io.github.radixtrator.resync.data.Listing
+import io.github.radixtrator.resync.ui.common.AppIcons
 import io.github.radixtrator.resync.ui.common.Format
+import io.github.radixtrator.resync.ui.common.HeaderChip
+import io.github.radixtrator.resync.ui.common.LargeHeader
 import io.github.radixtrator.resync.ui.common.ListingViewModel
 import io.github.radixtrator.resync.ui.common.MessageEffect
+import io.github.radixtrator.resync.ui.common.OptionRow
 import io.github.radixtrator.resync.ui.common.PagedList
 import io.github.radixtrator.resync.ui.common.RedditBodyText
+import io.github.radixtrator.resync.ui.common.SheetHandle
+import io.github.radixtrator.resync.ui.common.SheetTitle
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.common.rememberRedditHtml
+import io.github.radixtrator.resync.ui.home.HomeTab
+import io.github.radixtrator.resync.ui.home.ShellScaffold
+import io.github.radixtrator.resync.ui.home.quickActions
 import io.github.radixtrator.resync.ui.navigation.ComposeMode
 import io.github.radixtrator.resync.ui.navigation.ComposeRoute
+import io.github.radixtrator.resync.ui.navigation.InboxRoute
 import io.github.radixtrator.resync.ui.navigation.LocalAccount
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
@@ -201,9 +202,9 @@ fun InboxScreen(route: InboxRoute, container: AppContainer) {
     }
 
     if (boxOpen) {
-        ModalBottomSheet(onDismissRequest = { boxOpen = false }, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
+        ModalBottomSheet(onDismissRequest = { boxOpen = false }, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, dragHandle = { SheetHandle() }) {
             Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
-                SheetTitle("Messages", Modifier.padding(top = 0.dp))
+                SheetTitle("Messages", topPadding = 0.dp)
                 InboxBox.entries.forEach { b ->
                     OptionRow(b.label, icon = null, selected = b == box, onClick = {
                         boxOpen = false
