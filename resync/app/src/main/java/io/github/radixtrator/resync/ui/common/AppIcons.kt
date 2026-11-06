@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathBuilder
+import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
@@ -219,6 +220,48 @@ object AppIcons {
             moveTo(3f, 20f); curveTo(3f, 16f, 6f, 14f, 10f, 14f); curveTo(14f, 14f, 17f, 16f, 17f, 20f); close()
             moveTo(19f, 7f); lineTo(19f, 13f)
             moveTo(16f, 10f); lineTo(22f, 10f)
+        }
+    }
+
+    // Media viewer controls (Sync's video bar and info sheet).
+    val Pause: ImageVector by lazy {
+        filled("Pause") {
+            moveTo(6f, 5f); lineTo(10f, 5f); lineTo(10f, 19f); lineTo(6f, 19f); close()
+            moveTo(14f, 5f); lineTo(18f, 5f); lineTo(18f, 19f); lineTo(14f, 19f); close()
+        }
+    }
+
+    val Restart: ImageVector by lazy {
+        filled("Restart") {
+            moveTo(6f, 6f); lineTo(8f, 6f); lineTo(8f, 18f); lineTo(6f, 18f); close()
+            moveTo(18f, 6f); lineTo(18f, 18f); lineTo(9.5f, 12f); close()
+        }
+    }
+
+    val VolumeOn: ImageVector by lazy {
+        filled("VolumeOn") {
+            moveTo(3f, 9f); lineTo(7f, 9f); lineTo(12f, 4f); lineTo(12f, 20f); lineTo(7f, 15f); lineTo(3f, 15f); close()
+            moveTo(14f, 7.5f); curveTo(17.5f, 9f, 17.5f, 15f, 14f, 16.5f); lineTo(14f, 7.5f); close()
+        }
+    }
+
+    val VolumeOff: ImageVector by lazy {
+        filled("VolumeOff") {
+            moveTo(3f, 9f); lineTo(7f, 9f); lineTo(12f, 4f); lineTo(12f, 20f); lineTo(7f, 15f); lineTo(3f, 15f); close()
+        }
+    }
+
+    /** Sync's "slower" speed button; a filled circle with the minus cut out. */
+    val RemoveCircleFilled: ImageVector by lazy {
+        ImageVector.Builder("RemoveCircleFilled", 24.dp, 24.dp, 24f, 24f)
+            .addPath(addPathNodes("M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zM17,13L7,13v-2h10v2z"), fill = SolidColor(Color.Black))
+            .build()
+    }
+
+    val Download: ImageVector by lazy {
+        filled("Download") {
+            moveTo(10f, 3f); lineTo(14f, 3f); lineTo(14f, 9f); lineTo(18f, 9f); lineTo(12f, 15.5f); lineTo(6f, 9f); lineTo(10f, 9f); close()
+            moveTo(5f, 18f); lineTo(19f, 18f); lineTo(19f, 20f); lineTo(5f, 20f); close()
         }
     }
 

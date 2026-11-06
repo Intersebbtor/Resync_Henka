@@ -81,9 +81,9 @@ class Navigator(
     /** What tapping a post's media does: viewer for images/galleries, player for video, else the link. */
     fun openMedia(post: Post) {
         when (val m = post.media) {
-            is PostMedia.Image -> push(ImageRoute(listOf(m.url)))
-            is PostMedia.Gallery -> push(ImageRoute(m.images.map { it.url }))
-            is PostMedia.Video -> push(VideoRoute(m.url, loop = m.loop))
+            is PostMedia.Image -> push(ImageRoute(listOf(m.url), postId = post.id))
+            is PostMedia.Gallery -> push(ImageRoute(m.images.map { it.url }, postId = post.id))
+            is PostMedia.Video -> push(VideoRoute(m.url, loop = m.loop, postId = post.id))
             is PostMedia.Link -> openUri(m.url)
             PostMedia.None -> push(PostRoute(post.id))
         }

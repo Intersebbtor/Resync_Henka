@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -71,13 +72,24 @@ private suspend fun PointerInputScope.claimDrags(
     }
 }
 
-/** Fling media up or down to close it, like Sync's viewer. The backdrop fades as it moves. */
+/**
+ * Fling media up or down to close it, like Sync's viewer. The backdrop fades as it moves. With
+ * [onSwipeUp], only a downward fling closes it: swiping up calls that instead (Sync's info sheet) and
+ * the media springs back.
+ */
 @Composable
-fun DismissibleMedia(onDismiss: () -> Unit, enabled: Boolean = true, content: @Composable () -> Unit) {
+fun DismissibleMedia(
+    onDismiss: () -> Unit,
+    enabled: Boolean = true,
+    onSwipeUp: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
     val offset = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     var height by remember { mutableIntStateOf(1) }
-    val progress = (abs(offset.value) / (height * 0.5f)).coerceIn(0f, 1f)
+    val swipeUp by rememberUpdatedState(onSwipeUp)
+    val travel = if (onSwipeUp != null) offset.value.coerceAtLeast(0f) else abs(offset.value)
+    val progress = (travel / (height * 0.5f)).coerceIn(0f, 1f)
     Box(
         Modifier
             .fillMaxSize()
@@ -88,9 +100,18 @@ fun DismissibleMedia(onDismiss: () -> Unit, enabled: Boolean = true, content: @C
                 claimDrags(
                     Axis.VERTICAL,
                     scope,
-                    onDelta = { offset.snapTo(offset.value + it) },
+                    // Upward drags only hint at the sheet, so they move a fraction of the finger.
+                    onDelta = { offset.snapTo(offset.value + if (swipeUp != null && offset.value + it < 0f) it * 0.3f else it) },
                     onEnd = { velocity ->
-                        if (abs(offset.value) > height * 0.18f || abs(velocity) > 2500f) onDismiss() else offset.animateTo(0f)
+                        val up = swipeUp
+                        when {
+                            up != null && offset.value < 0f -> {
+                                if (offset.value < -height * 0.03f || velocity < -1500f) up()
+                                offset.animateTo(0f)
+                            }
+                            abs(offset.value) > height * 0.18f || abs(velocity) > 2500f -> onDismiss()
+                            else -> offset.animateTo(0f)
+                        }
                     },
                 )
             },

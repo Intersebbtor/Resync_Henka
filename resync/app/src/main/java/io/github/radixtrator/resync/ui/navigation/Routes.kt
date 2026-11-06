@@ -29,11 +29,13 @@ data class FeedRoute(val subreddit: String? = null, val home: Boolean = false) :
 @Serializable
 data class PostRoute(val postId: String, val commentId: String? = null, val context: Int = 0) : NavKey
 
+/** [postId]: the post the media came from, for the info sheet's Comments button. */
 @Serializable
-data class ImageRoute(val urls: List<String>, val start: Int = 0) : NavKey
+data class ImageRoute(val urls: List<String>, val start: Int = 0, val postId: String? = null) : NavKey
 
+/** See [ImageRoute] for [postId]. */
 @Serializable
-data class VideoRoute(val url: String, val loop: Boolean = false) : NavKey
+data class VideoRoute(val url: String, val loop: Boolean = false, val postId: String? = null) : NavKey
 
 @Serializable
 data class UserRoute(val name: String, val tab: UserWhere = UserWhere.OVERVIEW) : NavKey

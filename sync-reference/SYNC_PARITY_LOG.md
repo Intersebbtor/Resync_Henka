@@ -466,8 +466,8 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | "98% upvoted", edited "*" + "(last edited)", OP pill, pinned/mod badges | yes | upvote %, edited "*", OP pill, MOD and pinned as text | ◐ (text instead of icons; no "(last edited)") |
 | Restore scroll position / collapsed state per post | yes | persisted per post (200 most recent), setting to turn off | ✅ |
 | Composer formatting bar | 17 tools incl. preview, emoji, drafts, image, spoiler, numbered list | markdown toolbar | ◐ |
-| Image viewer info sheet (download, link info, copy/share/comments) | yes | zoomable viewer | ◐ |
-| Video player: HD toggle, speed, download, mute | yes | Media3 player | ◐ |
+| Image viewer info sheet (download, link info, copy/share/comments) | yes | tap to close, swipe up for the sheet: download, host, URL, original resolution and file size, Comments / Open in browser / Copy / Share | ◐ (no debug log, no colorful backdrop, no deep zoom) |
+| Video player: HD toggle, speed, download, mute | yes | Sync's bar (seek, HD, restart, play/pause, mute, time, download, ⋮) and ⋮ panel (speed, link info, actions); HD Reddit video quality setting; downloads mux v.redd.it audio | ◐ (no debug log, no zoomable video) |
 | Galleries | broken in Sync | gallery viewer | ✅ (better) |
 | Explore sheet: Favorites / Subscriptions / Moderated / Most visited (+counts) / Follows, per-sub menu | yes | Favorites, Subscriptions (with icons), Moderated, Top (counts, Default tag, default in accent), opt-in Feeds; Sync's 42 dp rows and 51 dp headers; row ⋮ (favorite, set as default, about, unsubscribe, reset viewed), options ⋮ (section visibility, duplicate favorites, reload, clear) | ◐ (no Follows/Custom feeds sections, no favorite reordering) |
 | Recently searched & visited | yes | toolbar search opens Explore with recent feeds and searches; typing shows Search all (+ "Search r/<sub>"), bolded matches, suggested communities with "Search all subs", Open u/ and r/ | ✅ |

@@ -22,6 +22,9 @@ enum class PostLayout(val label: String) {
 
 enum class NsfwMode(val label: String) { HIDE("Hide NSFW posts"), BLUR("Blur previews"), SHOW("Show") }
 
+/** Sync's "HD Reddit video quality": when v.redd.it videos open in HD rather than SD (the player's HD button switches). */
+enum class VideoQuality(val label: String) { ALWAYS("Always"), WIFI("WiFi only"), NEVER("Never") }
+
 /** Sync's "Post media preview size" for the image or video above a post's comments. */
 enum class MediaPreviewSize(val label: String) { CROPPED("Cropped height"), FULL("Full height") }
 
@@ -49,6 +52,7 @@ data class Settings(
     val swipeBack: Boolean = true,
     val inAppBrowser: Boolean = true,
     val muteVideos: Boolean = false,
+    val hdVideo: VideoQuality = VideoQuality.NEVER,
     /** Sync's comment navigation bar: previous/next top-level comment buttons. Off by default, as in Sync. */
     val commentNavigation: Boolean = false,
     /** Reopening a post returns to where you were, with the same threads folded. */

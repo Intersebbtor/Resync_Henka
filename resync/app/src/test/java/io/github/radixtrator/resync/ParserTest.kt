@@ -25,6 +25,9 @@ import io.github.radixtrator.resync.data.RedditClient
 import io.github.radixtrator.resync.data.RedditException
 import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.data.ThemeMode
+import io.github.radixtrator.resync.data.DashTracks
+import io.github.radixtrator.resync.data.dashTracks
+import io.github.radixtrator.resync.data.fileName
 import io.github.radixtrator.resync.ui.common.Format
 import io.github.radixtrator.resync.ui.common.RULE
 import io.github.radixtrator.resync.ui.common.hasSpoiler
@@ -329,6 +332,35 @@ class ParserTest {
             "<div class=\"md\"><p>Thanks!</p><br><p>$RULE</p><br><p><a href=\"https://www.reddit.com/r/pics\">r/pics</a></p>\n</div>",
             redditMarkup(html, revealSpoilers = true),
         )
+    }
+
+    @Test
+    fun `downloads pick the best DASH video and audio`() {
+        val mpd = """
+            <MPD><Period>
+            <AdaptationSet contentType="video" mimeType="video/mp4">
+              <Representation id="1" bandwidth="1200000" width="640" height="360"><BaseURL>DASH_360.mp4</BaseURL></Representation>
+              <Representation id="2" bandwidth="4800000" width="1280" height="720"><BaseURL>DASH_720.mp4</BaseURL></Representation>
+              <Representation id="3" bandwidth="2400000" width="854" height="480"><BaseURL>DASH_480.mp4</BaseURL></Representation>
+            </AdaptationSet>
+            <AdaptationSet contentType="audio" mimeType="audio/mp4">
+              <Representation id="4" bandwidth="64000"><BaseURL>DASH_AUDIO_64.mp4</BaseURL></Representation>
+              <Representation id="5" bandwidth="128000"><BaseURL>DASH_AUDIO_128.mp4</BaseURL></Representation>
+            </AdaptationSet>
+            </Period></MPD>
+        """.trimIndent()
+        assertEquals(DashTracks("DASH_720.mp4", "DASH_AUDIO_128.mp4"), dashTracks(mpd))
+        val silent = mpd.substringBefore("<AdaptationSet contentType=\"audio\"") + "</Period></MPD>"
+        assertEquals(DashTracks("DASH_720.mp4", null), dashTracks(silent))
+        assertEquals(null, dashTracks("<MPD></MPD>"))
+    }
+
+    @Test
+    fun `downloaded files keep their name and get an extension`() {
+        assertEquals("yhqizfdsiozh1.jpeg", fileName("https://i.redd.it/yhqizfdsiozh1.jpeg", "image/jpeg"))
+        assertEquals("abc.png", fileName("https://preview.redd.it/abc.png?width=640&s=x", "image/png"))
+        assertEquals("photo.webp", fileName("https://example.com/photo", "image/webp"))
+        assertEquals("clip.mp4", fileName("https://example.com/clip/", "video/mp4"))
     }
 
     @Test

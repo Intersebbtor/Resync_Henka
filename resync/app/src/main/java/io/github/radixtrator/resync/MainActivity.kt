@@ -106,8 +106,8 @@ private fun ResyncNavHost(container: AppContainer) {
                 entry<LoginRoute> { LoginScreen(container = container, onFinished = navigator::pop) }
                 entry<FeedRoute> { route -> FeedScreen(route, container) }
                 entry<PostRoute> { route -> PostScreen(route, container) }
-                entry<ImageRoute> { route -> ImageViewerScreen(route.urls, route.start, onClose = navigator::pop) }
-                entry<VideoRoute> { route -> VideoPlayerScreen(route.url, route.loop, onClose = navigator::pop) }
+                entry<ImageRoute> { route -> ImageViewerScreen(route.urls, route.start, route.postId, container.downloads, onClose = navigator::pop) }
+                entry<VideoRoute> { route -> VideoPlayerScreen(route.url, route.loop, route.postId, container.downloads, onClose = navigator::pop) }
                 entry<UserRoute> { route -> ProfileScreen(route.name, route.tab, container) }
                 entry<InboxRoute> { route -> InboxScreen(route, container) }
                 entry<SearchRoute> { route -> SearchScreen(route.query, route.subreddit, container, communitiesTab = route.communities) }

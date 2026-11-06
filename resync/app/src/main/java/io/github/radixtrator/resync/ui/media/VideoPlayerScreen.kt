@@ -1,30 +1,57 @@
 package io.github.radixtrator.resync.ui.media
 
+import android.content.Context
+import android.net.ConnectivityManager
+import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -39,26 +66,47 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.ui.PlayerView
+import io.github.radixtrator.resync.data.MediaDownloads
+import io.github.radixtrator.resync.data.VideoQuality
+import io.github.radixtrator.resync.ui.common.AppIcons
 import io.github.radixtrator.resync.ui.common.DismissibleMedia
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
+import kotlinx.coroutines.delay
+import java.util.Locale
 
 @OptIn(UnstableApi::class)
 private val SoftwareFirst = MediaCodecSelector { mimeType, secure, tunneling ->
     MediaCodecSelector.DEFAULT.getDecoderInfos(mimeType, secure, tunneling).sortedBy { it.hardwareAccelerated }
 }
 
+/** Sync's − 1x + speed steps. */
+private val SPEEDS = listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
+
 /**
- * Full-screen Media3 player for v.redd.it (HLS) and mp4 clips. [loop] is for GIF-style clips:
- * they repeat silently and hide the controller until tapped.
+ * Full-screen Media3 player for v.redd.it (HLS) and mp4 clips, with Sync's controls: seek bar, then HD,
+ * restart, play/pause, mute, time, download and ⋮. The ⋮ (or a swipe up) adds playback speed, link info
+ * and the Comments / Open in browser / Copy / Share bar. [loop] is for GIF-style clips: they repeat
+ * silently and hide the controls until tapped.
  */
 @OptIn(UnstableApi::class)
 @Composable
-fun VideoPlayerScreen(url: String, loop: Boolean, onClose: () -> Unit) {
+fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: MediaDownloads, onClose: () -> Unit) {
     val context = LocalContext.current
     val nav = LocalNavigator.current
-    val mute = LocalSettings.current.muteVideos || loop
+    val settings = LocalSettings.current
+    val adaptive = url.contains(".m3u8")
     var error by remember { mutableStateOf<String?>(null) }
+    var muted by rememberSaveable { mutableStateOf(settings.muteVideos || loop) }
+    var hd by rememberSaveable { mutableStateOf(startInHd(context, settings.hdVideo)) }
+    var speed by rememberSaveable { mutableFloatStateOf(1f) }
+    var controls by rememberSaveable { mutableStateOf(!loop) }
+    var panelOpen by rememberSaveable { mutableStateOf(false) }
+    var playing by remember { mutableStateOf(true) }
+    var position by remember { mutableLongStateOf(0L) }
+    var duration by remember { mutableLongStateOf(0L) }
+    val download = rememberDownloader(downloads)
+
     // Hardware decoders occasionally die mid-stream (Media3's own fallback only covers ones that
     // fail to start), so a decoding failure gets one retry with software decoders first.
     var softwareFirst by remember { mutableStateOf(false) }
@@ -69,11 +117,11 @@ fun VideoPlayerScreen(url: String, loop: Boolean, onClose: () -> Unit) {
         ExoPlayer.Builder(context, renderers).build().apply {
             val item = MediaItem.Builder()
                 .setUri(url)
-                .apply { if (url.contains(".m3u8")) setMimeType(MimeTypes.APPLICATION_M3U8) }
+                .apply { if (adaptive) setMimeType(MimeTypes.APPLICATION_M3U8) }
                 .build()
             setMediaItem(item)
             repeatMode = if (loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
-            volume = if (mute) 0f else 1f
+            volume = if (muted) 0f else 1f
             playWhenReady = true
             prepare()
         }
@@ -95,23 +143,52 @@ fun VideoPlayerScreen(url: String, loop: Boolean, onClose: () -> Unit) {
         }
     }
     LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { player.pause() }
+    LaunchedEffect(player, muted) { player.volume = if (muted) 0f else 1f }
+    LaunchedEffect(player, speed) { player.setPlaybackSpeed(speed) }
+    LaunchedEffect(player, hd) {
+        if (!adaptive) return@LaunchedEffect
+        // SD caps HLS at 480p (Reddit's next step up is 720p); HD takes the best the device can play.
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .apply { if (hd) clearVideoSizeConstraints() else setMaxVideoSizeSd() }
+            .setForceHighestSupportedBitrate(hd)
+            .build()
+    }
+    LaunchedEffect(player) {
+        while (true) {
+            playing = player.playWhenReady && player.playbackState != Player.STATE_ENDED
+            position = player.currentPosition
+            duration = player.duration.coerceAtLeast(0L)
+            delay(200)
+        }
+    }
+    BackHandler(enabled = panelOpen) { panelOpen = false }
 
-    DismissibleMedia(onDismiss = onClose) {
+    DismissibleMedia(
+        onDismiss = onClose,
+        enabled = !panelOpen,
+        onSwipeUp = {
+            controls = true
+            panelOpen = true
+        },
+    ) {
         Box(Modifier.fillMaxSize()) {
             AndroidView(
                 factory = { ctx ->
                     PlayerView(ctx).apply {
+                        useController = false
                         setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
-                        controllerAutoShow = !loop
                         setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     }
                 },
-                update = {
-                    it.player = player // replaced when retrying with software decoders
-                    // The controller's buttons would sit on top of the error message.
-                    it.useController = error == null
-                },
+                update = { it.player = player }, // replaced when retrying with software decoders
                 modifier = Modifier.fillMaxSize(),
+            )
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(onTap = { if (panelOpen) panelOpen = false else controls = !controls })
+                    },
             )
             error?.let { message ->
                 Column(
@@ -130,9 +207,139 @@ fun VideoPlayerScreen(url: String, loop: Boolean, onClose: () -> Unit) {
                     }
                 }
             }
-            IconButton(onClick = onClose, modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(4.dp)) {
-                Icon(Icons.Default.Close, "Close", tint = Color.White)
+            if ((controls || panelOpen) && error == null) {
+                Column(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .background(if (panelOpen) MediaPanelColor else Color.Transparent),
+                ) {
+                    SeekBar(
+                        fraction = if (duration > 0) position.toFloat() / duration else 0f,
+                        onSeek = { player.seekTo((it * duration).toLong()) },
+                    )
+                    // Sync packs the playback buttons 38dp apart from the left edge.
+                    Row(Modifier.fillMaxWidth().padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (adaptive) HdToggle(hd, onToggle = { hd = !hd })
+                        IconButton(onClick = {
+                            player.seekTo(0)
+                            player.play()
+                        }, modifier = Modifier.size(38.dp)) { Icon(AppIcons.Restart, "Restart", tint = Color.White) }
+                        IconButton(modifier = Modifier.size(38.dp), onClick = {
+                            if (playing) {
+                                player.pause()
+                            } else {
+                                if (player.playbackState == Player.STATE_ENDED) player.seekTo(0)
+                                player.play()
+                            }
+                        }) { Icon(if (playing) AppIcons.Pause else Icons.Default.PlayArrow, if (playing) "Pause" else "Play", tint = Color.White) }
+                        IconButton(onClick = { muted = !muted }, modifier = Modifier.size(38.dp)) {
+                            Icon(if (muted) AppIcons.VolumeOff else AppIcons.VolumeOn, if (muted) "Unmute" else "Mute", tint = Color.White)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text("${clock(position)} / ${clock(duration)}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.weight(1f))
+                        IconButton(onClick = { download(url) }) { Icon(AppIcons.Download, "Download", tint = Color.White) }
+                        IconButton(onClick = { panelOpen = !panelOpen }) {
+                            if (panelOpen) Icon(Icons.Default.Close, "Close", tint = Color.White) else Icon(Icons.Default.MoreVert, "More", tint = Color.White)
+                        }
+                    }
+                    if (panelOpen) {
+                        SpeedControl(speed, onChange = { speed = it })
+                        MediaLinkInfo(url, emptyList())
+                        MediaActionBar(url, postId)
+                    } else {
+                        Spacer(Modifier.navigationBarsPadding())
+                    }
+                }
             }
         }
     }
+}
+
+/** "HD": filled while playing in HD, outlined in SD. */
+@Composable
+private fun HdToggle(hd: Boolean, onToggle: () -> Unit) {
+    IconButton(onClick = onToggle, modifier = Modifier.size(38.dp)) {
+        Text(
+            "HD",
+            color = if (hd) Color.Black else Color.White,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .clip(RoundedCornerShape(3.dp))
+                .then(if (hd) Modifier.background(Color.White) else Modifier.border(1.5.dp, Color.White, RoundedCornerShape(3.dp)))
+                .padding(horizontal = 3.dp, vertical = 1.dp),
+        )
+    }
+}
+
+/** Sync's thin seek line with a round thumb; tap or drag to seek. */
+@Composable
+private fun SeekBar(fraction: Float, onSeek: (Float) -> Unit) {
+    var dragging by remember { mutableStateOf<Float?>(null) }
+    val shown = (dragging ?: fraction).coerceIn(0f, 1f)
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(24.dp)
+            .padding(horizontal = 16.dp)
+            .pointerInput(Unit) { detectTapGestures { onSeek((it.x / size.width).coerceIn(0f, 1f)) } }
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { dragging = (it.x / size.width).coerceIn(0f, 1f) },
+                    onDragEnd = {
+                        dragging?.let(onSeek)
+                        dragging = null
+                    },
+                    onDragCancel = { dragging = null },
+                ) { change, _ -> dragging = (change.position.x / size.width).coerceIn(0f, 1f) }
+            }
+            .drawBehind {
+                val y = size.height / 2
+                val x = size.width * shown
+                drawLine(Color.White.copy(alpha = 0.35f), Offset(0f, y), Offset(size.width, y), 2.dp.toPx(), StrokeCap.Round)
+                drawLine(Color.White, Offset(0f, y), Offset(x, y), 2.dp.toPx(), StrokeCap.Round)
+                drawCircle(Color.White, 6.dp.toPx(), Offset(x, y))
+            },
+    )
+}
+
+/** Sync's "− 1x +". */
+@Composable
+private fun SpeedControl(speed: Float, onChange: (Float) -> Unit) {
+    val index = SPEEDS.indexOf(speed).coerceAtLeast(0)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = { onChange(SPEEDS[(index - 1).coerceAtLeast(0)]) }, enabled = index > 0) {
+            Icon(AppIcons.RemoveCircleFilled, "Slower", tint = Color.White)
+        }
+        Text(
+            speedLabel(speed),
+            color = Color.White,
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(56.dp),
+        )
+        IconButton(onClick = { onChange(SPEEDS[(index + 1).coerceAtMost(SPEEDS.lastIndex)]) }, enabled = index < SPEEDS.lastIndex) {
+            Icon(Icons.Default.AddCircle, "Faster", tint = Color.White)
+        }
+    }
+}
+
+private fun speedLabel(speed: Float): String = (if (speed % 1f == 0f) speed.toInt().toString() else speed.toString().trimEnd('0')) + "x"
+
+/** "00:05", or "1:02:03" past an hour. */
+private fun clock(ms: Long): String {
+    val total = ms / 1000
+    val h = total / 3600
+    val m = total % 3600 / 60
+    val s = total % 60
+    return if (h > 0) String.format(Locale.US, "%d:%02d:%02d", h, m, s) else String.format(Locale.US, "%02d:%02d", m, s)
+}
+
+/** Sync's "HD Reddit video quality": WiFi only means any unmetered connection. */
+private fun startInHd(context: Context, quality: VideoQuality): Boolean = when (quality) {
+    VideoQuality.ALWAYS -> true
+    VideoQuality.NEVER -> false
+    VideoQuality.WIFI -> context.getSystemService(ConnectivityManager::class.java)?.isActiveNetworkMetered == false
 }

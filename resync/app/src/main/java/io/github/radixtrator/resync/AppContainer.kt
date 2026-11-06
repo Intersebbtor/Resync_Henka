@@ -6,12 +6,13 @@ import io.github.radixtrator.resync.data.AccountStore
 import io.github.radixtrator.resync.data.ApiConfig
 import io.github.radixtrator.resync.data.ApiConfigStore
 import io.github.radixtrator.resync.data.Comment
+import io.github.radixtrator.resync.data.ExploreStore
+import io.github.radixtrator.resync.data.MediaDownloads
+import io.github.radixtrator.resync.data.PostMemoryStore
 import io.github.radixtrator.resync.data.RedditApi
 import io.github.radixtrator.resync.data.RedditClient
-import io.github.radixtrator.resync.data.ExploreStore
-import io.github.radixtrator.resync.data.PostMemoryStore
-import io.github.radixtrator.resync.data.Subreddit
 import io.github.radixtrator.resync.data.SettingsStore
+import io.github.radixtrator.resync.data.Subreddit
 import io.github.radixtrator.resync.data.VisitedStore
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +36,7 @@ class AppContainer(context: Context) {
     val visited = VisitedStore(prefs)
     val postMemory = PostMemoryStore(prefs)
     val explore = ExploreStore(prefs)
+    val downloads = MediaDownloads(context)
     private val accountStore = AccountStore(prefs)
     val client = RedditClient(configStore, accountStore, context.assets)
     val api = RedditApi(client)
