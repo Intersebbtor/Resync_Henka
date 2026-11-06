@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -156,7 +157,35 @@ fun SettingsScreen(container: AppContainer) {
                 if (filters.isEmpty) {
                     ListItem(
                         headlineContent = { Text("None yet") },
-                        supportingContent = { Text("Use Filter... in a post's options to hide a community, user or domain from feeds") },
+                        supportingContent = { Text("Use Filter... in a post's options, or add keywords and flairs here") },
+                    )
+                }
+                filters.keywords.sorted().forEach { word -> FilterRow("\"$word\"", "Titles containing it are hidden") { container.filters.filterKeyword(word, false) } }
+                filters.flairs.sorted().forEach { flair -> FilterRow("Flair: $flair", "Posts with this flair are hidden") { container.filters.filterFlair(flair, false) } }
+                var adding by remember { mutableStateOf<String?>(null) }
+                Row(Modifier.padding(horizontal = 8.dp)) {
+                    TextButton(onClick = { adding = "keyword" }) { Text("Add keyword") }
+                    TextButton(onClick = { adding = "flair" }) { Text("Add flair") }
+                }
+                adding?.let { kind ->
+                    var text by remember { mutableStateOf("") }
+                    val add = {
+                        if (kind == "keyword") container.filters.filterKeyword(text) else container.filters.filterFlair(text)
+                        adding = null
+                    }
+                    AlertDialog(
+                        onDismissRequest = { adding = null },
+                        title = { Text(if (kind == "keyword") "Filter keyword" else "Filter flair") },
+                        text = {
+                            OutlinedTextField(
+                                value = text,
+                                onValueChange = { text = it },
+                                singleLine = true,
+                                label = { Text(if (kind == "keyword") "Word or phrase in the title" else "Flair text, exactly") },
+                            )
+                        },
+                        confirmButton = { TextButton(onClick = add, enabled = text.isNotBlank()) { Text("Add") } },
+                        dismissButton = { TextButton(onClick = { adding = null }) { Text("Cancel") } },
                     )
                 }
                 filters.subreddits.sorted().forEach { name ->

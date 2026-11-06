@@ -109,6 +109,24 @@ class StoresTest {
     }
 
     @Test
+    fun `filters hide keywords in titles and exact flairs`() {
+        fun post(title: String, flair: String?) = Parser.post(
+            RedditClient.JSON.parseToJsonElement(
+                """{"id":"x","title":"$title","subreddit":"s","author":"a","domain":"d"${flair?.let { ""","link_flair_text":"$it"""" } ?: ""}}""",
+            ).jsonObject,
+        )
+        val store = FilterStore(FakePrefs())
+        store.filterKeyword("  Spoiler Alert ")
+        store.filterFlair("Meme")
+        val filters = store.filters.value
+        assertTrue(filters.hides(post("Big SPOILER ALERT inside", null), feedCommunity = null))
+        assertTrue(filters.hides(post("hello", "meme"), feedCommunity = "s"))
+        assertTrue(!filters.hides(post("hello", "memes"), feedCommunity = null))
+        store.filterKeyword("spoiler alert", on = false)
+        assertTrue(!store.filters.value.hides(post("spoiler alert", null), feedCommunity = null))
+    }
+
+    @Test
     fun `watched posts remember their comment count`() {
         val prefs = FakePrefs()
         val post = Parser.post(RedditClient.JSON.parseToJsonElement("""{"id":"p1","title":"t","subreddit":"pics","num_comments":5}""").jsonObject)

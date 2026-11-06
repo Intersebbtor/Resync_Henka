@@ -208,6 +208,11 @@ fun PostActionsSheet(
                 OptionRow("Filter /u/${post.author}", Icons.Outlined.AccountCircle, onClick = {
                     filter("Filtered u/${post.author}") { container.filters.filterUser(post.author) }
                 })
+                post.flair?.takeIf { it.isNotBlank() }?.let { flair ->
+                    OptionRow("Filter flair ($flair)", AppIcons.Tag, onClick = {
+                        filter("Filtered flair $flair") { container.filters.filterFlair(flair) }
+                    })
+                }
                 if (domain != null) {
                     OptionRow("Filter domain ($domain)", AppIcons.Link, onClick = {
                         filter("Filtered ${post.domain}") { container.filters.filterDomain(post.domain) }
