@@ -482,7 +482,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Filters (sub/user/domain/flair/keyword) | yes | sub, user and domain filters via Post ⋮ → Filter…; list with undo in Settings › Filters | ◐ (keyword and flair filters added in Settings › Filters and Post ⋮ → Filter…; no dedicated editor screens) |
 | Multis: add to multi, custom feeds section | yes | multis listed | ◐ |
 | Settings breadth | ~350 keys / 25 screens | theme, layout, NSFW, spoilers, behavior | ◐ (see catalogue) |
-| Typeface choices (Product Sans, Roboto variants…) | yes | Roboto bundled and used everywhere, like Sync's default; all text at Sync's "Smaller" base size | ◐ (no typeface or base-size picker; Product Sans can't be bundled) |
+| Typeface choices (Product Sans, Roboto variants…) | yes | Roboto bundled and used everywhere, like Sync's default; all text at Sync's "Smaller" base size | ◐ (Settings › Typeface (Roboto, system sans/serif/monospace) and Base font size (Smallest…Largest) added, unverified on device; Product Sans can't be bundled) |
 | Monet theme + theme management | yes | Material You toggle | ◐ |
 
 ---

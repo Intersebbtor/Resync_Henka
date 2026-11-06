@@ -20,6 +20,23 @@ enum class PostLayout(val label: String) {
     SLIDES("Slides"),
 }
 
+/** Sync's "Base font size": scales every sp in the app. SMALLER is Sync's default on phones. */
+enum class BaseFontSize(val label: String, val scale: Float) {
+    SMALLEST("Smallest", 0.8f),
+    SMALLER("Smaller", 0.9f),
+    NORMAL("Normal", 1.0f),
+    LARGER("Larger", 1.1f),
+    LARGEST("Largest", 1.25f),
+}
+
+/** Typeface choices. Roboto is bundled (Sync's default); Product Sans can't be, so the rest are the system's families. */
+enum class Typeface(val label: String) {
+    ROBOTO("Roboto"),
+    SANS("Sans serif (system)"),
+    SERIF("Serif"),
+    MONOSPACE("Monospace"),
+}
+
 enum class NsfwMode(val label: String) { HIDE("Hide NSFW posts"), BLUR("Blur previews"), SHOW("Show") }
 
 /**
@@ -68,6 +85,8 @@ data class Settings(
     val commentSort: CommentSort = CommentSort.BEST,
     val postMediaPreview: MediaPreviewSize = MediaPreviewSize.CROPPED,
     val swipeBack: Boolean = true,
+    val baseFontSize: BaseFontSize = BaseFontSize.SMALLER,
+    val typeface: Typeface = Typeface.ROBOTO,
     /** Sync's "Action visibility": labels of More actions buttons switched off. */
     val hiddenActions: Set<String> = emptySet(),
     val inAppBrowser: Boolean = true,
@@ -110,6 +129,12 @@ data class Settings(
 }
 
 /** Persists [Settings] as one JSON blob; unknown/removed fields are ignored on load. */
+/** The saved base font scale, read before the container exists (MainActivity applies it in attachBaseContext). */
+fun savedBaseFontScale(prefs: SharedPreferences): Float =
+    prefs.getString("settings.v1", null)
+        ?.let { runCatching { Json { ignoreUnknownKeys = true }.decodeFromString(Settings.serializer(), it).baseFontSize.scale }.getOrNull() }
+        ?: BaseFontSize.SMALLER.scale
+
 class SettingsStore(private val prefs: SharedPreferences) {
     private val json = Json { ignoreUnknownKeys = true }
     private val _settings = MutableStateFlow(load())

@@ -71,7 +71,8 @@ import io.github.radixtrator.resync.ui.profile.ProfileScreen
 import io.github.radixtrator.resync.ui.search.SearchScreen
 import io.github.radixtrator.resync.ui.settings.SettingsScreen
 import io.github.radixtrator.resync.ui.setup.SetupScreen
-import io.github.radixtrator.resync.ui.theme.BASE_FONT_SCALE
+import io.github.radixtrator.resync.data.savedBaseFontScale
+import io.github.radixtrator.resync.ui.theme.LocalBaseFontScale
 import io.github.radixtrator.resync.ui.theme.FullSizeText
 import io.github.radixtrator.resync.ui.theme.ResyncTheme
 
@@ -79,7 +80,7 @@ class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase)
         // Only fontScale is set, so every other setting still follows the device.
-        applyOverrideConfiguration(Configuration().apply { fontScale = newBase.resources.configuration.fontScale * BASE_FONT_SCALE })
+        applyOverrideConfiguration(Configuration().apply { fontScale = newBase.resources.configuration.fontScale * savedBaseFontScale(newBase.getSharedPreferences("resync", Context.MODE_PRIVATE)) })
     }
 
     /** A page to open, from a tapped notification (a watched community's post, an inbox message). */
@@ -92,7 +93,9 @@ class MainActivity : ComponentActivity() {
         val container = (application as ResyncApp).container
         setContent {
             val settings by container.settings.settings.collectAsStateWithLifecycle()
-            ResyncTheme(settings) { ResyncNavHost(container, openRoute, onRouteOpened = { openRoute = null }) }
+            CompositionLocalProvider(LocalBaseFontScale provides settings.baseFontSize.scale) {
+                ResyncTheme(settings) { ResyncNavHost(container, openRoute, onRouteOpened = { openRoute = null }) }
+            }
         }
     }
 

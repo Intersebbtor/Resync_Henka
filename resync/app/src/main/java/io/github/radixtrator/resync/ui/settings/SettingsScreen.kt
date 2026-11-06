@@ -47,7 +47,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.BuildConfig
+import io.github.radixtrator.resync.data.BaseFontSize
 import io.github.radixtrator.resync.data.CommentSort
+import io.github.radixtrator.resync.data.Typeface
 import io.github.radixtrator.resync.data.MediaPreviewSize
 import io.github.radixtrator.resync.data.MessageCheck
 import io.github.radixtrator.resync.data.NsfwMode
@@ -90,6 +92,12 @@ fun SettingsScreen(container: AppContainer) {
                 Choice("Theme", ThemeMode.entries, settings.theme, ThemeMode::label) { v -> update { it.copy(theme = v) } }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     Toggle("Material You colors", "Use your wallpaper's colors", settings.dynamicColor) { v -> update { it.copy(dynamicColor = v) } }
+                }
+                Choice("Typeface", Typeface.entries, settings.typeface, Typeface::label) { v -> update { it.copy(typeface = v) } }
+                Choice("Base font size", BaseFontSize.entries, settings.baseFontSize, BaseFontSize::label) { v ->
+                    update { it.copy(baseFontSize = v) }
+                    // The scale lives in the activity's configuration, which only a restart rebuilds.
+                    (context as? android.app.Activity)?.recreate()
                 }
                 Choice("Default post layout", PostLayout.entries, settings.layout, PostLayout::label) { v -> update { it.copy(layout = v) } }
 

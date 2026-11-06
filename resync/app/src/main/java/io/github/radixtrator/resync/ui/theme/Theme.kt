@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.em
 import io.github.radixtrator.resync.R
 import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.data.ThemeMode
+import io.github.radixtrator.resync.data.Typeface
 
 // Sync builds its theme from Monet tonal palettes (N1/N2 neutrals, A1–A3 accents). These are the tones
 // Sync showed on the reference device (sync-reference/SYNC_PARITY_LOG.md §1), mapped onto M3 roles the
@@ -118,24 +119,33 @@ private val Roboto = FontFamily(
  */
 private val SYNC_LETTER_SPACING = 0.015.em
 
-/** Material's roles in Roboto, spaced like Sync's text. */
-private val ResyncTypography = Typography().run {
+/** Material's roles in [family], spaced like Sync's text. */
+private fun typographyFor(family: FontFamily) = Typography().run {
     copy(
-        displayLarge = displayLarge.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        displayMedium = displayMedium.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        displaySmall = displaySmall.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        headlineLarge = headlineLarge.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        headlineMedium = headlineMedium.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        headlineSmall = headlineSmall.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        titleLarge = titleLarge.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        titleMedium = titleMedium.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        titleSmall = titleSmall.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        bodyLarge = bodyLarge.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        bodyMedium = bodyMedium.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        bodySmall = bodySmall.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        labelLarge = labelLarge.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        labelMedium = labelMedium.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        labelSmall = labelSmall.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        displayLarge = displayLarge.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        displayMedium = displayMedium.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        displaySmall = displaySmall.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        headlineLarge = headlineLarge.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        headlineMedium = headlineMedium.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        headlineSmall = headlineSmall.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        titleLarge = titleLarge.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        titleMedium = titleMedium.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        titleSmall = titleSmall.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        bodyLarge = bodyLarge.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        bodyMedium = bodyMedium.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        bodySmall = bodySmall.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        labelLarge = labelLarge.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        labelMedium = labelMedium.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        labelSmall = labelSmall.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+    )
+}
+
+private val Typographies by lazy {
+    mapOf(
+        Typeface.ROBOTO to typographyFor(Roboto),
+        Typeface.SANS to typographyFor(FontFamily.SansSerif),
+        Typeface.SERIF to typographyFor(FontFamily.Serif),
+        Typeface.MONOSPACE to typographyFor(FontFamily.Monospace),
     )
 }
 
@@ -157,11 +167,14 @@ private fun ColorScheme.blackened() = copy(
  */
 const val BASE_FONT_SCALE = 0.9f
 
-/** [content] at the device's own font scale, without [BASE_FONT_SCALE], like Sync's settings. */
+/** The base font scale in force (the chosen [BaseFontSize]), which MainActivity applied to its configuration. */
+val LocalBaseFontScale = staticCompositionLocalOf { BASE_FONT_SCALE }
+
+/** [content] at the device's own font scale, without the base font size, like Sync's settings. */
 @Composable
 fun FullSizeText(content: @Composable () -> Unit) {
     val density = LocalDensity.current
-    CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale / BASE_FONT_SCALE), content = content)
+    CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale / LocalBaseFontScale.current), content = content)
 }
 
 @Composable
@@ -181,7 +194,7 @@ fun ResyncTheme(settings: Settings, content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalDarkTheme provides dark) {
         MaterialTheme(
             colorScheme = if (settings.theme == ThemeMode.BLACK) base.blackened() else base,
-            typography = ResyncTypography,
+            typography = Typographies.getValue(settings.typeface),
             content = content,
         )
     }
