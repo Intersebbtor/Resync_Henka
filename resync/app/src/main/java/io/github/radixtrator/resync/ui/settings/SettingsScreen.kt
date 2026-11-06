@@ -333,8 +333,9 @@ internal fun Toggle(title: String, subtitle: String?, checked: Boolean, onChange
     )
 }
 
+/** A row showing [selected]; tapping it opens a dialog of radio [options]. */
 @Composable
-private fun <T> Choice(title: String, options: List<T>, selected: T, label: (T) -> String, onPick: (T) -> Unit) {
+internal fun <T> Choice(title: String, options: List<T>, selected: T, label: (T) -> String, onPick: (T) -> Unit) {
     var open by remember { mutableStateOf(false) }
     ListItem(
         headlineContent = { Text(title) },

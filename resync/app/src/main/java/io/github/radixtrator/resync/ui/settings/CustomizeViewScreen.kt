@@ -3,7 +3,10 @@
 package io.github.radixtrator.resync.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -25,19 +28,23 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.data.ImageSource
 import io.github.radixtrator.resync.data.Post
+import io.github.radixtrator.resync.data.PostColumns
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.PostMedia
+import io.github.radixtrator.resync.data.TitleSize
 import io.github.radixtrator.resync.data.ViewOptions
 import io.github.radixtrator.resync.ui.common.HeaderChip
 import io.github.radixtrator.resync.ui.common.LargeHeader
 import io.github.radixtrator.resync.ui.common.PostActions
 import io.github.radixtrator.resync.ui.common.PostLayoutItem
 import io.github.radixtrator.resync.ui.common.SwipeBack
+import io.github.radixtrator.resync.ui.common.columns
 import io.github.radixtrator.resync.ui.common.gutter
 import io.github.radixtrator.resync.ui.common.spacing
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
@@ -47,7 +54,7 @@ import io.github.radixtrator.resync.ui.theme.FullSizeText
  * Sync's Customize view (Settings > View type, also the Change view sheet's "Customize view" button): a large
  * "View type" title, a chip per layout in Sync's order (Slides … List), a live preview of example posts in the
  * chosen layout, then that layout's options. Changes apply to every feed using the layout at once; the toolbar's
- * reset icon puts the chosen layout back to its defaults. Sync's font pickers and button toggles aren't here yet.
+ * reset icon puts the chosen layout back to its defaults. Of Sync's font pickers only the title's size is here.
  */
 @Composable
 fun CustomizeViewScreen(initial: PostLayout, container: AppContainer) {
@@ -57,9 +64,11 @@ fun CustomizeViewScreen(initial: PostLayout, container: AppContainer) {
     val options = settings.viewOptionsFor(layout)
     val customized = layout in settings.viewOptions
 
-    fun change(option: ViewOption, value: Boolean) = container.settings.update { s ->
-        s.copy(viewOptions = s.viewOptions + (layout to option.write(s.viewOptionsFor(layout), value)))
+    fun change(edit: (ViewOptions) -> ViewOptions) = container.settings.update { s ->
+        s.copy(viewOptions = s.viewOptions + (layout to edit(s.viewOptionsFor(layout))))
     }
+    // The preview tiles like the feed: the Columns choice, else as many as this window fits.
+    val columns = layout.columns(LocalConfiguration.current.screenWidthDp, options.columns)
 
     SwipeBack(enabled = settings.swipeBack, onBack = nav::pop) {
         Scaffold(
@@ -95,14 +104,31 @@ fun CustomizeViewScreen(initial: PostLayout, container: AppContainer) {
                     Modifier.fillMaxWidth().padding(horizontal = layout.gutter, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(layout.spacing),
                 ) {
-                    SamplePosts.forEach { post -> PostLayoutItem(layout, post, showSubreddit = true, actions = NoActions) }
+                    SamplePosts.chunked(columns).forEach { row ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(layout.gutter)) {
+                            row.forEach { post ->
+                                Box(Modifier.weight(1f)) { PostLayoutItem(layout, post, showSubreddit = true, actions = NoActions) }
+                            }
+                            repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
                 }
                 FullSizeText {
                     Column(Modifier.padding(bottom = 16.dp)) {
                         sectionsFor(layout).forEach { (title, rows) ->
                             Section(title)
-                            rows.forEach { option ->
-                                Toggle(option.title, option.summary, option.read(options)) { v -> change(option, v) }
+                            rows.forEach { row ->
+                                when (row) {
+                                    is ViewRow.Switch -> Toggle(row.option.title, row.option.summary, row.option.read(options)) { v ->
+                                        change { row.option.write(it, v) }
+                                    }
+                                    ViewRow.Columns -> Choice("Columns", PostColumns.entries, options.columns, PostColumns::label) { v ->
+                                        change { it.copy(columns = v) }
+                                    }
+                                    ViewRow.TitleFontSize -> Choice("Title font size", TitleSize.entries, options.titleSize, TitleSize::label) { v ->
+                                        change { it.copy(titleSize = v) }
+                                    }
+                                }
                             }
                         }
                     }
@@ -128,31 +154,84 @@ private enum class ViewOption(
     THUMBNAILS("Thumbnails", null, { it.thumbnails }, { o, v -> o.copy(thumbnails = v) }),
     TYPE_INDICATORS("Type indicators", null, { it.typeIndicators }, { o, v -> o.copy(typeIndicators = v) }),
     SINGLE_LINE_TITLE("Limit title to a single line", null, { it.singleLineTitle }, { o, v -> o.copy(singleLineTitle = v) }),
+    THUMBNAIL_RIGHT("Align thumbnail right", null, { it.thumbnailRight }, { o, v -> o.copy(thumbnailRight = v) }),
+    SLIDE_FULL_HEIGHT("Preview full height", null, { it.slideFullHeight }, { o, v -> o.copy(slideFullHeight = v) }),
+    SLIDE_FULL_WIDTH("Preview full width", null, { it.slideFullWidth }, { o, v -> o.copy(slideFullWidth = v) }),
+    CARD_FULL_HEIGHT("Full height", null, { it.cardFullHeight }, { o, v -> o.copy(cardFullHeight = v) }),
+    SAVE_BUTTON("Save", null, { it.saveButton }, { o, v -> o.copy(saveButton = v) }),
+    CARD_SAVE_BUTTON("Save", null, { it.cardSaveButton }, { o, v -> o.copy(cardSaveButton = v) }),
+    HIDE_BUTTON("Hide", null, { it.hideButton }, { o, v -> o.copy(hideButton = v) }),
+    SHARE_BUTTON("Share", null, { it.shareButton }, { o, v -> o.copy(shareButton = v) }),
+    MOD_BUTTON("Mod tools", "This is only shown for subs you moderate", { it.modButton }, { o, v -> o.copy(modButton = v) }),
+    VOTE_RIGHT("Right aligned voting", null, { it.voteRight }, { o, v -> o.copy(voteRight = v) }),
+    HIDE_ALL_BUTTONS("Hide all buttons", null, { it.hideAllButtons }, { o, v -> o.copy(hideAllButtons = v) }),
 }
 
-/** Each layout's options under Sync's section names (sync-reference/settings-catalogue.md, "View type"). */
-private fun sectionsFor(layout: PostLayout): List<Pair<String, List<ViewOption>>> = when (layout) {
+/** A row on a View type screen: a [ViewOption] switch, or one of the two choice rows. */
+private sealed interface ViewRow {
+    class Switch(val option: ViewOption) : ViewRow
+
+    /** [ViewOptions.columns]. */
+    object Columns : ViewRow
+
+    /** [ViewOptions.titleSize], the size half of Sync's "Title font". */
+    object TitleFontSize : ViewRow
+}
+
+private fun switches(vararg options: ViewOption): List<ViewRow> = options.map { ViewRow.Switch(it) }
+
+/**
+ * Each layout's options under Sync's section names and in its order (sync-reference/settings-catalogue.md, "View
+ * type"). Small cards get Columns too, since they tile like Cards here.
+ */
+private fun sectionsFor(layout: PostLayout): List<Pair<String, List<ViewRow>>> = when (layout) {
     PostLayout.SLIDES -> listOf(
-        "Preview options" to listOf(ViewOption.IMAGE_PREVIEWS, ViewOption.SELFTEXT_PREVIEWS, ViewOption.SUBREDDIT_ICONS),
-        "Experimental options" to listOf(ViewOption.SELFTEXT_BORDER),
+        "Preview options" to switches(ViewOption.IMAGE_PREVIEWS, ViewOption.SELFTEXT_PREVIEWS, ViewOption.SUBREDDIT_ICONS),
+        "Image options" to switches(ViewOption.SLIDE_FULL_HEIGHT, ViewOption.SLIDE_FULL_WIDTH),
+        "Fonts and sizing" to listOf(ViewRow.TitleFontSize),
+        "Buttons" to switches(
+            ViewOption.SAVE_BUTTON,
+            ViewOption.HIDE_BUTTON,
+            ViewOption.SHARE_BUTTON,
+            ViewOption.MOD_BUTTON,
+            ViewOption.VOTE_RIGHT,
+            ViewOption.HIDE_ALL_BUTTONS,
+        ),
+        "Experimental options" to switches(ViewOption.SELFTEXT_BORDER),
     )
     PostLayout.CARD -> listOf(
-        "Image options" to listOf(ViewOption.IMAGE_ABOVE_TITLE),
-        "Selftext options" to listOf(ViewOption.SELFTEXT_PREVIEWS),
+        "Image options" to switches(ViewOption.IMAGE_ABOVE_TITLE, ViewOption.CARD_FULL_HEIGHT),
+        "Selftext options" to switches(ViewOption.SELFTEXT_PREVIEWS),
+        "Card options" to listOf(ViewRow.Columns),
+        "Fonts and sizing" to listOf(ViewRow.TitleFontSize),
+        "Buttons" to switches(ViewOption.CARD_SAVE_BUTTON, ViewOption.HIDE_BUTTON, ViewOption.SHARE_BUTTON, ViewOption.MOD_BUTTON),
     )
-    PostLayout.SMALL_CARDS -> listOf("Image options" to listOf(ViewOption.THUMBNAIL_LEFT))
-    PostLayout.SMALLER_CARDS -> listOf(
-        "Image options" to listOf(ViewOption.TYPE_INDICATORS),
-        "Fonts and sizing" to listOf(ViewOption.SINGLE_LINE_TITLE),
+    PostLayout.SMALL_CARDS -> listOf(
+        "Image options" to switches(ViewOption.THUMBNAIL_LEFT),
+        "Card options" to listOf(ViewRow.Columns),
+        "Fonts and sizing" to listOf(ViewRow.TitleFontSize),
     )
-    PostLayout.COMPACT, PostLayout.LIST -> listOf(
-        "Image options" to listOf(ViewOption.THUMBNAILS, ViewOption.TYPE_INDICATORS),
-        "Fonts and sizing" to listOf(ViewOption.SINGLE_LINE_TITLE),
+    PostLayout.SMALLER_CARDS, PostLayout.COMPACT, PostLayout.LIST -> listOf(
+        "Image options" to if (layout == PostLayout.SMALLER_CARDS) {
+            switches(ViewOption.TYPE_INDICATORS, ViewOption.THUMBNAIL_RIGHT)
+        } else {
+            switches(ViewOption.THUMBNAILS, ViewOption.TYPE_INDICATORS, ViewOption.THUMBNAIL_RIGHT)
+        },
+        "Fonts and sizing" to listOf(ViewRow.TitleFontSize, ViewRow.Switch(ViewOption.SINGLE_LINE_TITLE)),
     )
 }
 
-/** The preview only shows; taps go nowhere. */
-private val NoActions = PostActions(onOpen = {}, onMedia = {}, onMore = {}, onVote = {}, onToggleSave = {})
+/** The preview only shows; taps go nowhere. Hide, Share and Mod tools are set so their buttons show too. */
+private val NoActions = PostActions(
+    onOpen = {},
+    onMedia = {},
+    onMore = {},
+    onVote = {},
+    onToggleSave = {},
+    onHide = {},
+    onShare = {},
+    onModTools = {},
+)
 
 // A Wikimedia Commons photo of a golden retriever, standing in for Sync's dog photo.
 private const val SAMPLE_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/6/6e/Golde33443.jpg"

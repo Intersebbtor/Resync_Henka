@@ -38,9 +38,10 @@ enum class Typeface(val label: String) {
 }
 /**
  * Sync's per-view-type display options (Settings > View type, sync-reference/settings-catalogue.md "View type").
- * Each layout reads only the options its Sync screen offers; the rest keep their defaults. The defaults are
- * Sync's, which are also how Resync's layouts looked before these existed. Sync shares a few keys between
- * List, Compact and Smaller cards (`type_indicators`, `compact_single_lines`); here every layout has its own.
+ * Each layout reads only the options its Sync screen offers; the rest keep their defaults. Every default is how
+ * Resync's layouts looked before the option existed, which is mostly Sync's default too; the fields whose default
+ * differs from Sync's say so. Sync shares a few keys between List, Compact and Smaller cards (`type_indicators`,
+ * `compact_single_lines`, `thumbnail_align`); here every layout has its own.
  */
 @Serializable
 data class ViewOptions(
@@ -62,7 +63,63 @@ data class ViewOptions(
     val typeIndicators: Boolean = true,
     /** List, Compact and Smaller cards: `compact_single_lines`, "Limit title to a single line". */
     val singleLineTitle: Boolean = false,
+    /** List, Compact and Smaller cards: `thumbnail_align`, "Align thumbnail right"; the thumbnail goes to the row's end. */
+    val thumbnailRight: Boolean = false,
+    /**
+     * Slides: `slide_image_full_height`, "Preview full height": the preview at the image's own aspect. Sync's default
+     * is on; off keeps Resync's fixed 220 dp band.
+     */
+    val slideFullHeight: Boolean = false,
+    /** Slides: `slide_full_width`, "Preview full width": the preview runs edge to edge, without margins or corners. */
+    val slideFullWidth: Boolean = false,
+    /**
+     * Cards: `card_image_full_height`, "Full height". Sync's default is off; on keeps Resync's previews at the image's
+     * own aspect, and off crops tall images to a 220 dp band.
+     */
+    val cardFullHeight: Boolean = true,
+    /** Slides: `slide_buttons_save`, the bookmark button. */
+    val saveButton: Boolean = true,
+    /** Cards: `card_buttons_save`. Sync's default is on; off keeps Resync's card footer (points, comments, ⋮). */
+    val cardSaveButton: Boolean = false,
+    /** Slides and Cards: `slide_buttons_hide` / `card_buttons_hide`, where the list can hide posts. */
+    val hideButton: Boolean = false,
+    /** Slides and Cards: `slide_buttons_share` / `card_buttons_share`, sharing the comments link. */
+    val shareButton: Boolean = false,
+    /**
+     * Slides and Cards: `slide_buttons_mod` / `card_buttons_mod`, opening the community's Moderator screen; shown only
+     * in communities you moderate. Sync's default is on; off keeps Resync's button row as it was.
+     */
+    val modButton: Boolean = false,
+    /** Slides: `slide_button_vote_right`, "Right aligned voting": the vote and comment pills move to the row's end. */
+    val voteRight: Boolean = false,
+    /** Slides: `slide_hide_all_buttons`, "Hide all buttons": no button row at all (⋮ stays on long press). */
+    val hideAllButtons: Boolean = false,
+    /**
+     * Cards and Small cards: Sync's Card options › `post_columns_portrait` / `post_columns_landscape`, as one override
+     * per layout. [PostColumns.AUTO] keeps Resync's width-based tiling.
+     */
+    val columns: PostColumns = PostColumns.AUTO,
+    /**
+     * Every layout: the size half of Sync's "Title font" picker (`slide_title`, `card_title`, `small_card_title`,
+     * `smaller_card_title`, `compact_title`, `list_title`), reduced to three steps around the layout's own size.
+     */
+    val titleSize: TitleSize = TitleSize.NORMAL,
 )
+
+/** A [ViewOptions.columns] choice; [count] null means Resync picks from the window width. */
+enum class PostColumns(val label: String, val count: Int?) {
+    AUTO("Auto", null),
+    ONE("1", 1),
+    TWO("2", 2),
+    THREE("3", 3),
+}
+
+/** A [ViewOptions.titleSize] choice: [scale] multiplies the layout's title size. */
+enum class TitleSize(val label: String, val scale: Float) {
+    SMALL("Small", 0.875f),
+    NORMAL("Normal", 1f),
+    LARGE("Large", 1.15f),
+}
 
 enum class NsfwMode(val label: String) { HIDE("Hide NSFW posts"), BLUR("Blur previews"), SHOW("Show") }
 
