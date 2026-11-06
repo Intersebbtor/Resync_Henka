@@ -12,6 +12,7 @@ import kotlinx.serialization.json.Json
 enum class ExploreSection(val label: String, val header: String = label) {
     FAVORITES("Favorites"),
     FEEDS("Feeds"),
+    CUSTOM_FEEDS("Custom feeds"),
     SUBSCRIPTIONS("Subscriptions"),
     MODERATED("Moderated"),
     MOST_VISITED("Most visited", header = "Top"),

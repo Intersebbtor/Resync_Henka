@@ -170,6 +170,15 @@ fun ExploreSheet(
         onResetVisits = container.explore::resetVisits,
     )
 
+    // Your multireddits; each opens as the "a+b+c" feed of its communities. Empty when logged out or on error.
+    val customFeeds by androidx.compose.runtime.produceState(emptyList<io.github.radixtrator.resync.data.Multi>()) {
+        value = runCatching { container.api.multis() }
+            .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+            .getOrDefault(emptyList())
+            .filter { it.subreddits.isNotEmpty() }
+            .distinctBy { it.feedName }
+    }
+
     fun LazyListScope.section(section: ExploreSection, names: List<String>, label: (String) -> String = Format::feedName) {
         if (section in explore.hidden || names.isEmpty()) return
         group(section.header, folds) {
@@ -221,6 +230,7 @@ fun ExploreSheet(
                 else -> {
                     section(ExploreSection.FAVORITES, explore.favorites)
                     section(ExploreSection.FEEDS, listOf("", "popular", "all"))
+                    section(ExploreSection.CUSTOM_FEEDS, customFeeds.map { it.feedName }) { feed -> customFeeds.first { it.feedName == feed }.name }
                     section(
                         ExploreSection.SUBSCRIPTIONS,
                         if (explore.duplicateFavorites) subscriptions else subscriptions.filterNot(explore::isFavorite),
