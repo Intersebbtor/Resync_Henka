@@ -97,6 +97,7 @@ import io.github.radixtrator.resync.ui.home.quickActions
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
+import io.github.radixtrator.resync.ui.navigation.LocalVisited
 import io.github.radixtrator.resync.ui.navigation.PostRoute
 import io.github.radixtrator.resync.ui.theme.ResyncColors
 import kotlinx.coroutines.launch
@@ -130,9 +131,18 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     val toggleWatch = rememberWatchToggle(container) { message -> scope.launch { snackbar.showSnackbar(message) } }
     val callbacks = remember(vm) { vm.postCallbacks() }
     val filters by container.filters.filters.collectAsStateWithLifecycle()
+    // Read posts are judged as of when the feed opened, so a post doesn't vanish the moment you come back from it.
+    val readAtOpen = remember(vm) { LocalVisited.current }
+    val hideRead = settings.hideRead
     val posts = state.items.visiblePosts { (it as? ProfileItem.PostItem)?.post }.let { items ->
-        remember(items, filters) {
-            if (filters.isEmpty) items else items.filterNot { (it as? ProfileItem.PostItem)?.post?.let { post -> filters.hides(post, subreddit) } == true }
+        remember(items, filters, hideRead) {
+            if (filters.isEmpty && !hideRead) {
+                items
+            } else {
+                items.filterNot {
+                    (it as? ProfileItem.PostItem)?.post?.let { post -> filters.hides(post, subreddit) || (hideRead && post.id in readAtOpen) } == true
+                }
+            }
         }
     }
     val title = route.domain ?: Format.feedName(subreddit)
