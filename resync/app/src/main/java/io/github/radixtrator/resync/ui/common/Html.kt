@@ -122,9 +122,10 @@ fun RedditBodyText(
     modifier: Modifier = Modifier,
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
+    onLayout: ((TextLayoutResult) -> Unit)? = null,
 ) {
     if (RULE !in text.text) {
-        Text(text, modifier, style = style, maxLines = maxLines, overflow = overflow)
+        Text(text, modifier, style = style, maxLines = maxLines, overflow = overflow, onTextLayout = { onLayout?.invoke(it) })
         return
     }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
@@ -145,7 +146,10 @@ fun RedditBodyText(
         style = style,
         maxLines = maxLines,
         overflow = overflow,
-        onTextLayout = { layout = it },
+        onTextLayout = {
+            layout = it
+            onLayout?.invoke(it)
+        },
     )
 }
 

@@ -7,6 +7,18 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.text.TextLayoutResult
+import io.github.radixtrator.resync.data.Wiki
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -120,25 +132,86 @@ fun rememberWatchToggle(container: AppContainer, onMessage: (String) -> Unit): (
     }
 }
 
-/** Sync's Wiki chip: the community's wiki front page in a bottom sheet titled "pics - index". */
+/**
+ * Sync's Wiki chip: the community's wiki in a bottom sheet titled "pics - index". Links to other pages of the
+ * same wiki open inside the sheet (Back returns), the page list and a table of contents of the page's headings
+ * sit on top, and tapping a heading scrolls to it.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun WikiSheet(container: AppContainer, subreddit: String, onDismiss: () -> Unit) {
-    val page by produceState<Result<String>?>(null, subreddit) { value = load { container.api.wikiPage(subreddit) } }
-    CommunitySheet("$subreddit - index", onDismiss) {
-        when (val result = page) {
-            null -> Loading()
-            else -> result.fold(
-                onSuccess = { html ->
-                    val body = rememberRedditText(html, footnotes = LocalSettings.current.linkCards)
-                    Column(Modifier.verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-                        RedditBodyText(body.text, MaterialTheme.typography.bodyMedium.copy(lineHeight = TextUnit.Unspecified))
-                        LinkCards(body.links, Modifier.padding(top = 12.dp))
-                    }
-                },
-                onFailure = {
-                    Problem(if ((it as? RedditException)?.code == 404) "r/$subreddit has no wiki" else "Couldn't load the wiki: ${it.message}")
-                },
-            )
+    var history by remember(subreddit) { mutableStateOf(listOf("index")) }
+    val pageName = history.last()
+    val page by produceState<Result<String>?>(null, subreddit, pageName) {
+        value = null
+        value = load { container.api.wikiPage(subreddit, pageName) }
+    }
+    val pages by produceState<List<String>>(emptyList(), subreddit) { value = load { container.api.wikiPages(subreddit) }.getOrDefault(emptyList()) }
+    val outer = LocalUriHandler.current
+    val wikiLinks = remember(outer, subreddit) {
+        object : UriHandler {
+            override fun openUri(uri: String) {
+                val link = Wiki.parseLink(uri)
+                if (link != null && link.subreddit.equals(subreddit, ignoreCase = true)) history = history + link.page else outer.openUri(uri)
+            }
+        }
+    }
+    CommunitySheet("$subreddit - $pageName", onDismiss) {
+        CompositionLocalProvider(LocalUriHandler provides wikiLinks) {
+            when (val result = page) {
+                null -> Loading()
+                else -> result.fold(
+                    onSuccess = { html ->
+                        val body = rememberRedditText(html, footnotes = LocalSettings.current.linkCards)
+                        val headings = remember(html) { Wiki.headings(html) }
+                        val scroll = rememberScrollState()
+                        val scope = rememberCoroutineScope()
+                        var layout by remember(html) { mutableStateOf<TextLayoutResult?>(null) }
+                        var textTop by remember(html) { mutableStateOf(0) }
+                        Column(Modifier.verticalScroll(scroll).padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                            if (history.size > 1) {
+                                TextButton(onClick = { history = history.dropLast(1) }) { Text("Back to ${history[history.size - 2]}") }
+                            }
+                            val others = pages.filter { it != pageName }
+                            if (others.isNotEmpty()) {
+                                Text("Pages", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                                    others.forEach { name -> AssistChip(onClick = { history = history + name }, label = { Text(name) }) }
+                                }
+                            }
+                            if (headings.size > 1) {
+                                Text("Contents", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                headings.forEach { h ->
+                                    Text(
+                                        h.text,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier
+                                            .clickable {
+                                                val l = layout ?: return@clickable
+                                                val at = body.text.text.indexOf(h.text)
+                                                if (at >= 0) scope.launch { scroll.animateScrollTo(textTop + l.getLineTop(l.getLineForOffset(at)).toInt()) }
+                                            }
+                                            .padding(start = ((h.level - 1).coerceAtMost(3) * 12).dp, top = 6.dp, bottom = 6.dp),
+                                    )
+                                }
+                                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                            }
+                            Column(Modifier.onGloballyPositioned { textTop = it.positionInParent().y.toInt() }) {
+                                RedditBodyText(
+                                    body.text,
+                                    MaterialTheme.typography.bodyMedium.copy(lineHeight = TextUnit.Unspecified),
+                                    onLayout = { layout = it },
+                                )
+                                LinkCards(body.links, Modifier.padding(top = 12.dp))
+                            }
+                        }
+                    },
+                    onFailure = {
+                        Problem(if ((it as? RedditException)?.code == 404) "r/$subreddit has no wiki page \"$pageName\"" else "Couldn't load the wiki: ${it.message}")
+                    },
+                )
+            }
         }
     }
 }

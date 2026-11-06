@@ -11,6 +11,8 @@ import io.github.radixtrator.resync.data.LinkFlair
 import io.github.radixtrator.resync.data.MoreComments
 import io.github.radixtrator.resync.data.NsfwMode
 import io.github.radixtrator.resync.data.Parser
+import io.github.radixtrator.resync.data.Wiki
+import io.github.radixtrator.resync.data.WikiLink
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.ReportReason
 import io.github.radixtrator.resync.data.SwipeAction
@@ -491,5 +493,20 @@ class ParserTest {
         assertEquals("just now", Format.timeAgo(1000, 1030))
         assertEquals("5h", Format.timeAgo(0, 5 * 3600 + 59))
         assertEquals("2y", Format.timeAgo(0, 2L * 365 * 86_400))
+    }
+}
+
+class WikiTest {
+    @org.junit.Test
+    fun `parses wiki links`() {
+        org.junit.Assert.assertEquals(WikiLink("pics", "index"), Wiki.parseLink("https://www.reddit.com/r/pics/wiki/"))
+        org.junit.Assert.assertEquals(WikiLink("pics", "rules/faq"), Wiki.parseLink("https://www.reddit.com/r/pics/wiki/Rules/FAQ?x=1"))
+        org.junit.Assert.assertNull(Wiki.parseLink("https://www.reddit.com/r/pics/comments/abc"))
+    }
+
+    @org.junit.Test
+    fun `lists headings`() {
+        val h = Wiki.headings("<h1>One</h1><p>x</p><h2 id=\"a\">Two <b>&amp;</b> more</h2>")
+        org.junit.Assert.assertEquals(listOf(Wiki.Heading(1, "One"), Wiki.Heading(2, "Two & more")), h)
     }
 }

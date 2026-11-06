@@ -87,6 +87,10 @@ class RedditApi(private val client: RedditClient) {
         return subs.sortedBy { it.name.lowercase() }
     }
 
+    /** The names of a community's wiki pages (including "index"), e.g. "rules/faq". */
+    suspend fun wikiPages(subreddit: String): List<String> =
+        client.get("/r/$subreddit/wiki/pages").jsonObject.arr("data").orEmpty().mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+
     /**
      * A community's wiki page as HTML; "index" is the wiki's front page. Reddit opens the page with a generated
      * table of contents, which Sync leaves out.
