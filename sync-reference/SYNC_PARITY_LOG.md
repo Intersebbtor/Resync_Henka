@@ -463,7 +463,7 @@ shell slice (2026-11-04) were built and checked on the device; the rest was not 
 | Comment actions grid (Other discussions, View images, Collapse all, Sports mode, Recents, Translate) | yes | Reply, Refresh, Collapse all, Settings, Sort, Search; prev/next buttons as an opt-in setting | ◐ |
 | In-thread comment search | yes | sheet that filters loaded comments and jumps to one | ✅ |
 | Link footnotes + link preview cards in selftext/comments | yes | superscript numbers on off-Reddit links, "(n) url" cards with image thumbnails, larger links, blank line between paragraphs | ✅ (no "(/path)" sources for relative links) |
-| "98% upvoted", edited "*" + "(last edited)", OP pill, pinned/mod badges | yes | upvote %, edited "*", OP pill, MOD and pinned as text | ◐ (text instead of icons; no "(last edited)") |
+| "98% upvoted", edited "*" + "(last edited)", OP pill, pinned/mod badges | yes | upvote %, "21d* (last edited 1d)" on posts, rounded OP pill, OP / shield / pin icons, shield after mod authors; "33.6M" counts, no online count | ✅ (comments show "*" only; Sync's comment format unverified) |
 | Restore scroll position / collapsed state per post | yes | persisted per post (200 most recent), setting to turn off | ✅ |
 | Composer formatting bar | 17 tools incl. preview, emoji, drafts, image, spoiler, numbered list | markdown toolbar | ◐ |
 | Image viewer info sheet (download, link info, copy/share/comments) | yes | tap to close, swipe up for the sheet: download, host, URL, original resolution and file size, Comments / Open in browser / Copy / Share | ◐ (no debug log, no colorful backdrop, no deep zoom) |

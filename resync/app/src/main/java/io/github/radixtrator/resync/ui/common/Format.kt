@@ -30,6 +30,9 @@ object Format {
         abs(n) < 1_000_000 -> "${n / 1_000}k"
         else -> String.format(Locale.ROOT, "%.1fm", n / 1_000_000.0).replace(".0m", "m")
     }
+
+    /** Community sizes, which Sync writes in capitals ("33.6M") unlike points ("4.3k"). */
+    fun members(n: Int): String = count(n).uppercase(Locale.ROOT)
 }
 
 /** Reddit's tri-state vote ("likes") as -1/0/1. */

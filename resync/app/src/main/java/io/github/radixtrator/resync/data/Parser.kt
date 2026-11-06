@@ -42,7 +42,6 @@ object Parser {
             publicDescription = d.string("public_description").orEmpty(),
             descriptionHtml = d.string("description_html")?.takeIf { it.isNotBlank() },
             subscribers = d.int("subscribers") ?: 0,
-            activeUsers = d.int("active_user_count") ?: d.int("accounts_active") ?: 0,
             // community_icon is the current one; icon_img is the legacy fallback. Unset ones are "".
             iconUrl = d.firstUrl("community_icon", "icon_img"),
             bannerUrl = d.firstUrl("banner_background_image", "banner_img"),
@@ -208,6 +207,9 @@ object Parser {
             locked = d.bool("locked"),
             authorFlair = flair(d, "author"),
             upvoteRatio = (d["upvote_ratio"] as? JsonPrimitive)?.content?.toFloatOrNull(),
+            distinguished = d.string("distinguished"),
+            // "edited" is false, or the edit timestamp.
+            editedUtc = d.long("edited"),
         )
     }
 
@@ -281,6 +283,7 @@ object Parser {
                 likes = d.boolOrNull("likes"),
                 flair = flair(d, "author"),
                 saved = d.bool("saved"),
+                editedUtc = d.long("edited"),
             )
             "more" -> MoreComments(
                 id = id,

@@ -71,9 +71,9 @@ fun SubredditInfoSheet(
                         if (about.title.isNotBlank()) Text(about.title, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+                // No online count: Reddit reports 0 for every community now.
                 Text(
-                    "${Format.count(about.subscribers)} members · ${Format.count(about.activeUsers)} online · " +
-                        "created ${Format.timeAgo(about.createdUtc)} ago",
+                    "${Format.members(about.subscribers)} members · created ${Format.timeAgo(about.createdUtc)} ago",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -2,6 +2,7 @@ package io.github.radixtrator.resync.ui.common
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathBuilder
@@ -124,11 +125,12 @@ object AppIcons {
         }
     }
 
+    /** Sync's solid thumbtack, after pinned titles and in pinned comments' headers. */
     val Pin: ImageVector by lazy {
-        outline("Pin") {
-            moveTo(9f, 3.5f); lineTo(15f, 3.5f)
-            moveTo(10f, 3.5f); lineTo(10f, 9.5f); lineTo(6.5f, 13.5f); lineTo(17.5f, 13.5f); lineTo(14f, 9.5f); lineTo(14f, 3.5f)
-            moveTo(12f, 13.5f); lineTo(12f, 20.5f)
+        solid("Pin") {
+            moveTo(8f, 3f); lineTo(16f, 3f); lineTo(16f, 5f); lineTo(14.5f, 5f); lineTo(14.5f, 10f); lineTo(17.5f, 13.5f)
+            lineTo(17.5f, 15f); lineTo(12.75f, 15f); lineTo(12.75f, 21f); lineTo(11.25f, 21f); lineTo(11.25f, 15f)
+            lineTo(6.5f, 15f); lineTo(6.5f, 13.5f); lineTo(9.5f, 10f); lineTo(9.5f, 5f); lineTo(8f, 5f); close()
         }
     }
 
@@ -179,11 +181,31 @@ object AppIcons {
         }
     }
 
+    /** Sync's moderator mark: a shield with its left half filled. */
     val Shield: ImageVector by lazy {
-        outline("Shield") {
-            moveTo(12f, 3f); lineTo(19f, 6f); lineTo(19f, 11f)
-            curveTo(19f, 15.5f, 16f, 19f, 12f, 21f); curveTo(8f, 19f, 5f, 15.5f, 5f, 11f); lineTo(5f, 6f); close()
-        }
+        ImageVector.Builder("Shield", 24.dp, 24.dp, 24f, 24f)
+            .path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineJoin = StrokeJoin.Round) {
+                moveTo(12f, 3f); lineTo(19f, 6f); lineTo(19f, 11f)
+                curveTo(19f, 15.5f, 16f, 19f, 12f, 21f); curveTo(8f, 19f, 5f, 15.5f, 5f, 11f); lineTo(5f, 6f); close()
+            }
+            .path(fill = SolidColor(Color.Black)) {
+                moveTo(12f, 3f); lineTo(5f, 6f); lineTo(5f, 11f); curveTo(5f, 15.5f, 8f, 19f, 12f, 21f); close()
+            }
+            .build()
+    }
+
+    /** Sync's OP mark: a solid person speaking. */
+    val Speaker: ImageVector by lazy {
+        ImageVector.Builder("Speaker", 24.dp, 24.dp, 24f, 24f)
+            .path(fill = SolidColor(Color.Black)) {
+                moveTo(9f, 4f); arcTo(4f, 4f, 0f, true, true, 9f, 12f); arcTo(4f, 4f, 0f, true, true, 9f, 4f); close()
+                moveTo(1.5f, 21f); curveTo(1.5f, 16.5f, 5f, 14f, 9f, 14f); curveTo(13f, 14f, 16.5f, 16.5f, 16.5f, 21f); close()
+            }
+            .path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
+                moveTo(16.5f, 5.5f); curveTo(18f, 7f, 18f, 10f, 16.5f, 11.5f)
+                moveTo(19.5f, 3f); curveTo(22.5f, 6f, 22.5f, 11f, 19.5f, 14f)
+            }
+            .build()
     }
 
     val Clock: ImageVector by lazy {
@@ -277,6 +299,9 @@ object AppIcons {
             strokeLineJoin = StrokeJoin.Round,
             pathBuilder = block,
         ).build()
+
+    private fun solid(name: String, block: PathBuilder.() -> Unit) =
+        ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).path(fill = SolidColor(Color.Black), pathBuilder = block).build()
 
     private fun filled(name: String, block: PathBuilder.() -> Unit) =
         ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).path(

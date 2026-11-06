@@ -420,7 +420,10 @@ fun PostTitle(
     )
 }
 
-/** "worldnews • author [flair] • 4h • thehill", with the sub in the accent color. */
+/**
+ * "worldnews • author 🛡 [flair] • 4h* (last edited 1h) • thehill", with the sub in the accent color and
+ * Sync's shield after moderators and admins.
+ */
 @Composable
 fun PostMeta(
     post: Post,
@@ -438,11 +441,16 @@ fun PostMeta(
             append(" • ")
         }
         append(post.author)
+        post.distinguished?.takeIf { it in DISTINGUISHED }?.let {
+            append(" ")
+            appendInlineContent(it, "[$it]")
+        }
         post.authorFlair?.let {
             append(" ")
             withStyle(SpanStyle(background = flairBg)) { append(" $it ") }
         }
         append(" • ${Format.timeAgo(post.createdUtc)}")
+        post.editedUtc?.let { append("* (last edited ${Format.timeAgo(it)})") }
         shortDomain(post)?.let { append(" • $it") }
         if (post.over18) withStyle(SpanStyle(color = ResyncColors.Nsfw, fontWeight = FontWeight.Bold)) { append(" • NSFW") }
         if (post.spoiler) withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(" • Spoiler") }
@@ -454,7 +462,24 @@ fun PostMeta(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
+        inlineContent = distinguishedMarks(),
         modifier = modifier,
+    )
+}
+
+private val DISTINGUISHED = setOf("moderator", "admin")
+
+/** Inline content for [DISTINGUISHED] ids: Sync's shield, in the accent color (red for admins). */
+@Composable
+fun distinguishedMarks(): Map<String, InlineTextContent> {
+    val accent = MaterialTheme.colorScheme.primary
+    return mapOf(
+        "moderator" to InlineTextContent(Placeholder(1.15.em, 1.15.em, PlaceholderVerticalAlign.TextCenter)) {
+            Icon(AppIcons.Shield, "Moderator", tint = accent)
+        },
+        "admin" to InlineTextContent(Placeholder(1.15.em, 1.15.em, PlaceholderVerticalAlign.TextCenter)) {
+            Icon(AppIcons.Shield, "Admin", tint = ResyncColors.Nsfw)
+        },
     )
 }
 

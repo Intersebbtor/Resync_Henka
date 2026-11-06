@@ -46,6 +46,10 @@ data class Post(
     val authorFlair: String? = null,
     /** Share of votes that are upvotes, 0..1; null when Reddit didn't say. */
     val upvoteRatio: Float? = null,
+    /** "moderator" or "admin" when the author posted as one. */
+    val distinguished: String? = null,
+    /** When the post was last edited (epoch seconds); null if never. */
+    val editedUtc: Long? = null,
 )
 
 sealed interface CommentNode {
@@ -72,6 +76,8 @@ data class Comment(
     val likes: Boolean?,
     val flair: String?,
     val saved: Boolean = false,
+    /** When the comment was last edited (epoch seconds), if Reddit says. */
+    val editedUtc: Long? = null,
 ) : CommentNode
 
 /** A "load more comments" stub. Empty [children] means "continue this thread" (needs a new page). */
@@ -121,7 +127,6 @@ data class Subreddit(
     val publicDescription: String,
     val descriptionHtml: String?,
     val subscribers: Int,
-    val activeUsers: Int,
     val iconUrl: String?,
     val bannerUrl: String?,
     val isSubscribed: Boolean,

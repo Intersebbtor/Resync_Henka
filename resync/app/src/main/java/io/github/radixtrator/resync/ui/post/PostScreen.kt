@@ -25,6 +25,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -71,6 +73,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -80,16 +83,19 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -125,6 +131,7 @@ import io.github.radixtrator.resync.ui.common.SheetTitle
 import io.github.radixtrator.resync.ui.common.SwipeActions
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.common.TopSheet
+import io.github.radixtrator.resync.ui.common.distinguishedMarks
 import io.github.radixtrator.resync.ui.common.hasCardPreview
 import io.github.radixtrator.resync.ui.common.rememberRedditText
 import io.github.radixtrator.resync.ui.navigation.ComposeMode
@@ -543,29 +550,35 @@ private fun CommentRow(
     }
 }
 
-/** "avatar username [flair] 859 points • 4h", OP in a tinted pill, mods in green, "+N" when folded. */
+/** "avatar username [marks] [flair] 859 points • 4h", OP's name in a rounded tinted pill, "+N" when folded. */
 @Composable
 private fun CommentHeader(comment: Comment, collapsed: Boolean, hiddenCount: Int) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val nameColor = when (comment.distinguished) {
-        "moderator" -> ResyncColors.Moderator
-        "admin" -> ResyncColors.Nsfw
-        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
-    }
+    val nameColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
     val scoreColor = when (comment.likes) {
         true -> ResyncColors.Upvote
         false -> ResyncColors.Downvote
         null -> muted
     }
-    val opBackground = MaterialTheme.colorScheme.secondaryContainer
+    val opPill = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
     val flairBackground = MaterialTheme.colorScheme.surfaceVariant
+    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val text = buildAnnotatedString {
-        withStyle(SpanStyle(color = nameColor, background = if (comment.isSubmitter) opBackground else Color.Unspecified)) {
-            append(if (comment.isSubmitter) " ${comment.author} " else comment.author)
+        withStyle(SpanStyle(color = nameColor)) { append(comment.author) }
+        // Sync's marks: OP (a person speaking), the moderator shield, the pin. A thin space keeps the OP
+        // pill off the first mark.
+        if (comment.isSubmitter) {
+            append("\u2009 ")
+            appendInlineContent("op", "[OP]")
         }
-        if (comment.isSubmitter) withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)) { append(" OP") }
-        if (comment.distinguished == "moderator") withStyle(SpanStyle(color = ResyncColors.Moderator, fontWeight = FontWeight.Bold)) { append(" MOD") }
-        if (comment.stickied) withStyle(SpanStyle(color = ResyncColors.Moderator)) { append(" pinned") }
+        comment.distinguished?.takeIf { it == "moderator" || it == "admin" }?.let {
+            append(" ")
+            appendInlineContent(it, "[$it]")
+        }
+        if (comment.stickied) {
+            append(" ")
+            appendInlineContent("pin", "[pinned]")
+        }
         comment.flair?.let {
             append(" ")
             withStyle(SpanStyle(background = flairBackground, color = muted)) { append(" $it ") }
@@ -582,7 +595,30 @@ private fun CommentHeader(comment: Comment, collapsed: Boolean, hiddenCount: Int
     Row(verticalAlignment = Alignment.CenterVertically) {
         UserAvatar(comment.author, 22.dp)
         Spacer(Modifier.width(8.dp))
-        Text(text, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            inlineContent = commentMarks(),
+            onTextLayout = { layout = it },
+            modifier = Modifier
+                .weight(1f)
+                .drawBehind {
+                    // A span background can't round its corners, so the pill is drawn under the name.
+                    val result = layout ?: return@drawBehind
+                    if (!comment.isSubmitter || comment.author.isEmpty()) return@drawBehind
+                    val first = result.getBoundingBox(0)
+                    val last = result.getBoundingBox(comment.author.length - 1)
+                    val pad = 4.dp.toPx()
+                    drawRoundRect(
+                        opPill,
+                        topLeft = Offset(first.left - pad, first.top),
+                        size = Size(last.right - first.left + 2 * pad, first.height),
+                        cornerRadius = CornerRadius(6.dp.toPx()),
+                    )
+                },
+        )
         if (collapsed && hiddenCount > 0) {
             Text(
                 "+$hiddenCount",
@@ -596,6 +632,16 @@ private fun CommentHeader(comment: Comment, collapsed: Boolean, hiddenCount: Int
             )
         }
     }
+}
+
+/** Inline marks for comment headers: OP, the moderator or admin shield, the pin. */
+@Composable
+private fun commentMarks(): Map<String, InlineTextContent> {
+    val accent = MaterialTheme.colorScheme.primary
+    return distinguishedMarks() + mapOf(
+        "op" to InlineTextContent(Placeholder(1.15.em, 1.15.em, PlaceholderVerticalAlign.TextCenter)) { Icon(AppIcons.Speaker, "OP", tint = accent) },
+        "pin" to InlineTextContent(Placeholder(1.15.em, 1.15.em, PlaceholderVerticalAlign.TextCenter)) { Icon(AppIcons.Pin, "Pinned", tint = accent) },
+    )
 }
 
 /** Sync's long-press bar: upvote, downvote, save, profile, reply, go to parent, more. */
