@@ -283,11 +283,55 @@ data class Multi(val name: String, val path: String, val subreddits: List<String
     val feedName: String get() = subreddits.joinToString("+")
 }
 
-/** Sync's moderator sections for one community; [path] is under /r/<sub>/about/. */
+/**
+ * Sync's moderator sections for one community; [path] is under /r/<sub>/about/, except [COMMENTS], which is the
+ * community's newest comments (/r/<sub>/comments, [RedditApi.feedComments]).
+ */
 enum class ModSection(val path: String, val label: String) {
     MODQUEUE("modqueue", "Modqueue"),
     REPORTS("reports", "Reports"),
     SPAM("spam", "Spam"),
     EDITED("edited", "Edited"),
     UNMODERATED("unmoderated", "Unmoderated"),
+    COMMENTS("comments", "Comments"),
 }
+
+/** The boxes of new-style mod mail (/api/mod/conversations?state=…). */
+enum class ModMailState(val param: String, val label: String) {
+    ALL("all", "All"),
+    NEW("new", "New"),
+    IN_PROGRESS("inprogress", "In progress"),
+    ARCHIVED("archived", "Archived"),
+}
+
+/**
+ * One mod mail conversation. [community] is the subreddit it belongs to (owner.displayName); [participants] are
+ * the authors' names in order of first appearance; [lastUpdatedUtc] is epoch seconds (0 if Reddit sent none).
+ * [archived]: Reddit's state 2.
+ */
+data class ModMailConversation(
+    val id: String,
+    val subject: String,
+    val community: String,
+    val participants: List<String>,
+    val lastUpdatedUtc: Long,
+    val numMessages: Int,
+    val highlighted: Boolean,
+    val unread: Boolean,
+    val archived: Boolean,
+)
+
+/** A message in a mod mail conversation; [bodyHtml] is Reddit's rendered HTML. [internal]: a private moderator note. */
+data class ModMailMessage(
+    val id: String,
+    val author: String,
+    val bodyHtml: String,
+    val bodyMarkdown: String,
+    val dateUtc: Long,
+    val authorIsMod: Boolean,
+    val authorHidden: Boolean,
+    val internal: Boolean,
+)
+
+/** A conversation with its messages, oldest first. */
+data class ModMailThread(val conversation: ModMailConversation, val messages: List<ModMailMessage>)

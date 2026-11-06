@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,6 +47,7 @@ import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.common.postCallbacks
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
+import io.github.radixtrator.resync.ui.navigation.ModMailRoute
 import io.github.radixtrator.resync.ui.navigation.PostRoute
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -59,7 +61,11 @@ class ModViewModel(container: AppContainer, private val subreddit: String) : Lis
         reload()
     }
 
-    override suspend fun fetch(after: String?): Listing<ProfileItem> = container.api.modListing(subreddit, _section.value, after)
+    override suspend fun fetch(after: String?): Listing<ProfileItem> = when (val section = _section.value) {
+        // Sync's Comments section: the community's newest comments, to moderate as they come in.
+        ModSection.COMMENTS -> container.api.feedComments(subreddit, after)
+        else -> container.api.modListing(subreddit, section, after)
+    }
     override fun keyOf(item: ProfileItem) = item.fullname
     override fun postOf(item: ProfileItem): Post? = (item as? ProfileItem.PostItem)?.post
     override fun withPost(item: ProfileItem, post: Post): ProfileItem = ProfileItem.PostItem(post)
@@ -78,13 +84,12 @@ class ModViewModel(container: AppContainer, private val subreddit: String) : Lis
                 .onFailure { e -> _state.value = _state.value.copy(message = e.message ?: "Couldn't do that") }
         }
     }
-
-    fun messageShown() {
-        _state.value = _state.value.copy(message = null)
-    }
 }
 
-/** Sync's Moderator screen: a section chip over the community's queue, each item with Approve / Remove / Spam. */
+/**
+ * Sync's Moderator screen: a section chip over the community's queue (or its newest comments), each item with
+ * Approve / Remove / Spam; the envelope opens the community's mod mail.
+ */
 @Composable
 fun ModScreen(subreddit: String, container: AppContainer) {
     val nav = LocalNavigator.current
@@ -114,6 +119,7 @@ fun ModScreen(subreddit: String, container: AppContainer) {
                         }
                     },
                     actions = {
+                        IconButton(onClick = { nav.push(ModMailRoute(subreddit)) }) { Icon(Icons.Outlined.Email, "Mod mail") }
                         TextButton(onClick = { menuOpen = true }) { Text("${section.label} ▾") }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             ModSection.entries.forEach { s ->

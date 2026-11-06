@@ -62,9 +62,17 @@ data class SearchRoute(val query: String = "", val subreddit: String? = null, va
 @Serializable
 data class SwipeModeRoute(val subreddit: String? = null) : NavKey
 
-/** Sync's Moderator screen for [subreddit]: modqueue, reports, spam, edited and unmoderated. */
+/** Sync's Moderator screen for [subreddit]: modqueue, reports, spam, edited, unmoderated and comments. */
 @Serializable
 data class ModRoute(val subreddit: String) : NavKey
+
+/** New-style mod mail; [subreddit] opens it narrowed to that community (null = every community you moderate). */
+@Serializable
+data class ModMailRoute(val subreddit: String? = null) : NavKey
+
+/** One mod mail conversation, by Reddit's conversation [id]. */
+@Serializable
+data class ModMailConversationRoute(val id: String) : NavKey
 
 @Serializable
 data class SubmitRoute(val subreddit: String? = null) : NavKey
