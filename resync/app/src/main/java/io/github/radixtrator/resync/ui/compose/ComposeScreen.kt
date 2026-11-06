@@ -79,24 +79,57 @@ class ComposeViewModel(private val container: AppContainer, private val route: C
                     }
                     ComposeMode.MESSAGE -> container.api.sendMessage(to.trim().removePrefix("u/").removePrefix("/u/"), subject.trim(), text)
                 }
-            }.onSuccess { _state.value = State(done = true) }
-                .onFailure { e -> _state.value = State(error = e.message ?: "Couldn't send") }
+            }.onSuccess {
+                container.drafts.clear(route.draftKey())
+                _state.value = State(done = true)
+            }.onFailure { e -> _state.value = State(error = e.message ?: "Couldn't send") }
         }
     }
 
     fun errorShown() = _state.update { it.copy(error = null) }
 }
 
-/** Markdown editor for replies, edits and private messages. */
+/** Which composer a draft belongs to, so opening the same one again brings its text back. */
+fun ComposeRoute.draftKey(): String = when (mode) {
+    ComposeMode.REPLY -> "reply:$target"
+    ComposeMode.EDIT -> "edit:$target"
+    ComposeMode.MESSAGE -> "message:" + to.trim().removePrefix("/").removePrefix("u/").lowercase()
+}
+
+/** How the drafts list names a draft from this composer; [to] is the recipient as typed now. */
+fun ComposeRoute.draftLabel(to: String = this.to): String {
+    val about = quote?.lineSequence()?.firstOrNull { it.isNotBlank() }?.trim()?.take(60)
+    return when (mode) {
+        ComposeMode.REPLY -> about?.let { "Reply to \"$it\"" } ?: "Reply"
+        ComposeMode.EDIT -> about?.let { "Edit in \"$it\"" } ?: "Edit"
+        ComposeMode.MESSAGE -> {
+            val name = to.trim().removePrefix("/")
+            when {
+                name.isEmpty() -> "Message"
+                name.startsWith("r/") || name.startsWith("u/") -> "Message to $name"
+                else -> "Message to u/$name"
+            }
+        }
+    }
+}
+
+/** Markdown editor for replies, edits and private messages. Unsent text is kept as a draft. */
 @Composable
 fun ComposeScreen(route: ComposeRoute, container: AppContainer) {
     val nav = LocalNavigator.current
     val vm = viewModel { ComposeViewModel(container, route) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val draftKey = remember(route) { route.draftKey() }
     var body by rememberSaveable(stateSaver = TextFieldValue.Saver) {
-        mutableStateOf(TextFieldValue(route.initial, TextRange(route.initial.length)))
+        val text = container.drafts.get(draftKey)?.text ?: route.initial
+        mutableStateOf(TextFieldValue(text, TextRange(text.length)))
     }
     var to by rememberSaveable { mutableStateOf(route.to) }
+    val edit: (TextFieldValue) -> Unit = {
+        body = it
+        // Text that's still what the composer opened with (an edit's original) isn't a draft.
+        if (it.text == route.initial) container.drafts.clear(draftKey) else container.drafts.save(draftKey, it.text, route.draftLabel(to))
+    }
     var subject by rememberSaveable { mutableStateOf(route.subject) }
     val snackbar = remember { SnackbarHostState() }
     val bodyFocus = remember { FocusRequester() }
@@ -163,10 +196,10 @@ fun ComposeScreen(route: ComposeRoute, container: AppContainer) {
                 OutlinedTextField(to, { to = it }, label = { Text("To") }, prefix = { Text("u/") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(subject, { subject = it }, label = { Text("Subject") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }
-            MarkdownToolbar(body, { body = it })
+            MarkdownToolbar(body, edit, drafts = container.drafts, draftKey = draftKey)
             OutlinedTextField(
                 value = body,
-                onValueChange = { body = it },
+                onValueChange = edit,
                 placeholder = { Text("Write something (markdown)") },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp).focusRequester(bodyFocus),
             )

@@ -39,6 +39,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -58,6 +59,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** The draft key of a new post's body; there's one post draft at a time. */
+private const val SUBMIT_DRAFT = "submit"
+
 class SubmitViewModel(private val container: AppContainer) : ViewModel() {
     data class State(val sending: Boolean = false, val postId: String? = null, val error: String? = null)
 
@@ -74,8 +78,10 @@ class SubmitViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             runCatching {
                 container.api.submit(subreddit.trim().removePrefix("r/").removePrefix("/r/"), title.trim(), isLink, body.trim(), nsfw, spoiler, sendReplies, flair)
-            }.onSuccess { _state.value = State(postId = it) }
-                .onFailure { e -> _state.value = State(error = e.message ?: "Couldn't post") }
+            }.onSuccess {
+                container.drafts.clear(SUBMIT_DRAFT)
+                _state.value = State(postId = it)
+            }.onFailure { e -> _state.value = State(error = e.message ?: "Couldn't post") }
         }
     }
 
@@ -95,7 +101,10 @@ class SubmitViewModel(private val container: AppContainer) : ViewModel() {
                 val bytes = withContext(Dispatchers.IO) { resolver.openInputStream(uri)?.use { it.readBytes() } } ?: error("Couldn't read that image")
                 val name = "photo." + (mime.substringAfter('/', "jpg").substringBefore(';').let { if (it == "jpeg") "jpg" else it })
                 container.api.submitImage(subreddit.trim().removePrefix("r/").removePrefix("/r/"), title.trim(), me, name, mime, bytes, nsfw, spoiler, sendReplies, flair)
-            }.onSuccess { id -> _state.value = if (id != null) State(postId = id) else State(error = "Posted. Reddit is still processing the photo; check your profile") }
+            }.onSuccess { id ->
+                container.drafts.clear(SUBMIT_DRAFT)
+                _state.value = if (id != null) State(postId = id) else State(error = "Posted. Reddit is still processing the photo; check your profile")
+            }
                 .onFailure { e -> _state.value = State(error = e.message ?: "Couldn't post") }
         }
     }
@@ -118,7 +127,14 @@ fun SubmitScreen(initialSubreddit: String?, container: AppContainer) {
     val picker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) photo = uri.toString()
     }
-    var body by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
+    var body by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        val draft = container.drafts.get(SUBMIT_DRAFT)?.text.orEmpty()
+        mutableStateOf(TextFieldValue(draft, TextRange(draft.length)))
+    }
+    val editBody: (TextFieldValue) -> Unit = {
+        body = it
+        container.drafts.save(SUBMIT_DRAFT, it.text, "Post")
+    }
     var url by rememberSaveable { mutableStateOf("") }
     var nsfw by rememberSaveable { mutableStateOf(false) }
     var spoiler by rememberSaveable { mutableStateOf(false) }
@@ -233,10 +249,10 @@ fun SubmitScreen(initialSubreddit: String?, container: AppContainer) {
                     modifier = Modifier.fillMaxWidth(),
                 )
             } else {
-                MarkdownToolbar(body, { body = it })
+                MarkdownToolbar(body, editBody, drafts = container.drafts, draftKey = SUBMIT_DRAFT)
                 OutlinedTextField(
                     value = body,
-                    onValueChange = { body = it },
+                    onValueChange = editBody,
                     placeholder = { Text("Body (optional, markdown)") },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp),
                 )
