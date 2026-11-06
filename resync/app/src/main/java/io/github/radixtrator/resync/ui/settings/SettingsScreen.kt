@@ -132,6 +132,7 @@ fun SettingsScreen(container: AppContainer) {
                     supportingContent = { Text("Preview, save, share and load themes") },
                     modifier = Modifier.clickable { nav.push(ThemeManagementRoute) },
                 )
+                DarkOverlayRows(settings, update)
                 Choice("Typeface", Typeface.entries, settings.typeface, Typeface::label) { v -> update { it.copy(typeface = v) } }
                 Choice("Base font size", BaseFontSize.entries, settings.baseFontSize, BaseFontSize::label) { v ->
                     update { it.copy(baseFontSize = v) }

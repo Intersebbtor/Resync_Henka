@@ -112,6 +112,11 @@ import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.PostRoute
 import io.github.radixtrator.resync.ui.post.RecentsSheet
 import io.github.radixtrator.resync.data.NsfwMode
+import io.github.radixtrator.resync.data.DataSaving
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.path
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import io.github.radixtrator.resync.ui.navigation.InboxRoute
@@ -386,7 +391,8 @@ private const val ACTION_RECENTLY_VIEWED = "Recently viewed"
 
 /**
  * The More actions grid, in Sync's default order (Search, Profile, Hide read, About, Submit, Random,
- * Dark mode, Settings, Swipe mode, Change view, Refresh, Saved), then the optional ones alphabetically
+ * Dark mode, Settings, Swipe mode, Change view, Refresh, Saved), then the optional ones (Dark overlay,
+ * Data saving, Explore, ...) alphabetically
  * as Sync's Action visibility lists them. [onAbout], [onChangeView] and [onScrollToTop] only exist on some pages.
  */
 @Composable
@@ -427,6 +433,15 @@ fun quickActions(
         onChangeView?.let { add(QuickAction("Change view", AppIcons.ViewStack, onClick = it)) }
         add(QuickAction("Refresh", Icons.Outlined.Refresh, onClick = onRefresh))
         if (me != null) add(QuickAction("Saved", AppIcons.Bookmark) { nav.push(UserRoute(me, UserWhere.SAVED)) })
+        add(QuickAction("Dark overlay", DimIcon, active = settings.darkOverlay) {
+            container.settings.update { it.copy(darkOverlay = !it.darkOverlay) }
+        })
+        // Flips between Always and Never; "On mobile data" counts as on, so a tap turns it off.
+        add(QuickAction("Data saving", DataSaverIcon, active = settings.dataSaving != DataSaving.NEVER) {
+            container.settings.update {
+                it.copy(dataSaving = if (it.dataSaving == DataSaving.NEVER) DataSaving.ALWAYS else DataSaving.NEVER)
+            }
+        })
         add(QuickAction(ACTION_EXPLORE, AppIcons.Compass) {})
         add(QuickAction("Filters", AppIcons.Filter) { nav.push(SettingsRoute) })
         if (me != null) add(QuickAction("Inbox", Icons.Outlined.Email) { nav.push(InboxRoute()) })
@@ -453,10 +468,33 @@ fun quickActions(
     }.filterNot { it.label in settings.hiddenActions }
 }
 
+/** A circle, half filled: "Dark overlay". */
+private val DimIcon: ImageVector by lazy {
+    ImageVector.Builder("Dim", 24.dp, 24.dp, 24f, 24f)
+        .path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f) {
+            moveTo(12f, 3f); arcTo(9f, 9f, 0f, true, true, 12f, 21f); arcTo(9f, 9f, 0f, true, true, 12f, 3f); close()
+        }
+        .path(fill = SolidColor(Color.Black)) {
+            moveTo(12f, 3f); arcTo(9f, 9f, 0f, false, true, 12f, 21f); close()
+        }
+        .build()
+}
+
+/** Android's data saver glyph: a ring open at the top around a plus. */
+private val DataSaverIcon: ImageVector by lazy {
+    ImageVector.Builder("DataSaver", 24.dp, 24.dp, 24f, 24f)
+        .path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
+            moveTo(14f, 3.22f); arcTo(9f, 9f, 0f, true, true, 10f, 3.22f)
+            moveTo(12f, 8f); lineTo(12f, 16f)
+            moveTo(8f, 12f); lineTo(16f, 12f)
+        }
+        .build()
+}
+
 /** Every More actions button that "Action visibility" in Settings can switch off, in grid order. */
 val QUICK_ACTION_LABELS = listOf(
     "Search", "Profile", "Hide read", "About", "Submit", "Random", "Dark mode", "Settings",
-    "Swipe mode", "Change view", "Refresh", "Saved", ACTION_EXPLORE, "Filters", "Inbox", "Random nsfw",
+    "Swipe mode", "Change view", "Refresh", "Saved", "Dark overlay", "Data saving", ACTION_EXPLORE, "Filters", "Inbox", "Random nsfw",
     ACTION_RECENTLY_VIEWED, "Scroll to top", "Toggle account", "Watched",
 )
 
