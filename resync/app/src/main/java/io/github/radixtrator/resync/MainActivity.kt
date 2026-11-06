@@ -1,5 +1,7 @@
 package io.github.radixtrator.resync
 
+import android.content.Context
+import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -46,9 +48,17 @@ import io.github.radixtrator.resync.ui.profile.ProfileScreen
 import io.github.radixtrator.resync.ui.search.SearchScreen
 import io.github.radixtrator.resync.ui.settings.SettingsScreen
 import io.github.radixtrator.resync.ui.setup.SetupScreen
+import io.github.radixtrator.resync.ui.theme.BASE_FONT_SCALE
+import io.github.radixtrator.resync.ui.theme.FullSizeText
 import io.github.radixtrator.resync.ui.theme.ResyncTheme
 
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase)
+        // Only fontScale is set, so every other setting still follows the device.
+        applyOverrideConfiguration(Configuration().apply { fontScale = newBase.resources.configuration.fontScale * BASE_FONT_SCALE })
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -103,7 +113,8 @@ private fun ResyncNavHost(container: AppContainer) {
                 entry<SearchRoute> { route -> SearchScreen(route.query, route.subreddit, container, communitiesTab = route.communities) }
                 entry<SubmitRoute> { route -> SubmitScreen(route.subreddit, container) }
                 entry<ComposeRoute> { route -> ComposeScreen(route, container) }
-                entry<SettingsRoute> { SettingsScreen(container) }
+                // Sync's settings don't shrink with its base font size.
+                entry<SettingsRoute> { FullSizeText { SettingsScreen(container) } }
             },
         )
     }

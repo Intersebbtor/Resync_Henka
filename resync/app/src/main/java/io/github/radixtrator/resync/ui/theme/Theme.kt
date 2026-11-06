@@ -14,11 +14,14 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.em
 import io.github.radixtrator.resync.R
 import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.data.ThemeMode
@@ -109,23 +112,30 @@ private val Roboto = FontFamily(
     },
 )
 
+/**
+ * Sync's TextViews set Roboto about 1.5% wider than Compose does at the same size (titles, bodies and the
+ * 34sp header all measure so in sync-reference), so this stands in for Material's own letter spacing.
+ */
+private val SYNC_LETTER_SPACING = 0.015.em
+
+/** Material's roles in Roboto, spaced like Sync's text. */
 private val ResyncTypography = Typography().run {
     copy(
-        displayLarge = displayLarge.copy(fontFamily = Roboto),
-        displayMedium = displayMedium.copy(fontFamily = Roboto),
-        displaySmall = displaySmall.copy(fontFamily = Roboto),
-        headlineLarge = headlineLarge.copy(fontFamily = Roboto),
-        headlineMedium = headlineMedium.copy(fontFamily = Roboto),
-        headlineSmall = headlineSmall.copy(fontFamily = Roboto),
-        titleLarge = titleLarge.copy(fontFamily = Roboto),
-        titleMedium = titleMedium.copy(fontFamily = Roboto),
-        titleSmall = titleSmall.copy(fontFamily = Roboto),
-        bodyLarge = bodyLarge.copy(fontFamily = Roboto),
-        bodyMedium = bodyMedium.copy(fontFamily = Roboto),
-        bodySmall = bodySmall.copy(fontFamily = Roboto),
-        labelLarge = labelLarge.copy(fontFamily = Roboto),
-        labelMedium = labelMedium.copy(fontFamily = Roboto),
-        labelSmall = labelSmall.copy(fontFamily = Roboto),
+        displayLarge = displayLarge.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        displayMedium = displayMedium.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        displaySmall = displaySmall.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        headlineLarge = headlineLarge.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        headlineMedium = headlineMedium.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        headlineSmall = headlineSmall.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        titleLarge = titleLarge.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        titleMedium = titleMedium.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        titleSmall = titleSmall.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        bodyLarge = bodyLarge.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        bodyMedium = bodyMedium.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        bodySmall = bodySmall.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        labelLarge = labelLarge.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        labelMedium = labelMedium.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        labelSmall = labelSmall.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
     )
 }
 
@@ -138,6 +148,21 @@ private fun ColorScheme.blackened() = copy(
     surfaceContainer = Color(0xFF111316),
     outlineVariant = Color(0xFF1F2329),
 )
+
+/**
+ * Sync's "Base font size" is "Smaller" by default on phones, and it shrinks every sp in the app by this
+ * much: its 14sp rows and bodies, 16sp titles and 20sp sheet headers all measure at 0.9x the device's
+ * font scale in sync-reference. MainActivity applies it to its configuration, so sheets, menus and
+ * dialogs (their own windows) get it too. Sync's settings screen keeps full-size text; see [FullSizeText].
+ */
+const val BASE_FONT_SCALE = 0.9f
+
+/** [content] at the device's own font scale, without [BASE_FONT_SCALE], like Sync's settings. */
+@Composable
+fun FullSizeText(content: @Composable () -> Unit) {
+    val density = LocalDensity.current
+    CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale / BASE_FONT_SCALE), content = content)
+}
 
 @Composable
 fun ResyncTheme(settings: Settings, content: @Composable () -> Unit) {

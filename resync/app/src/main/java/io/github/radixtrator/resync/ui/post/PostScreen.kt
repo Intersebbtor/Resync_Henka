@@ -406,8 +406,8 @@ private fun PostHeader(post: Post, onVote: (Int) -> Unit, onToggleSave: () -> Un
             CardPreview(post, onClick = { nav.openMedia(post) }, maxHeight = if (cropped) 180.dp else null)
         }
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
-            // Sync's 16sp title at its "Smaller" base font size; Sync draws it in Product Sans, which can't be bundled.
-            PostTitle(post, MaterialTheme.typography.bodyLarge.copy(fontSize = 14.4.sp, lineHeight = TextUnit.Unspecified), dimWhenRead = false)
+            // Sync draws its titles in Product Sans, which can't be bundled; Roboto at 16sp is as wide.
+            PostTitle(post, MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = TextUnit.Unspecified), dimWhenRead = false)
             Spacer(Modifier.height(4.dp))
             PostMeta(post, showSubreddit = false, maxLines = 3, suffix = post.upvoteRatio?.let { "${(it * 100).roundToInt()}% upvoted" })
             if (post.flair != null) {
@@ -453,11 +453,11 @@ private val INDENT = 16.dp
 private const val MAX_DEPTH = 10
 
 /**
- * Selftext and comment bodies: Sync's 14sp at its default "Smaller" base font size (0.9x), measured from
- * sync-reference 23 and 55. The font's own line spacing, like Sync, so lines holding a larger link grow.
+ * Selftext and comment bodies (measured from sync-reference 23 and 55). The font's own line spacing, like
+ * Sync, so lines holding a larger link grow.
  */
 private val CommentBody: TextStyle
-    @Composable get() = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.6.sp, lineHeight = TextUnit.Unspecified)
+    @Composable get() = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = TextUnit.Unspecified)
 
 private fun railColor(level: Int) = ResyncColors.Depth[(level - 1) % ResyncColors.Depth.size]
 

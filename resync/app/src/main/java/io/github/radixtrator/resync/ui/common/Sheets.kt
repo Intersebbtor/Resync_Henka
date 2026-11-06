@@ -41,6 +41,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
@@ -74,7 +76,8 @@ fun TopSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit)
                         // Swallow taps so only the scrim dismisses.
                         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
                 ) {
-                    Column(Modifier.statusBarsPadding().padding(bottom = 12.dp), content = content)
+                    // Sync's top sheets put their title 24dp below the status bar.
+                    Column(Modifier.statusBarsPadding().padding(top = 8.dp, bottom = 12.dp), content = content)
                 }
             }
         }
@@ -86,9 +89,9 @@ fun TopSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit)
 fun SheetTitle(title: String, modifier: Modifier = Modifier) {
     Text(
         title,
-        style = MaterialTheme.typography.titleLarge,
+        style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 1.25.em),
         textAlign = TextAlign.Center,
-        modifier = modifier.fillMaxWidth().padding(top = 16.dp, bottom = 12.dp, start = 48.dp, end = 48.dp),
+        modifier = modifier.fillMaxWidth().padding(top = 16.dp, bottom = 16.dp, start = 48.dp, end = 48.dp),
     )
 }
 
@@ -124,7 +127,7 @@ fun OptionRow(
         } else {
             Spacer(Modifier.width(8.dp))
         }
-        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Text(label, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp), modifier = Modifier.weight(1f))
         trailing?.invoke()
     }
 }

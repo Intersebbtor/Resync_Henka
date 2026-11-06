@@ -174,7 +174,7 @@ private fun SmallCardPost(post: Post, showSubreddit: Boolean, actions: PostActio
                 Column(Modifier.weight(1f)) {
                     PostTitle(post, CardTitle, maxLines = 5)
                     Spacer(Modifier.height(4.dp))
-                    PostMeta(post, showSubreddit, maxLines = 3)
+                    PostMeta(post, showSubreddit, maxLines = 3, style = RowMeta)
                     if (post.flair != null) {
                         Spacer(Modifier.height(8.dp))
                         FlairChip(post)
@@ -368,15 +368,16 @@ private fun VotePill(likes: Boolean?, score: Int, onVote: (Int) -> Unit) {
 
 // --- Shared pieces ---
 
-// Feed text, sized against Sync's screenshots: cards read a size up from rows.
+// Feed text, measured from Sync's screenshots: cards read a size up from rows, and lines sit 1.2em apart
+// like Sync's Roboto (its titles are Product Sans, a little taller).
 private val CardTitle: TextStyle
-    @Composable get() = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = 22.sp)
+    @Composable get() = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = 20.sp)
 private val CardMeta: TextStyle
-    @Composable get() = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 18.sp)
+    @Composable get() = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 1.2.em)
 private val RowTitle: TextStyle
-    @Composable get() = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 19.sp)
+    @Composable get() = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 1.2.em)
 private val RowMeta: TextStyle
-    @Composable get() = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 16.sp)
+    @Composable get() = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 1.2.em)
 
 /** The title, dimmed once read (in feeds), with Sync's pin and lock marks inline. */
 @Composable
