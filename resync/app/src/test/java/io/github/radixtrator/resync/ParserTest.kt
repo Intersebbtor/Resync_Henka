@@ -543,7 +543,7 @@ class SearchPathTest {
 
     @org.junit.Test
     fun `custom feed url names and models`() {
-        val name = io.github.radixtrator.resync.data::multiName
+        val name: (String) -> String = { io.github.radixtrator.resync.data.multiName(it) }
         org.junit.Assert.assertEquals("My_cool_feed", name("  My cool feed! "))
         org.junit.Assert.assertEquals("tech_news", name("__tech & news__"))
         org.junit.Assert.assertEquals("ab_feed", name("ab"))
