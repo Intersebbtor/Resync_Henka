@@ -157,7 +157,7 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
     val tags by container.tags.tags.collectAsStateWithLifecycle()
     val tagColors by container.tags.colors.collectAsStateWithLifecycle()
     val currentSettings by rememberUpdatedState(settings)
-    val navigator = remember(backStack) { Navigator(context, backStack) { currentSettings } }
+    val navigator = remember(backStack) { Navigator(context, backStack, { currentSettings }) }
     LaunchedEffect(openRoute) {
         if (openRoute != null && container.isConfigured) navigator.push(openRoute)
         if (openRoute != null) onRouteOpened()
