@@ -66,7 +66,7 @@ fun rememberDualPaneSceneStrategies(): List<SceneStrategy<NavKey>> {
         widthDp = configuration.screenWidthDp,
     )
     return remember(enabled, navigator) {
-        if (enabled) listOf(DualPaneSceneStrategy(navigator.listPane)) else listOf(SinglePaneSceneStrategy())
+        if (enabled) listOf(DualPaneSceneStrategy(navigator.listPane)) else listOf(SinglePaneSceneStrategy<NavKey>())
     }
 }
 

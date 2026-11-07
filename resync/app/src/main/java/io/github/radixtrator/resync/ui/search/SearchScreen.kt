@@ -80,7 +80,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import io.github.radixtrator.resync.data.SearchMode
 import io.github.radixtrator.resync.data.Subreddit
