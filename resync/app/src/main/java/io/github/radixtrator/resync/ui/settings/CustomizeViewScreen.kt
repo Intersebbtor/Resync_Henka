@@ -54,7 +54,8 @@ import io.github.radixtrator.resync.ui.theme.FullSizeText
  * Sync's Customize view (Settings > View type, also the Change view sheet's "Customize view" button): a large
  * "View type" title, a chip per layout in Sync's order (Slides … List), a live preview of example posts in the
  * chosen layout, then that layout's options. Changes apply to every feed using the layout at once; the toolbar's
- * reset icon puts the chosen layout back to its defaults. Of Sync's font pickers only the title's size is here.
+ * reset icon puts the chosen layout back to its defaults. Of Sync's font pickers (Title, Description, Selftext) only
+ * the size half is here, as Small / Normal / Large.
  */
 @Composable
 fun CustomizeViewScreen(initial: PostLayout, container: AppContainer) {
@@ -125,8 +126,8 @@ fun CustomizeViewScreen(initial: PostLayout, container: AppContainer) {
                                     ViewRow.Columns -> Choice("Columns", PostColumns.entries, options.columns, PostColumns::label) { v ->
                                         change { it.copy(columns = v) }
                                     }
-                                    ViewRow.TitleFontSize -> Choice("Title font size", TitleSize.entries, options.titleSize, TitleSize::label) { v ->
-                                        change { it.copy(titleSize = v) }
+                                    is ViewRow.FontSize -> Choice(row.size.title, TitleSize.entries, row.size.read(options), TitleSize::label) { v ->
+                                        change { row.size.write(it, v) }
                                     }
                                 }
                             }
@@ -157,6 +158,14 @@ private enum class ViewOption(
     THUMBNAIL_RIGHT("Align thumbnail right", null, { it.thumbnailRight }, { o, v -> o.copy(thumbnailRight = v) }),
     SLIDE_FULL_HEIGHT("Preview full height", null, { it.slideFullHeight }, { o, v -> o.copy(slideFullHeight = v) }),
     SLIDE_FULL_WIDTH("Preview full width", null, { it.slideFullWidth }, { o, v -> o.copy(slideFullWidth = v) }),
+    SLIDE_IMAGE_TOP("Preview before title", null, { it.slideImageTop }, { o, v -> o.copy(slideImageTop = v) }),
+    THICK_DIVIDER(
+        "Show a thick divider between posts",
+        "Recommended as this improves post viewability",
+        { it.thickDivider },
+        { o, v -> o.copy(thickDivider = v) },
+    ),
+    CARD_FULL_WIDTH("Full width cards", "Single column only", { it.cardFullWidth }, { o, v -> o.copy(cardFullWidth = v) }),
     CARD_FULL_HEIGHT("Full height", null, { it.cardFullHeight }, { o, v -> o.copy(cardFullHeight = v) }),
     SAVE_BUTTON("Save", null, { it.saveButton }, { o, v -> o.copy(saveButton = v) }),
     CARD_SAVE_BUTTON("Save", null, { it.cardSaveButton }, { o, v -> o.copy(cardSaveButton = v) }),
@@ -167,18 +176,35 @@ private enum class ViewOption(
     HIDE_ALL_BUTTONS("Hide all buttons", null, { it.hideAllButtons }, { o, v -> o.copy(hideAllButtons = v) }),
 }
 
-/** A row on a View type screen: a [ViewOption] switch, or one of the two choice rows. */
+/** One font size choice on a View type screen: the size half of one of Sync's font pickers. */
+private enum class ViewFontSize(
+    val title: String,
+    val read: (ViewOptions) -> TitleSize,
+    val write: (ViewOptions, TitleSize) -> ViewOptions,
+) {
+    /** [ViewOptions.titleSize], Sync's "Title font". */
+    TITLE("Title font size", { it.titleSize }, { o, v -> o.copy(titleSize = v) }),
+
+    /** [ViewOptions.descriptionSize], Sync's "Description font". */
+    DESCRIPTION("Description font size", { it.descriptionSize }, { o, v -> o.copy(descriptionSize = v) }),
+
+    /** [ViewOptions.selftextSize], Sync's "Selftext font". */
+    SELFTEXT("Selftext font size", { it.selftextSize }, { o, v -> o.copy(selftextSize = v) }),
+}
+
+/** A row on a View type screen: a [ViewOption] switch, a [ViewFontSize] choice, or Columns. */
 private sealed interface ViewRow {
     class Switch(val option: ViewOption) : ViewRow
 
+    class FontSize(val size: ViewFontSize) : ViewRow
+
     /** [ViewOptions.columns]. */
     object Columns : ViewRow
-
-    /** [ViewOptions.titleSize], the size half of Sync's "Title font". */
-    object TitleFontSize : ViewRow
 }
 
 private fun switches(vararg options: ViewOption): List<ViewRow> = options.map { ViewRow.Switch(it) }
+
+private fun fontSizes(vararg sizes: ViewFontSize): List<ViewRow> = sizes.map { ViewRow.FontSize(it) }
 
 /**
  * Each layout's options under Sync's section names and in its order (sync-reference/settings-catalogue.md, "View
@@ -187,8 +213,8 @@ private fun switches(vararg options: ViewOption): List<ViewRow> = options.map { 
 private fun sectionsFor(layout: PostLayout): List<Pair<String, List<ViewRow>>> = when (layout) {
     PostLayout.SLIDES -> listOf(
         "Preview options" to switches(ViewOption.IMAGE_PREVIEWS, ViewOption.SELFTEXT_PREVIEWS, ViewOption.SUBREDDIT_ICONS),
-        "Image options" to switches(ViewOption.SLIDE_FULL_HEIGHT, ViewOption.SLIDE_FULL_WIDTH),
-        "Fonts and sizing" to listOf(ViewRow.TitleFontSize),
+        "Image options" to switches(ViewOption.SLIDE_FULL_HEIGHT, ViewOption.SLIDE_FULL_WIDTH, ViewOption.SLIDE_IMAGE_TOP),
+        "Fonts and sizing" to fontSizes(ViewFontSize.TITLE, ViewFontSize.DESCRIPTION, ViewFontSize.SELFTEXT),
         "Buttons" to switches(
             ViewOption.SAVE_BUTTON,
             ViewOption.HIDE_BUTTON,
@@ -197,19 +223,20 @@ private fun sectionsFor(layout: PostLayout): List<Pair<String, List<ViewRow>>> =
             ViewOption.VOTE_RIGHT,
             ViewOption.HIDE_ALL_BUTTONS,
         ),
-        "Experimental options" to switches(ViewOption.SELFTEXT_BORDER),
+        "Experimental options" to switches(ViewOption.THICK_DIVIDER, ViewOption.SELFTEXT_BORDER),
     )
     PostLayout.CARD -> listOf(
         "Image options" to switches(ViewOption.IMAGE_ABOVE_TITLE, ViewOption.CARD_FULL_HEIGHT),
         "Selftext options" to switches(ViewOption.SELFTEXT_PREVIEWS),
-        "Card options" to listOf(ViewRow.Columns),
-        "Fonts and sizing" to listOf(ViewRow.TitleFontSize),
+        "Card options" to listOf(ViewRow.Switch(ViewOption.CARD_FULL_WIDTH), ViewRow.Columns),
+        "Fonts and sizing" to fontSizes(ViewFontSize.TITLE, ViewFontSize.DESCRIPTION, ViewFontSize.SELFTEXT),
         "Buttons" to switches(ViewOption.CARD_SAVE_BUTTON, ViewOption.HIDE_BUTTON, ViewOption.SHARE_BUTTON, ViewOption.MOD_BUTTON),
     )
     PostLayout.SMALL_CARDS -> listOf(
         "Image options" to switches(ViewOption.THUMBNAIL_LEFT),
         "Card options" to listOf(ViewRow.Columns),
-        "Fonts and sizing" to listOf(ViewRow.TitleFontSize),
+        "Fonts and sizing" to fontSizes(ViewFontSize.TITLE, ViewFontSize.DESCRIPTION),
+        "Buttons" to switches(ViewOption.CARD_SAVE_BUTTON, ViewOption.HIDE_BUTTON, ViewOption.SHARE_BUTTON, ViewOption.MOD_BUTTON),
     )
     PostLayout.SMALLER_CARDS, PostLayout.COMPACT, PostLayout.LIST -> listOf(
         "Image options" to if (layout == PostLayout.SMALLER_CARDS) {
@@ -217,7 +244,12 @@ private fun sectionsFor(layout: PostLayout): List<Pair<String, List<ViewRow>>> =
         } else {
             switches(ViewOption.THUMBNAILS, ViewOption.TYPE_INDICATORS, ViewOption.THUMBNAIL_RIGHT)
         },
-        "Fonts and sizing" to listOf(ViewRow.TitleFontSize, ViewRow.Switch(ViewOption.SINGLE_LINE_TITLE)),
+        // Sync's order: Title font, the one-line switch, then Description font.
+        "Fonts and sizing" to listOf(
+            ViewRow.FontSize(ViewFontSize.TITLE),
+            ViewRow.Switch(ViewOption.SINGLE_LINE_TITLE),
+            ViewRow.FontSize(ViewFontSize.DESCRIPTION),
+        ),
     )
 }
 
