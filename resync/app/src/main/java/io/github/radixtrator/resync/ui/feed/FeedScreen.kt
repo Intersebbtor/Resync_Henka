@@ -137,7 +137,8 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     val callbacks = remember(vm) { vm.postCallbacks() }
     val filters by container.filters.filters.collectAsStateWithLifecycle()
     // Read posts are judged as of when the feed opened, so a post doesn't vanish the moment you come back from it.
-    val readAtOpen = remember(vm) { LocalVisited.current }
+    val visitedNow = LocalVisited.current
+    val readAtOpen = remember(vm) { visitedNow }
     val hideRead = settings.hideRead
     val posts = state.items.visiblePosts { (it as? ProfileItem.PostItem)?.post }.let { items ->
         remember(items, filters, hideRead) {
