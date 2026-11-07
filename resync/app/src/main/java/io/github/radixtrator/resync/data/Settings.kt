@@ -72,6 +72,18 @@ data class ViewOptions(
     val slideFullHeight: Boolean = false,
     /** Slides: `slide_full_width`, "Preview full width": the preview runs edge to edge, without margins or corners. */
     val slideFullWidth: Boolean = false,
+    /** Slides: `slide_image_top`, "Preview before title": the preview opens the slide, above the subreddit and title. */
+    val slideImageTop: Boolean = false,
+    /**
+     * Slides: `slide_thick_divider`, "Show a thick divider between posts": a band of the window's background between
+     * slides. Off leaves a hairline instead.
+     */
+    val thickDivider: Boolean = true,
+    /**
+     * Cards: `card_full_width`, "Full width cards": no side gutter and square corners. As in Sync, it applies only
+     * while the cards fall in a single column.
+     */
+    val cardFullWidth: Boolean = false,
     /**
      * Cards: `card_image_full_height`, "Full height". Sync's default is off; on keeps Resync's previews at the image's
      * own aspect, and off crops tall images to a 220 dp band.
@@ -79,15 +91,25 @@ data class ViewOptions(
     val cardFullHeight: Boolean = true,
     /** Slides: `slide_buttons_save`, the bookmark button. */
     val saveButton: Boolean = true,
-    /** Cards: `card_buttons_save`. Sync's default is on; off keeps Resync's card footer (points, comments, ⋮). */
+    /**
+     * Cards and Small cards: `card_buttons_save` / `small_card_buttons_save`. Sync's default is on; off keeps Resync's
+     * card footer (points, comments, ⋮).
+     */
     val cardSaveButton: Boolean = false,
-    /** Slides and Cards: `slide_buttons_hide` / `card_buttons_hide`, where the list can hide posts. */
+    /**
+     * Slides, Cards and Small cards: `slide_buttons_hide` / `card_buttons_hide` / `small_card_buttons_hide`, where the
+     * list can hide posts.
+     */
     val hideButton: Boolean = false,
-    /** Slides and Cards: `slide_buttons_share` / `card_buttons_share`, sharing the comments link. */
+    /**
+     * Slides, Cards and Small cards: `slide_buttons_share` / `card_buttons_share` / `small_card_buttons_share`, sharing
+     * the comments link.
+     */
     val shareButton: Boolean = false,
     /**
-     * Slides and Cards: `slide_buttons_mod` / `card_buttons_mod`, opening the community's Moderator screen; shown only
-     * in communities you moderate. Sync's default is on; off keeps Resync's button row as it was.
+     * Slides, Cards and Small cards: `slide_buttons_mod` / `card_buttons_mod` / `small_card_buttons_mod`, opening the
+     * community's Moderator screen; shown only in communities you moderate. Sync's default is on; off keeps Resync's
+     * button row as it was.
      */
     val modButton: Boolean = false,
     /** Slides: `slide_button_vote_right`, "Right aligned voting": the vote and comment pills move to the row's end. */
@@ -104,6 +126,14 @@ data class ViewOptions(
      * `smaller_card_title`, `compact_title`, `list_title`), reduced to three steps around the layout's own size.
      */
     val titleSize: TitleSize = TitleSize.NORMAL,
+    /**
+     * Every layout: the size half of Sync's "Description font" (`slide_description`, `card_description`,
+     * `small_card_description`, `smaller_card_description`, `compact_description`, `list_description`), the meta line
+     * under the title (and the points line in List, Compact and Smaller cards).
+     */
+    val descriptionSize: TitleSize = TitleSize.NORMAL,
+    /** Slides and Cards: the size half of Sync's "Selftext font" (`slide_selftext`, `card_selftext`), the text preview. */
+    val selftextSize: TitleSize = TitleSize.NORMAL,
 )
 
 /** A [ViewOptions.columns] choice; [count] null means Resync picks from the window width. */
@@ -114,7 +144,10 @@ enum class PostColumns(val label: String, val count: Int?) {
     THREE("3", 3),
 }
 
-/** A [ViewOptions.titleSize] choice: [scale] multiplies the layout's title size. */
+/**
+ * A Customize view font size ([ViewOptions.titleSize], [ViewOptions.descriptionSize], [ViewOptions.selftextSize]):
+ * [scale] multiplies the layout's own size for that text. Named for the first of them; names are persisted.
+ */
 enum class TitleSize(val label: String, val scale: Float) {
     SMALL("Small", 0.875f),
     NORMAL("Normal", 1f),

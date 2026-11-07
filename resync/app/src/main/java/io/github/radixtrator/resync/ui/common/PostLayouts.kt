@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
@@ -107,28 +108,49 @@ class PostActions(
     val onModTools: (() -> Unit)? = null,
 )
 
-/** Side gutter and column gap: card layouts float on the window, row layouts run edge to edge. */
+/**
+ * Side gutter and column gap: card layouts float on the window, row layouts run edge to edge, and so do Cards with
+ * "Full width cards" on ([fullWidthCards]).
+ */
 val PostLayout.gutter: Dp
-    get() = when (this) {
+    @Composable get() = when (this) {
         PostLayout.LIST, PostLayout.COMPACT, PostLayout.SLIDES -> 0.dp
-        PostLayout.SMALLER_CARDS, PostLayout.SMALL_CARDS, PostLayout.CARD -> 16.dp
+        PostLayout.CARD -> if (fullWidthCards()) 0.dp else 16.dp
+        PostLayout.SMALLER_CARDS, PostLayout.SMALL_CARDS -> 16.dp
     }
 
-/** Gap between consecutive items. Rows draw their own dividers instead. */
+/**
+ * Gap between consecutive items. Rows draw their own dividers instead, as do Slides with the thick divider off
+ * ([ViewOptions.thickDivider]); full-width Cards sit closer, like Slides.
+ */
 val PostLayout.spacing: Dp
-    get() = when (this) {
+    @Composable get() = when (this) {
         PostLayout.LIST, PostLayout.COMPACT -> 0.dp
-        PostLayout.SLIDES -> 8.dp
-        PostLayout.SMALLER_CARDS, PostLayout.SMALL_CARDS, PostLayout.CARD -> 16.dp
+        PostLayout.SLIDES -> if (LocalSettings.current.viewOptionsFor(this).thickDivider) 8.dp else 0.dp
+        PostLayout.CARD -> if (fullWidthCards()) 8.dp else 16.dp
+        PostLayout.SMALLER_CARDS, PostLayout.SMALL_CARDS -> 16.dp
     }
 
 /** The item's outline, so the swipe panel behind a card has the card's corners. */
 val PostLayout.swipeShape: Shape
-    get() = when (this) {
-        PostLayout.CARD, PostLayout.SMALL_CARDS -> RoundedCornerShape(8.dp)
+    @Composable get() = when (this) {
+        PostLayout.CARD -> if (fullWidthCards()) RectangleShape else RoundedCornerShape(8.dp)
+        PostLayout.SMALL_CARDS -> RoundedCornerShape(8.dp)
         PostLayout.SMALLER_CARDS -> RoundedCornerShape(10.dp)
         PostLayout.LIST, PostLayout.COMPACT, PostLayout.SLIDES -> RectangleShape
     }
+
+/**
+ * Whether this is Cards with Customize view's "Full width cards" ([ViewOptions.cardFullWidth]) taking effect: Sync
+ * offers it for a single column only, so it applies while the feed's [columns] (from the window width, as feeds
+ * count them) come to one.
+ */
+@Composable
+private fun PostLayout.fullWidthCards(): Boolean {
+    if (this != PostLayout.CARD) return false
+    val options = LocalSettings.current.viewOptionsFor(this)
+    return options.cardFullWidth && columns(LocalConfiguration.current.screenWidthDp, options.columns) == 1
+}
 
 /**
  * Cards and small cards tile into columns on wide screens, as on Sync's foldable cover screen. A Customize view
@@ -170,18 +192,20 @@ private fun SyncCard(shape: Shape, content: @Composable ColumnScope.() -> Unit) 
 
 /**
  * Sync's Cards. [options]: image above or below the title (`card_image_above`), full-height or cropped previews,
- * selftext previews, the title size, and the footer's Save / Hide / Share / Mod tools buttons.
+ * selftext previews, full width cards (square corners here; the list drops the gutter), the title, description and
+ * selftext sizes, and the footer's Save / Hide / Share / Mod tools buttons.
  */
 @Composable
 private fun CardPost(post: Post, showSubreddit: Boolean, actions: PostActions, options: ViewOptions) {
     val previewMaxHeight = if (options.cardFullHeight) null else CroppedPreviewHeight
-    SyncCard(RoundedCornerShape(8.dp)) {
+    // Rounded, or square with "Full width cards" on.
+    SyncCard(PostLayout.CARD.swipeShape) {
         Column(Modifier.combinedClickable(onClick = actions.onOpen, onLongClick = actions.onMore)) {
             if (options.imageAboveTitle) CardPreview(post, onClick = actions.onMedia, maxHeight = previewMaxHeight)
             Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
                 PostTitle(post, CardTitle.scaledBy(options.titleSize.scale))
                 Spacer(Modifier.height(4.dp))
-                PostMeta(post, showSubreddit, maxLines = 3, showAuthor = feedAuthors)
+                PostMeta(post, showSubreddit, maxLines = 3, style = CardMeta.scaledBy(options.descriptionSize.scale), showAuthor = feedAuthors)
                 if (post.shownFlair() != null) {
                     Spacer(Modifier.height(8.dp))
                     FlairChip(post)
@@ -189,7 +213,12 @@ private fun CardPost(post: Post, showSubreddit: Boolean, actions: PostActions, o
                 if (options.selftextPreviews) {
                     selfTextPreview(post)?.let {
                         Spacer(Modifier.height(8.dp))
-                        Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 6, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodyMedium.scaledBy(options.selftextSize.scale),
+                            maxLines = 6,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
@@ -201,7 +230,10 @@ private fun CardPost(post: Post, showSubreddit: Boolean, actions: PostActions, o
     }
 }
 
-/** Sync's Small cards. [options]: the thumbnail top-right, or top-left (`small_cards_thumbnail_align_left`), and the title size. */
+/**
+ * Sync's Small cards. [options]: the thumbnail top-right, or top-left (`small_cards_thumbnail_align_left`), the title
+ * and description sizes, and the footer's Save / Hide / Share / Mod tools buttons, as on Cards.
+ */
 @Composable
 private fun SmallCardPost(post: Post, showSubreddit: Boolean, actions: PostActions, options: ViewOptions) {
     SyncCard(RoundedCornerShape(8.dp)) {
@@ -215,7 +247,7 @@ private fun SmallCardPost(post: Post, showSubreddit: Boolean, actions: PostActio
                 Column(Modifier.weight(1f)) {
                     PostTitle(post, CardTitle.scaledBy(options.titleSize.scale), maxLines = 5)
                     Spacer(Modifier.height(4.dp))
-                    PostMeta(post, showSubreddit, maxLines = 3, style = RowMeta, showAuthor = feedAuthors)
+                    PostMeta(post, showSubreddit, maxLines = 3, style = RowMeta.scaledBy(options.descriptionSize.scale), showAuthor = feedAuthors)
                     if (post.shownFlair() != null) {
                         Spacer(Modifier.height(8.dp))
                         FlairChip(post)
@@ -226,7 +258,7 @@ private fun SmallCardPost(post: Post, showSubreddit: Boolean, actions: PostActio
                     Thumbnail(post, 64.dp, RoundedCornerShape(8.dp), onClick = actions.onMedia)
                 }
             }
-            StatsFooter(post, actions)
+            StatsFooter(post, actions, PostButtons(options.cardSaveButton, options.hideButton, options.shareButton, options.modButton))
         }
     }
 }
@@ -285,8 +317,8 @@ private fun PostButtonIcons(post: Post, actions: PostActions, buttons: PostButto
 /**
  * Sync's List ([flushThumbnail]: square thumbnail against the left edge) and Compact (inset rounded
  * thumbnail) rows; Smaller cards wraps the compact row in a card. ⌄ expands the media or text inline.
- * [options]: thumbnails (left or right), the type indicator, a one-line title and the title size, as Sync's
- * List/Compact/Smaller cards screens offer.
+ * [options]: thumbnails (left or right), the type indicator, a one-line title and the title and description sizes, as
+ * Sync's List/Compact/Smaller cards screens offer.
  */
 @Composable
 private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, options: ViewOptions, flushThumbnail: Boolean, inCard: Boolean) {
@@ -312,10 +344,11 @@ private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, op
             if (options.thumbnails && !right) thumbnail()
             Column(Modifier.weight(1f).padding(start = 12.dp, top = 8.dp, bottom = 10.dp, end = 4.dp)) {
                 PostTitle(post, RowTitle.scaledBy(options.titleSize.scale), maxLines = if (options.singleLineTitle) 1 else 4)
-                PostMeta(post, showSubreddit, maxLines = 1, style = RowMeta, showAuthor = feedAuthors)
+                val description = RowMeta.scaledBy(options.descriptionSize.scale)
+                PostMeta(post, showSubreddit, maxLines = 1, style = description, showAuthor = feedAuthors)
                 Text(
                     "${points(post.score, short)} • ${comments(post.numComments, short)}",
-                    style = RowMeta,
+                    style = description,
                     color = muted,
                     maxLines = 1,
                 )
@@ -363,34 +396,42 @@ private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, op
 
 /**
  * Sync's Slides: a full-width post with the sub on top, big media, and vote/comment pills. [options]: image and
- * selftext previews and the image's full height / full width, the subreddit icon, the border around selftext, the
- * title size, and the button row (Save / Hide / Share / Mod tools, voting on the right, or no buttons at all).
+ * selftext previews and the image's full height / full width / place before the title, the subreddit icon, the
+ * border around selftext, the thick divider (off: a hairline here, and no gap in the list), the title, description
+ * and selftext sizes, and the button row (Save / Hide / Share / Mod tools, voting on the right, or no buttons at all).
  */
 @Composable
 private fun SlidePost(post: Post, actions: PostActions, options: ViewOptions) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    // "Preview before title": the media opens the slide, flush with its top edge when it also runs full width.
+    val previewFirst = options.imagePreviews && options.slideImageTop && post.hasCardPreview()
     Column(
         Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .combinedClickable(onClick = actions.onOpen, onLongClick = actions.onMore)
-            .padding(top = 16.dp, bottom = 8.dp),
+            .padding(top = if (previewFirst && options.slideFullWidth) 0.dp else 16.dp),
     ) {
-        Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (previewFirst) SlidePreview(post, actions, options, top = 0.dp)
+        Row(
+            Modifier.padding(start = 16.dp, end = 16.dp, top = if (previewFirst) 12.dp else 0.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             if (options.subredditIcons) {
                 LetterAvatar(post.subreddit, 32.dp)
                 Spacer(Modifier.width(12.dp))
             }
             Column {
+                val description = CardMeta.scaledBy(options.descriptionSize.scale)
                 Text(
                     buildAnnotatedString {
                         append("r/")
                         withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) { append(post.subreddit) }
                     },
-                    style = CardMeta,
+                    style = description,
                     color = muted,
                 )
-                PostMeta(post, showSubreddit = false, maxLines = 1, showAuthor = feedAuthors)
+                PostMeta(post, showSubreddit = false, maxLines = 1, style = description, showAuthor = feedAuthors)
             }
         }
         PostTitle(
@@ -399,24 +440,12 @@ private fun SlidePost(post: Post, actions: PostActions, options: ViewOptions) {
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp),
         )
         if (post.shownFlair() != null) FlairChip(post, Modifier.padding(start = 16.dp, top = 8.dp))
-        if (options.imagePreviews) {
-            CardPreview(
-                post,
-                onClick = actions.onMedia,
-                modifier = if (options.slideFullWidth) {
-                    Modifier.padding(top = 12.dp)
-                } else {
-                    Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp).clip(RoundedCornerShape(12.dp))
-                },
-                // Unless "Preview full height" is on, slides crop media to a fixed band.
-                height = if (options.slideFullHeight) null else CroppedPreviewHeight,
-            )
-        }
+        if (options.imagePreviews && !options.slideImageTop) SlidePreview(post, actions, options, top = 12.dp)
         val selftext = if (options.selftextPreviews) selfTextPreview(post) else null
         selftext?.let {
             Text(
                 it,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium.scaledBy(options.selftextSize.scale),
                 maxLines = 8,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
@@ -457,7 +486,28 @@ private fun SlidePost(post: Post, actions: PostActions, options: ViewOptions) {
                 }
             }
         }
+        Spacer(Modifier.height(8.dp))
+        // Without the thick divider the list leaves no gap between slides, so each ends on a hairline.
+        if (!options.thickDivider) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
+}
+
+/**
+ * A slide's big preview, [top] below what comes before it: inset with rounded corners, or edge to edge with "Preview
+ * full width"; cropped to a band unless "Preview full height" is on.
+ */
+@Composable
+private fun SlidePreview(post: Post, actions: PostActions, options: ViewOptions, top: Dp) {
+    CardPreview(
+        post,
+        onClick = actions.onMedia,
+        modifier = if (options.slideFullWidth) {
+            Modifier.padding(top = top)
+        } else {
+            Modifier.padding(start = 16.dp, end = 16.dp, top = top).clip(RoundedCornerShape(12.dp))
+        },
+        height = if (options.slideFullHeight) null else CroppedPreviewHeight,
+    )
 }
 
 /** The comment count pill beside Slides' vote pill; opens the comments. */
