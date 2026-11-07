@@ -131,6 +131,7 @@ fun ComposeScreen(route: ComposeRoute, container: AppContainer) {
         if (it.text == route.initial) container.drafts.clear(draftKey) else container.drafts.save(draftKey, it.text, route.draftLabel(to))
     }
     var subject by rememberSaveable { mutableStateOf(route.subject) }
+    val imageUpload = rememberComposerImageUpload(container) { url -> edit(body.insertImageLink(url)) }
     val snackbar = remember { SnackbarHostState() }
     val bodyFocus = remember { FocusRequester() }
     val isMessage = route.mode == ComposeMode.MESSAGE
@@ -196,7 +197,7 @@ fun ComposeScreen(route: ComposeRoute, container: AppContainer) {
                 OutlinedTextField(to, { to = it }, label = { Text("To") }, prefix = { Text("u/") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(subject, { subject = it }, label = { Text("Subject") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }
-            MarkdownToolbar(body, edit, drafts = container.drafts, draftKey = draftKey)
+            MarkdownToolbar(body, edit, drafts = container.drafts, draftKey = draftKey, imageUpload = imageUpload)
             OutlinedTextField(
                 value = body,
                 onValueChange = edit,

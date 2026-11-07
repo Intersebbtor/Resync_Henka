@@ -112,7 +112,7 @@ class SubmitViewModel(private val container: AppContainer) : ViewModel() {
     fun errorShown() = _state.update { it.copy(error = null) }
 }
 
-/** Text and link posts. (Image posts need Reddit's media-upload flow; not supported yet.) */
+/** Text, link and photo posts. */
 @Composable
 fun SubmitScreen(initialSubreddit: String?, container: AppContainer) {
     val nav = LocalNavigator.current
@@ -135,6 +135,7 @@ fun SubmitScreen(initialSubreddit: String?, container: AppContainer) {
         body = it
         container.drafts.save(SUBMIT_DRAFT, it.text, "Post")
     }
+    val imageUpload = rememberComposerImageUpload(container) { uploaded -> editBody(body.insertImageLink(uploaded)) }
     var url by rememberSaveable { mutableStateOf("") }
     var nsfw by rememberSaveable { mutableStateOf(false) }
     var spoiler by rememberSaveable { mutableStateOf(false) }
@@ -249,7 +250,7 @@ fun SubmitScreen(initialSubreddit: String?, container: AppContainer) {
                     modifier = Modifier.fillMaxWidth(),
                 )
             } else {
-                MarkdownToolbar(body, editBody, drafts = container.drafts, draftKey = SUBMIT_DRAFT)
+                MarkdownToolbar(body, editBody, drafts = container.drafts, draftKey = SUBMIT_DRAFT, imageUpload = imageUpload)
                 OutlinedTextField(
                     value = body,
                     onValueChange = editBody,
