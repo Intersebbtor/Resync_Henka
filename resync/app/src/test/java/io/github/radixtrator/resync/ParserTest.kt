@@ -11,6 +11,10 @@ import io.github.radixtrator.resync.data.LinkFlair
 import io.github.radixtrator.resync.data.MoreComments
 import io.github.radixtrator.resync.data.NsfwMode
 import io.github.radixtrator.resync.data.Parser
+import io.github.radixtrator.resync.data.Wiki
+import io.github.radixtrator.resync.ui.compose.insert
+import io.github.radixtrator.resync.ui.compose.numberLines
+import io.github.radixtrator.resync.data.WikiLink
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.ReportReason
 import io.github.radixtrator.resync.data.SwipeAction
@@ -27,6 +31,7 @@ import io.github.radixtrator.resync.data.RedditClient
 import io.github.radixtrator.resync.data.RedditException
 import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.data.ThemeMode
+import io.github.radixtrator.resync.data.ViewOptions
 import io.github.radixtrator.resync.data.DashTracks
 import io.github.radixtrator.resync.data.dashTracks
 import io.github.radixtrator.resync.data.fileName
@@ -387,6 +392,12 @@ class ParserTest {
         assertEquals(swipes, json.decodeFromString(Settings.serializer(), json.encodeToString(Settings.serializer(), swipes)))
         assertEquals(listOf(SwipeAction.SAVE, SwipeAction.SHARE, SwipeAction.MARK_READ), swipes.postSwipeStages)
         assertEquals(Settings.DEFAULT_COMMENT_SWIPES, Settings(commentSwipeActions = listOf(SwipeAction.HIDE)).commentSwipeStages)
+        // Customize view options round-trip per layout; untouched layouts get the defaults.
+        val views = Settings(viewOptions = mapOf(PostLayout.LIST to ViewOptions(thumbnails = false, singleLineTitle = true)))
+        assertEquals(views, json.decodeFromString(Settings.serializer(), json.encodeToString(Settings.serializer(), views)))
+        assertEquals(false, views.viewOptionsFor(PostLayout.LIST).thumbnails)
+        assertEquals(ViewOptions(), views.viewOptionsFor(PostLayout.COMPACT))
+
         // Old or partial blobs load with defaults for anything missing.
         assertEquals(Settings(theme = ThemeMode.DARK), json.decodeFromString(Settings.serializer(), """{"theme":"DARK","removedField":1}"""))
     }
@@ -491,5 +502,135 @@ class ParserTest {
         assertEquals("just now", Format.timeAgo(1000, 1030))
         assertEquals("5h", Format.timeAgo(0, 5 * 3600 + 59))
         assertEquals("2y", Format.timeAgo(0, 2L * 365 * 86_400))
+    }
+}
+
+class RelativeLinkTest {
+    @org.junit.Test
+    fun `relative links spell out their target unless the text is the path`() {
+        org.junit.Assert.assertEquals(
+            "<a href=\"https://www.reddit.com/wiki/\">the wiki</a> (/wiki/)",
+            redditMarkup("<a href=\"/wiki/\">the wiki</a>", revealSpoilers = true),
+        )
+        org.junit.Assert.assertEquals(
+            "<a href=\"https://www.reddit.com/r/pics\">/r/pics</a>",
+            redditMarkup("<a href=\"/r/pics\">/r/pics</a>", revealSpoilers = true),
+        )
+    }
+}
+
+class WikiTest {
+    @org.junit.Test
+    fun `parses wiki links`() {
+        org.junit.Assert.assertEquals(WikiLink("pics", "index"), Wiki.parseLink("https://www.reddit.com/r/pics/wiki/"))
+        org.junit.Assert.assertEquals(WikiLink("pics", "rules/faq"), Wiki.parseLink("https://www.reddit.com/r/pics/wiki/Rules/FAQ?x=1"))
+        org.junit.Assert.assertNull(Wiki.parseLink("https://www.reddit.com/r/pics/comments/abc"))
+    }
+
+    @org.junit.Test
+    fun `lists headings`() {
+        val h = Wiki.headings("<h1>One</h1><p>x</p><h2 id=\"a\">Two <b>&amp;</b> more</h2>")
+        org.junit.Assert.assertEquals(listOf(Wiki.Heading(1, "One"), Wiki.Heading(2, "Two & more")), h)
+    }
+}
+
+class SearchPathTest {
+    @org.junit.Test
+    fun `custom feed search paths`() {
+        org.junit.Assert.assertEquals("/user/bob/m/news/search", io.github.radixtrator.resync.data.multiSearchPath("bob/news"))
+        org.junit.Assert.assertEquals("/user/bob/m/news/search", io.github.radixtrator.resync.data.multiSearchPath("/u/bob/m/news/"))
+    }
+
+    @org.junit.Test
+    fun `custom feed url names and models`() {
+        val name: (String) -> String = { io.github.radixtrator.resync.data.multiName(it) }
+        org.junit.Assert.assertEquals("My_cool_feed", name("  My cool feed! "))
+        org.junit.Assert.assertEquals("tech_news", name("__tech & news__"))
+        org.junit.Assert.assertEquals("ab_feed", name("ab"))
+        org.junit.Assert.assertEquals("feed", name("!!!"))
+        org.junit.Assert.assertEquals(50, name("x".repeat(80)).length)
+        val model = io.github.radixtrator.resync.data.multiModel("Say \"hi\"", emptyList(), "private")
+        org.junit.Assert.assertEquals("""{"display_name":"Say \"hi\"","subreddits":[],"visibility":"private"}""", model)
+        org.junit.Assert.assertEquals("""{"display_name":"New"}""", io.github.radixtrator.resync.data.multiModel(displayName = "New"))
+        org.junit.Assert.assertEquals(
+            """{"subreddits":[{"name":"pics"},{"name":"gifs"}]}""",
+            io.github.radixtrator.resync.data.multiModel(subreddits = listOf("pics", "gifs")),
+        )
+    }
+
+    @org.junit.Test
+    fun `parses mod mail conversations in conversationIds order`() {
+        val json = kotlinx.serialization.json.Json.parseToJsonElement(
+            """
+            {"conversations":{
+              "abc":{"id":"abc","subject":"Ban appeal","lastUpdated":"2024-01-02T03:04:05.123456+00:00","isHighlighted":true,
+                     "numMessages":3,"state":1,"lastUnread":"2024-01-02T03:04:05.123456+00:00",
+                     "authors":[{"name":"alice"},{"name":"modbob","isMod":true},{"name":"alice"}],
+                     "owner":{"displayName":"pics","type":"subreddit"}},
+              "xyz":{"id":"xyz","subject":"Hi","lastUpdated":null,"isHighlighted":false,"numMessages":1,"state":2,
+                     "lastUnread":null,"authors":[],"owner":{"displayName":"gifs"}}
+            },
+            "conversationIds":["xyz","abc"],
+            "messages":{}}
+            """,
+        )
+        val list = Parser.modMailConversations(json)
+        org.junit.Assert.assertEquals(listOf("xyz", "abc"), list.map { it.id })
+        val appeal = list[1]
+        org.junit.Assert.assertEquals("Ban appeal", appeal.subject)
+        org.junit.Assert.assertEquals("pics", appeal.community)
+        org.junit.Assert.assertEquals(listOf("alice", "modbob"), appeal.participants)
+        org.junit.Assert.assertEquals(1704164645L, appeal.lastUpdatedUtc)
+        org.junit.Assert.assertEquals(3, appeal.numMessages)
+        org.junit.Assert.assertTrue(appeal.highlighted)
+        org.junit.Assert.assertTrue(appeal.unread)
+        org.junit.Assert.assertFalse(appeal.archived)
+        val hi = list[0]
+        org.junit.Assert.assertEquals(0L, hi.lastUpdatedUtc)
+        org.junit.Assert.assertFalse(hi.unread)
+        org.junit.Assert.assertTrue(hi.archived)
+        // Demo data and other listings read as empty rather than failing.
+        org.junit.Assert.assertTrue(Parser.modMailConversations(kotlinx.serialization.json.Json.parseToJsonElement("""{"kind":"Listing"}""")).isEmpty())
+    }
+
+    @org.junit.Test
+    fun `parses a mod mail conversation with messages in objIds order`() {
+        val json = kotlinx.serialization.json.Json.parseToJsonElement(
+            """
+            {"conversation":{"id":"abc","subject":"Ban appeal","owner":{"displayName":"pics"},"authors":[{"name":"alice"}],
+                             "numMessages":2,"state":0,"lastUpdated":"2024-01-02T03:04:05+00:00",
+                             "objIds":[{"id":"m1","key":"messages"},{"id":"a1","key":"modActions"},{"id":"m2","key":"messages"}]},
+             "messages":{
+               "m2":{"id":"m2","body":"<div class=\"md\"><p>No.</p></div>","bodyMarkdown":"No.","date":"2024-01-02T03:04:05+00:00",
+                     "isInternal":true,"author":{"name":"modbob","isMod":true,"isHidden":true}},
+               "m1":{"id":"m1","body":"<div class=\"md\"><p>Please unban me</p></div>","bodyMarkdown":"Please unban me",
+                     "date":"2024-01-01T00:00:00+00:00","isInternal":false,"author":{"name":"alice","isMod":false}}
+             }}
+            """,
+        )
+        val thread = Parser.modMailThread(json)
+        org.junit.Assert.assertEquals("abc", thread.conversation.id)
+        org.junit.Assert.assertEquals("pics", thread.conversation.community)
+        org.junit.Assert.assertEquals(listOf("m1", "m2"), thread.messages.map { it.id })
+        val first = thread.messages[0]
+        org.junit.Assert.assertEquals("alice", first.author)
+        org.junit.Assert.assertEquals(1704067200L, first.dateUtc)
+        org.junit.Assert.assertTrue(first.bodyHtml.contains("Please unban me"))
+        org.junit.Assert.assertFalse(first.authorIsMod)
+        val second = thread.messages[1]
+        org.junit.Assert.assertTrue(second.authorIsMod)
+        org.junit.Assert.assertTrue(second.authorHidden)
+        org.junit.Assert.assertTrue(second.internal)
+        org.junit.Assert.assertEquals("No.", second.bodyMarkdown)
+        assertFailsWith<RedditException> { Parser.modMailThread(kotlinx.serialization.json.Json.parseToJsonElement("""{"messages":{}}""")) }
+    }
+}
+
+class MarkdownToolsTest {
+    @org.junit.Test
+    fun `numbers lines and inserts snippets`() {
+        val v = TextFieldValue("a\nb", TextRange(0, 3))
+        org.junit.Assert.assertEquals("1. a\n2. b", v.numberLines().text)
+        org.junit.Assert.assertEquals("a🔥", TextFieldValue("a", TextRange(1)).insert("🔥").text)
     }
 }

@@ -131,7 +131,7 @@ data class ReportReason(val text: String, val siteRule: Boolean)
 data class SubredditRule(val name: String, val descriptionHtml: String?)
 
 /** One of a community's post flairs, for the Flairs chip. [color] is its background (ARGB), if it has one. */
-data class LinkFlair(val text: String, val color: Int?)
+data class LinkFlair(val text: String, val color: Int?, val id: String? = null)
 
 /** The post flairs used in [posts], most used first. */
 fun flairsOf(posts: List<Post>): List<LinkFlair> = posts
@@ -246,15 +246,26 @@ enum class InboxBox(val path: String, val label: String) {
     COMMENT_REPLIES("comments", "Comment replies"),
     POST_REPLIES("selfreply", "Post replies"),
     MENTIONS("mentions", "Mentions"),
+    MOD("moderator", "Mod"),
+    MOD_UNREAD("moderator/unread", "Mod unread"),
 }
 
 enum class SearchSort(val param: String, val label: String, val time: String? = null) {
     RELEVANCE("relevance", "Relevance"),
-    HOT("hot", "Hot"),
     NEW("new", "New"),
+    HOT("hot", "Hot"),
+    TOP_ALL("top", "Top", "all"),
     TOP_WEEK("top", "Top: this week", "week"),
-    TOP_ALL("top", "Top: all time", "all"),
-    COMMENTS("comments", "Most comments"),
+    COMMENTS("comments", "Comments"),
+}
+
+/** Sync's search "Options" modes for post search; "Search subs" is the Communities tab instead. */
+enum class SearchMode(val label: String, val hint: String) {
+    SEARCH("Search", ""),
+    SUBREDDIT("Subreddit", "Community, e.g. pics"),
+    CUSTOM_FEED("Custom feed", "Multireddit, e.g. username/feedname"),
+    PROFILE("Profile", "Username"),
+    DOMAIN("Domain", "Domain, e.g. imgur.com"),
 }
 
 enum class CommentSort(val param: String, val label: String) {
@@ -265,3 +276,62 @@ enum class CommentSort(val param: String, val label: String) {
     OLD("old", "Old"),
     QA("qa", "Q&A"),
 }
+
+/** One of your custom feeds (multireddits). [path] is like "user/bob/m/news"; [subreddits] are lowercase-agnostic names. */
+data class Multi(val name: String, val path: String, val subreddits: List<String>) {
+    /** The feed route's community string for it: "a+b+c", which the listing endpoints accept. */
+    val feedName: String get() = subreddits.joinToString("+")
+}
+
+/**
+ * Sync's moderator sections for one community; [path] is under /r/<sub>/about/, except [COMMENTS], which is the
+ * community's newest comments (/r/<sub>/comments, [RedditApi.feedComments]).
+ */
+enum class ModSection(val path: String, val label: String) {
+    MODQUEUE("modqueue", "Modqueue"),
+    REPORTS("reports", "Reports"),
+    SPAM("spam", "Spam"),
+    EDITED("edited", "Edited"),
+    UNMODERATED("unmoderated", "Unmoderated"),
+    COMMENTS("comments", "Comments"),
+}
+
+/** The boxes of new-style mod mail (/api/mod/conversations?state=…). */
+enum class ModMailState(val param: String, val label: String) {
+    ALL("all", "All"),
+    NEW("new", "New"),
+    IN_PROGRESS("inprogress", "In progress"),
+    ARCHIVED("archived", "Archived"),
+}
+
+/**
+ * One mod mail conversation. [community] is the subreddit it belongs to (owner.displayName); [participants] are
+ * the authors' names in order of first appearance; [lastUpdatedUtc] is epoch seconds (0 if Reddit sent none).
+ * [archived]: Reddit's state 2.
+ */
+data class ModMailConversation(
+    val id: String,
+    val subject: String,
+    val community: String,
+    val participants: List<String>,
+    val lastUpdatedUtc: Long,
+    val numMessages: Int,
+    val highlighted: Boolean,
+    val unread: Boolean,
+    val archived: Boolean,
+)
+
+/** A message in a mod mail conversation; [bodyHtml] is Reddit's rendered HTML. [internal]: a private moderator note. */
+data class ModMailMessage(
+    val id: String,
+    val author: String,
+    val bodyHtml: String,
+    val bodyMarkdown: String,
+    val dateUtc: Long,
+    val authorIsMod: Boolean,
+    val authorHidden: Boolean,
+    val internal: Boolean,
+)
+
+/** A conversation with its messages, oldest first. */
+data class ModMailThread(val conversation: ModMailConversation, val messages: List<ModMailMessage>)

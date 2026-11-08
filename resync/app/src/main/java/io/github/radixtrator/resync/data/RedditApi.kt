@@ -1,8 +1,33 @@
 package io.github.radixtrator.resync.data
 
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 
 private val WIKI_TOC = Regex("""<div class="toc">.*?</div>""", RegexOption.DOT_MATCHES_ALL)
+
+/** "user/feed", "u/user/m/feed" and the like to Reddit's custom-feed search path, /user/<name>/m/<feed>/search. */
+fun multiSearchPath(multi: String): String {
+    val parts = multi.trim().trim('/').removePrefix("user/").removePrefix("u/").split('/').filter { it.isNotEmpty() && it != "m" }
+    return "/user/${parts.getOrElse(0) { "" }}/m/${parts.getOrElse(1) { "" }}/search"
+}
+
+/**
+ * The URL name Reddit wants for a new custom feed called [displayName]: letters, digits and underscores,
+ * starting with a letter or digit, 3 to 50 long. The display name keeps whatever was typed.
+ */
+fun multiName(displayName: String): String {
+    val name = displayName.trim().replace(Regex("[^A-Za-z0-9]+"), "_").trim('_').take(50).trimEnd('_')
+    return if (name.length >= 3) name else (name + "_feed").trimStart('_')
+}
+
+/** The `model` JSON of /api/multi writes; null fields are left out, so a PUT only changes what's given. */
+fun multiModel(displayName: String? = null, subreddits: List<String>? = null, visibility: String? = null): String = buildJsonObject {
+    displayName?.let { put("display_name", it) }
+    subreddits?.let { subs -> putJsonArray("subreddits") { subs.forEach { name -> add(buildJsonObject { put("name", name) }) } } }
+    visibility?.let { put("visibility", it) }
+}.toString()
 
 /** The endpoints the app uses, on top of [RedditClient]. */
 class RedditApi(private val client: RedditClient) {
@@ -36,18 +61,22 @@ class RedditApi(private val client: RedditClient) {
     suspend fun postNow(id: String): Post =
         Parser.comments(client.get("/comments/$id", mapOf("limit" to "1", "depth" to "1"))).post
 
-    /** [focusCommentId] narrows the page to that comment's subtree, with [context] parents above it. */
+    /**
+     * [focusCommentId] narrows the page to that comment's subtree, with [context] parents above it. [limit] is how
+     * many comments the first page holds (Sync's "Initial comment count"; Reddit stops at 500).
+     */
     suspend fun comments(
         postId: String,
         sort: CommentSort,
         focusCommentId: String? = null,
         context: Int = 0,
+        limit: Int = 200,
     ): PostWithComments = Parser.comments(
         client.get(
             "/comments/$postId",
             mapOf(
                 "sort" to sort.param,
-                "limit" to "200",
+                "limit" to limit.toString(),
                 "comment" to focusCommentId,
                 "context" to context.takeIf { focusCommentId != null && it > 0 }?.toString(),
             ),
@@ -86,6 +115,10 @@ class RedditApi(private val client: RedditClient) {
         } while (after != null && subs.size < 1000)
         return subs.sortedBy { it.name.lowercase() }
     }
+
+    /** The names of a community's wiki pages (including "index"), e.g. "rules/faq". */
+    suspend fun wikiPages(subreddit: String): List<String> =
+        client.get("/r/$subreddit/wiki/pages").jsonObject.arr("data").orEmpty().mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
 
     /**
      * A community's wiki page as HTML; "index" is the wiki's front page. Reddit opens the page with a generated
@@ -162,8 +195,13 @@ class RedditApi(private val client: RedditClient) {
         // mark=false: opening a box shouldn't silently mark everything read.
         Parser.inbox(client.get("/message/${box.path}", mapOf("after" to after, "limit" to "50", "mark" to "false")))
 
-    suspend fun searchPosts(query: String, subreddit: String?, sort: SearchSort, after: String?): Listing<Post> {
-        val path = if (subreddit == null) "/search" else "/r/$subreddit/search"
+    /** [multi] ("user/feedname") searches inside a custom feed instead of a community. */
+    suspend fun searchPosts(query: String, subreddit: String?, sort: SearchSort, after: String?, multi: String? = null): Listing<Post> {
+        val path = when {
+            multi != null -> multiSearchPath(multi)
+            subreddit == null -> "/search"
+            else -> "/r/$subreddit/search"
+        }
         return Parser.postListing(
             client.get(
                 path,
@@ -172,7 +210,7 @@ class RedditApi(private val client: RedditClient) {
                     "sort" to sort.param,
                     "t" to sort.time,
                     "type" to "link",
-                    "restrict_sr" to subreddit?.let { "on" },
+                    "restrict_sr" to (subreddit ?: multi)?.let { "on" },
                     "after" to after,
                     "limit" to "25",
                 ),
@@ -182,6 +220,101 @@ class RedditApi(private val client: RedditClient) {
 
     suspend fun searchSubreddits(query: String, after: String?): Listing<Subreddit> =
         Parser.subredditListing(client.get("/subreddits/search", mapOf("q" to query, "after" to after, "limit" to "25")))
+
+    /** A mod section's posts and comments (needs the "modposts" scope and moderator rights). */
+    suspend fun modListing(subreddit: String, section: ModSection, after: String?): Listing<ProfileItem> =
+        Parser.profileListing(client.get("/r/$subreddit/about/${section.path}", mapOf("after" to after, "limit" to "25", "only" to null)))
+
+    suspend fun approve(fullname: String) {
+        client.post("/api/approve", mapOf("id" to fullname))
+    }
+
+    /** Removes [fullname]; [spam] also trains Reddit's spam filter. */
+    suspend fun remove(fullname: String, spam: Boolean) {
+        client.post("/api/remove", mapOf("id" to fullname, "spam" to spam.toString()))
+    }
+
+    // --- New-style mod mail (needs the "modmail" scope) ---
+
+    /**
+     * A page of mod mail in [state]; [communities] narrows it to those subreddits (all you moderate when empty).
+     * Reddit pages by conversation id, so [after] is the last id of the previous page.
+     */
+    suspend fun modMail(state: ModMailState, communities: List<String>, after: String?, limit: Int = 25): Listing<ModMailConversation> {
+        val items = Parser.modMailConversations(
+            client.get(
+                "/api/mod/conversations",
+                mapOf(
+                    "state" to state.param,
+                    "sort" to "recent",
+                    "entity" to communities.takeIf { it.isNotEmpty() }?.joinToString(","),
+                    "after" to after,
+                    "limit" to limit.toString(),
+                ),
+            ),
+        )
+        return Listing(items, items.lastOrNull()?.id?.takeIf { items.size >= limit })
+    }
+
+    /** One conversation with its messages; [markRead] also marks it read. */
+    suspend fun modMailThread(id: String, markRead: Boolean = true): ModMailThread =
+        Parser.modMailThread(client.get("/api/mod/conversations/$id", mapOf("markRead" to markRead.toString())))
+
+    /** Replies to conversation [id] as yourself (not as the subreddit); returns the updated conversation. */
+    suspend fun replyModMail(id: String, markdown: String, internal: Boolean = false): ModMailThread =
+        Parser.modMailThread(
+            client.post(
+                "/api/mod/conversations/$id",
+                mapOf("body" to markdown, "isAuthorHidden" to "false", "isInternal" to internal.toString()),
+            ),
+        )
+
+    suspend fun setModMailArchived(id: String, archived: Boolean) {
+        client.post("/api/mod/conversations/$id/${if (archived) "archive" else "unarchive"}", emptyMap())
+    }
+
+    /** The user flairs [subreddit] lets you pick (needs a login); empty if it allows none. */
+    suspend fun userFlairs(subreddit: String): List<LinkFlair> = Parser.linkFlairs(client.get("/r/$subreddit/api/user_flair_v2"))
+
+    /** Sets your flair in [subreddit] to [flair]; null clears it. */
+    suspend fun setUserFlair(subreddit: String, me: String, flair: LinkFlair?) {
+        Parser.checkErrors(
+            client.post(
+                "/r/$subreddit/api/selectflair",
+                mapOf("api_type" to "json", "name" to me) + (flair?.let { mapOf("flair_template_id" to it.id.orEmpty(), "text" to it.text) } ?: emptyMap()),
+            ),
+        )
+    }
+
+    suspend fun multis(): List<Multi> = Parser.multis(client.get("/api/multi/mine"))
+
+    /** Adds [subreddit] to the custom feed at [multiPath] ("user/bob/m/news"). */
+    suspend fun addToMulti(multiPath: String, subreddit: String) {
+        client.put("/api/multi/${multiPath.trim('/')}/r/$subreddit", mapOf("model" to """{"name":"$subreddit"}"""))
+    }
+
+    suspend fun removeFromMulti(multiPath: String, subreddit: String) {
+        client.delete("/api/multi/${multiPath.trim('/')}/r/$subreddit")
+    }
+
+    /**
+     * Creates an empty private custom feed for [user] called [displayName] and returns its path
+     * ("user/bob/m/my_feed"). Reddit answers 409 when that URL name is taken.
+     */
+    suspend fun createMulti(user: String, displayName: String): String {
+        val path = "user/$user/m/${multiName(displayName)}"
+        client.post("/api/multi/$path", mapOf("model" to multiModel(displayName.trim(), emptyList(), "private")))
+        return path
+    }
+
+    /** Renames the custom feed at [multiPath]; only its display name changes, its URL stays. */
+    suspend fun renameMulti(multiPath: String, displayName: String) {
+        client.put("/api/multi/${multiPath.trim('/')}", mapOf("model" to multiModel(displayName = displayName.trim())))
+    }
+
+    suspend fun deleteMulti(multiPath: String) {
+        client.delete("/api/multi/${multiPath.trim('/')}")
+    }
 
     // --- Writing ---
 
@@ -226,6 +359,8 @@ class RedditApi(private val client: RedditClient) {
         body: String,
         nsfw: Boolean,
         spoiler: Boolean,
+        sendReplies: Boolean = true,
+        flair: LinkFlair? = null,
     ): String = Parser.submittedId(
         client.post(
             "/api/submit",
@@ -237,11 +372,46 @@ class RedditApi(private val client: RedditClient) {
                 (if (isLink) "url" else "text") to body,
                 "nsfw" to nsfw.toString(),
                 "spoiler" to spoiler.toString(),
-                "sendreplies" to "true",
+                "sendreplies" to sendReplies.toString(),
                 "resubmit" to "true",
-            ),
+            ) + (flair?.id?.let { mapOf("flair_id" to it, "flair_text" to flair.text) } ?: emptyMap()),
         ),
     )
+
+    /**
+     * A photo post: uploads [bytes], then submits it. Reddit answers image posts before they exist (the id arrives
+     * over a websocket), so this looks for the author's newest post afterwards; null if it hasn't shown up yet.
+     */
+    suspend fun submitImage(
+        subreddit: String,
+        title: String,
+        author: String,
+        filename: String,
+        mime: String,
+        bytes: ByteArray,
+        nsfw: Boolean,
+        spoiler: Boolean,
+        sendReplies: Boolean = true,
+        flair: LinkFlair? = null,
+    ): String? {
+        val url = client.uploadImage(filename, mime, bytes)
+        val root = client.post(
+            "/api/submit",
+            mapOf(
+                "api_type" to "json", "sr" to subreddit, "kind" to "image", "title" to title, "url" to url,
+                "nsfw" to nsfw.toString(), "spoiler" to spoiler.toString(), "sendreplies" to sendReplies.toString(),
+                "resubmit" to "true",
+            ) + (flair?.id?.let { mapOf("flair_id" to it, "flair_text" to flair.text) } ?: emptyMap()),
+        )
+        runCatching { Parser.submittedId(root) }.getOrNull()?.let { return it }
+        Parser.checkErrors(root)
+        repeat(4) {
+            kotlinx.coroutines.delay(2000)
+            val latest = (userContent(author, UserWhere.SUBMITTED, UserSort.NEW, null).items.firstOrNull() as? ProfileItem.PostItem)?.post
+            if (latest != null && latest.title == title) return latest.id
+        }
+        return null
+    }
 
     suspend fun sendMessage(to: String, subject: String, markdown: String) {
         Parser.checkErrors(

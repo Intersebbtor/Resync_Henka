@@ -1,6 +1,8 @@
 package io.github.radixtrator.resync.ui.navigation
 
 import androidx.navigation3.runtime.NavKey
+import io.github.radixtrator.resync.data.FilterType
+import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.UserWhere
 import kotlinx.serialization.Serializable
 
@@ -12,6 +14,18 @@ data object LoginRoute : NavKey
 
 @Serializable
 data object SettingsRoute : NavKey
+
+/** Sync's Theme management (Settings › Appearance): previews, saved themes, share and load. */
+@Serializable
+data object ThemeManagementRoute : NavKey
+
+/** Sync's Customize view ("View type" settings), opened on [layout]'s options. */
+@Serializable
+data class CustomizeViewRoute(val layout: PostLayout = PostLayout.CARD) : NavKey
+
+/** Sync's FilterActivity: one list editor per filter [type] (Settings › Filters). */
+@Serializable
+data class FilterEditorRoute(val type: FilterType) : NavKey
 
 /**
  * [home] screens are the bottom-navigation tabs (Sync's Posts and Inbox): they show the account
@@ -43,6 +57,22 @@ data class UserRoute(val name: String, val tab: UserWhere = UserWhere.OVERVIEW) 
 /** [communities] opens on the Communities tab (Explore's "Search all subs"). */
 @Serializable
 data class SearchRoute(val query: String = "", val subreddit: String? = null, val communities: Boolean = false) : NavKey
+
+/** Sync's Swipe mode over [subreddit]'s feed (null = front page). */
+@Serializable
+data class SwipeModeRoute(val subreddit: String? = null) : NavKey
+
+/** Sync's Moderator screen for [subreddit]: modqueue, reports, spam, edited, unmoderated and comments. */
+@Serializable
+data class ModRoute(val subreddit: String) : NavKey
+
+/** New-style mod mail; [subreddit] opens it narrowed to that community (null = every community you moderate). */
+@Serializable
+data class ModMailRoute(val subreddit: String? = null) : NavKey
+
+/** One mod mail conversation, by Reddit's conversation [id]. */
+@Serializable
+data class ModMailConversationRoute(val id: String) : NavKey
 
 @Serializable
 data class SubmitRoute(val subreddit: String? = null) : NavKey

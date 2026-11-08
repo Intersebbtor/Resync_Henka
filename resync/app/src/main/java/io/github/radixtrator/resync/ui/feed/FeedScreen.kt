@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -94,9 +97,11 @@ import io.github.radixtrator.resync.ui.common.visiblePosts
 import io.github.radixtrator.resync.ui.home.HomeTab
 import io.github.radixtrator.resync.ui.home.ShellScaffold
 import io.github.radixtrator.resync.ui.home.quickActions
+import io.github.radixtrator.resync.ui.navigation.CustomizeViewRoute
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
+import io.github.radixtrator.resync.ui.navigation.LocalVisited
 import io.github.radixtrator.resync.ui.navigation.PostRoute
 import io.github.radixtrator.resync.ui.theme.ResyncColors
 import kotlinx.coroutines.launch
@@ -116,7 +121,8 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     // Each feed keeps its own view; a domain's is kept apart from the front page's.
     val layoutFeed = route.domain?.let { "domain:$it" } ?: subreddit
     val layout = settings.layoutFor(layoutFeed)
-    val columns = layout.columns(LocalConfiguration.current.screenWidthDp)
+    // Customize view's Columns choice for this layout, else as many as the width fits.
+    val columns = layout.columns(LocalConfiguration.current.screenWidthDp, settings.viewOptionsFor(layout).columns)
     val scope = rememberCoroutineScope()
     var sortOpen by rememberSaveable { mutableStateOf(false) }
     var viewOpen by rememberSaveable { mutableStateOf(false) }
@@ -130,9 +136,30 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     val toggleWatch = rememberWatchToggle(container) { message -> scope.launch { snackbar.showSnackbar(message) } }
     val callbacks = remember(vm) { vm.postCallbacks() }
     val filters by container.filters.filters.collectAsStateWithLifecycle()
+    // Read posts are judged as of when the feed opened, so a post doesn't vanish the moment you come back from it.
+    val visitedNow = LocalVisited.current
+    val readAtOpen = remember(vm) { visitedNow }
+    val hideRead = settings.hideRead
     val posts = state.items.visiblePosts { (it as? ProfileItem.PostItem)?.post }.let { items ->
-        remember(items, filters) {
-            if (filters.isEmpty) items else items.filterNot { (it as? ProfileItem.PostItem)?.post?.let { post -> filters.hides(post, subreddit) } == true }
+        remember(items, filters, hideRead) {
+            if (filters.isEmpty && !hideRead) {
+                items
+            } else {
+                items.filterNot {
+                    (it as? ProfileItem.PostItem)?.post?.let { post -> filters.hides(post, subreddit) || (hideRead && post.id in readAtOpen) } == true
+                }
+            }
+        }
+    }
+    // History › "Mark posts as read on scroll": posts above the first visible item (after the header, grid item 0)
+    // count as read. Hide read still judges by what was read when the feed opened, so nothing jumps.
+    if (settings.markReadOnScroll) {
+        LaunchedEffect(gridState, posts) {
+            snapshotFlow { gridState.firstVisibleItemIndex }.collect { first ->
+                posts.take((first - 1).coerceAtLeast(0)).forEach { item ->
+                    (item as? ProfileItem.PostItem)?.post?.let { container.visited.mark(it.id) }
+                }
+            }
         }
     }
     val title = route.domain ?: Format.feedName(subreddit)
@@ -159,6 +186,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
                 subreddit = subreddit.takeIf { vm.isCommunity },
                 onAbout = if (vm.isCommunity) openAbout else null,
                 onChangeView = { viewOpen = true },
+                onScrollToTop = { scope.launch { gridState.scrollToItem(0) } },
             ),
             onReselectTab = { scope.launch { gridState.animateScrollToItem(0) } },
             actions = { IconButton(onClick = { sortOpen = true }) { Icon(AppIcons.Sort, "Sort") } },
@@ -358,7 +386,7 @@ fun CommentCard(comment: UserComment, onOpen: () -> Unit) {
  * to step back out, as Sync does.
  */
 @Composable
-private fun SortSheet(current: Sort, options: List<SortKind>, onDismiss: () -> Unit, onPick: (Sort) -> Unit) {
+internal fun SortSheet(current: Sort, options: List<SortKind>, onDismiss: () -> Unit, onPick: (Sort) -> Unit) {
     var timedKind by remember { mutableStateOf<SortKind?>(null) }
     fun pick(sort: Sort) {
         onDismiss()
@@ -394,9 +422,13 @@ private fun SortSheet(current: Sort, options: List<SortKind>, onDismiss: () -> U
     }
 }
 
-/** Sync's Change view: picks this feed's layout (other feeds keep theirs). */
+/**
+ * Sync's Change view: picks this feed's layout (other feeds keep theirs). Cancel | Customize view sit under the
+ * rows; Customize view opens the View type screen on the current layout.
+ */
 @Composable
 private fun ChangeViewSheet(container: AppContainer, subreddit: String?, current: PostLayout, onDismiss: () -> Unit) {
+    val nav = LocalNavigator.current
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, dragHandle = { SheetHandle() }) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
             SheetTitle("Change view", topPadding = 0.dp)
@@ -411,8 +443,18 @@ private fun ChangeViewSheet(container: AppContainer, subreddit: String?, current
                     radio = layout == current,
                 )
             }
-            OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text("Cancel")
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("Cancel") }
+                FilledTonalButton(
+                    onClick = {
+                        onDismiss()
+                        nav.push(CustomizeViewRoute(current))
+                    },
+                    modifier = Modifier.weight(1f),
+                ) { Text("Customize view") }
             }
         }
     }

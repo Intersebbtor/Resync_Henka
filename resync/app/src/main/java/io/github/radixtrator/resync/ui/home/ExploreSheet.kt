@@ -31,6 +31,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
@@ -83,13 +84,19 @@ import coil3.compose.AsyncImage
 import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.data.ExploreSection
 import io.github.radixtrator.resync.data.ExploreState
+import io.github.radixtrator.resync.data.Multi
 import io.github.radixtrator.resync.data.Recent
+import io.github.radixtrator.resync.data.RedditException
 import io.github.radixtrator.resync.data.Subreddit
+import io.github.radixtrator.resync.data.multiName
 import io.github.radixtrator.resync.ui.common.AppIcons
 import io.github.radixtrator.resync.ui.common.Format
 import io.github.radixtrator.resync.ui.common.SheetHandle
 import io.github.radixtrator.resync.ui.feed.AboutAction
 import io.github.radixtrator.resync.ui.feed.CommunityActionSheet
+import io.github.radixtrator.resync.ui.feed.DeleteMultiDialog
+import io.github.radixtrator.resync.ui.feed.ManageMultiSheet
+import io.github.radixtrator.resync.ui.feed.MultiNameDialog
 import io.github.radixtrator.resync.ui.feed.SubredditInfoSheet
 import io.github.radixtrator.resync.ui.feed.rememberWatchToggle
 import io.github.radixtrator.resync.ui.feed.runAboutAction
@@ -159,6 +166,7 @@ fun ExploreSheet(
         state = explore,
         subscribed = subscriptions,
         onToggleFavorite = container.explore::toggleFavorite,
+        onMoveFavorite = container.explore::moveFavorite,
         onSetDefault = container.explore::setDefault,
         onAbout = { aboutFor = it },
         onUnsubscribe = { name ->
@@ -168,6 +176,42 @@ fun ExploreSheet(
             }
         },
         onResetVisits = container.explore::resetVisits,
+    )
+
+    // Your multireddits; each opens as the "a+b+c" feed of its communities (an empty one opens Manage communities).
+    // Empty when logged out or on error; bumping feedsVersion reloads them after an edit.
+    val me by container.username.collectAsStateWithLifecycle()
+    var customFeeds by remember { mutableStateOf(emptyList<Multi>()) }
+    var feedsVersion by remember { mutableStateOf(0) }
+    LaunchedEffect(feedsVersion, me) {
+        customFeeds = runCatching { container.api.multis() }
+            .onFailure { if (it is CancellationException) throw it }
+            .getOrDefault(if (feedsVersion == 0) emptyList() else customFeeds)
+            .distinctBy { it.path.lowercase() }
+    }
+    val context = LocalContext.current
+    var creatingFeed by remember { mutableStateOf(false) }
+    var renamingFeed by remember { mutableStateOf<Multi?>(null) }
+    var deletingFeed by remember { mutableStateOf<Multi?>(null) }
+    var managingFeed by remember { mutableStateOf<Multi?>(null) }
+    fun feedEdit(failure: String, block: suspend () -> Unit, onDone: () -> Unit = {}) {
+        scope.launch {
+            runCatching { block() }
+                .onFailure { if (it is CancellationException) throw it }
+                .fold(
+                    onSuccess = { onDone() },
+                    onFailure = { e ->
+                        val why = if ((e as? RedditException)?.code == 409) "that name is taken" else e.message
+                        Toast.makeText(context, "$failure: $why", Toast.LENGTH_SHORT).show()
+                    },
+                )
+            feedsVersion++
+        }
+    }
+    val multiMenu = MultiMenu(
+        onManage = { managingFeed = it },
+        onRename = { renamingFeed = it },
+        onDelete = { deletingFeed = it },
     )
 
     fun LazyListScope.section(section: ExploreSection, names: List<String>, label: (String) -> String = Format::feedName) {
@@ -221,10 +265,23 @@ fun ExploreSheet(
                 else -> {
                     section(ExploreSection.FAVORITES, explore.favorites)
                     section(ExploreSection.FEEDS, listOf("", "popular", "all"))
+                    if (ExploreSection.CUSTOM_FEEDS !in explore.hidden && (customFeeds.isNotEmpty() || me != null)) {
+                        group(ExploreSection.CUSTOM_FEEDS.header, folds) {
+                            items(customFeeds, key = { "${ExploreSection.CUSTOM_FEEDS.name}:${it.path}" }) { multi ->
+                                MultiRow(multi, multi.feedName.isNotEmpty() && explore.isDefault(multi.feedName), rowMenu, multiMenu) {
+                                    if (multi.subreddits.isEmpty()) managingFeed = multi else onOpenFeed(multi.feedName)
+                                }
+                            }
+                            if (me != null) item(key = "new-custom-feed") { ActionRow("New custom feed", Icons.Default.Add) { creatingFeed = true } }
+                        }
+                    }
                     section(
                         ExploreSection.SUBSCRIPTIONS,
-                        if (explore.duplicateFavorites) subscriptions else subscriptions.filterNot(explore::isFavorite),
+                        (if (explore.duplicateFavorites) subscriptions else subscriptions.filterNot(explore::isFavorite))
+                            .filterNot { it.startsWith("u_", ignoreCase = true) },
                     )
+                    // Followed users are "u_name" profile communities in your subscriptions.
+                    section(ExploreSection.FOLLOWS, subscriptions.filter { it.startsWith("u_", ignoreCase = true) }) { "u/" + it.drop(2) }
                     section(ExploreSection.MODERATED, moderated)
                     val visited = explore.mostVisited()
                     section(ExploreSection.MOST_VISITED, visited.map { it.name }) { name ->
@@ -235,7 +292,50 @@ fun ExploreSheet(
         }
     }
 
-    val context = LocalContext.current
+    if (creatingFeed) {
+        MultiNameDialog(
+            title = "New custom feed",
+            initial = "",
+            confirm = "Create",
+            onConfirm = { name ->
+                creatingFeed = false
+                val user = me ?: return@MultiNameDialog
+                feedEdit("Couldn't create $name", { container.api.createMulti(user, name) }) {
+                    // Straight into Manage communities, since an empty feed has nothing to show.
+                    managingFeed = Multi(name, "user/$user/m/${multiName(name)}", emptyList())
+                }
+            },
+            onDismiss = { creatingFeed = false },
+        )
+    }
+    renamingFeed?.let { multi ->
+        MultiNameDialog(
+            title = "Rename custom feed",
+            initial = multi.name,
+            confirm = "Rename",
+            onConfirm = { name ->
+                renamingFeed = null
+                feedEdit("Couldn't rename ${multi.name}", { container.api.renameMulti(multi.path, name) })
+            },
+            onDismiss = { renamingFeed = null },
+        )
+    }
+    deletingFeed?.let { multi ->
+        DeleteMultiDialog(
+            multi,
+            onConfirm = {
+                deletingFeed = null
+                feedEdit("Couldn't delete ${multi.name}", { container.api.deleteMulti(multi.path) }) {
+                    Toast.makeText(context, "Deleted ${multi.name}", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onDismiss = { deletingFeed = null },
+        )
+    }
+    managingFeed?.let { multi ->
+        ManageMultiSheet(container, multi, onChanged = { feedsVersion++ }, onDismiss = { managingFeed = null })
+    }
+
     val watched by container.watch.watched.collectAsStateWithLifecycle()
     val toggleWatch = rememberWatchToggle(container) { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() }
     var aboutSheet by remember { mutableStateOf<Pair<String, AboutAction>?>(null) }
@@ -367,11 +467,66 @@ private class RowMenu(
     val state: ExploreState,
     val subscribed: List<String>,
     val onToggleFavorite: (String) -> Unit,
+    val onMoveFavorite: (String, Int) -> Unit,
     val onSetDefault: (String) -> Unit,
     val onAbout: (String) -> Unit,
     val onUnsubscribe: (String) -> Unit,
     val onResetVisits: (String) -> Unit,
 )
+
+/** What a custom feed row's ⋮ adds to the usual feed options. */
+private class MultiMenu(
+    val onManage: (Multi) -> Unit,
+    val onRename: (Multi) -> Unit,
+    val onDelete: (Multi) -> Unit,
+)
+
+/**
+ * A custom feed (multireddit) row in Explore. Its ⋮ has Favorite and Set as default for the "a+b" feed
+ * (once it has communities), then Manage communities, Rename and Delete.
+ */
+@Composable
+private fun MultiRow(multi: Multi, isDefault: Boolean, menu: RowMenu, multiMenu: MultiMenu, onClick: () -> Unit) {
+    var menuOpen by remember { mutableStateOf(false) }
+    val feed = multi.feedName
+    Row(
+        Modifier.fillMaxWidth().height(ROW_HEIGHT).clickable(onClick = onClick).padding(start = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FeedIcon(multi.name, null)
+        Spacer(Modifier.width(16.dp))
+        Text(
+            multi.name,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (isDefault) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        val note = when {
+            isDefault -> "Default"
+            multi.subreddits.isEmpty() -> "Empty"
+            else -> null
+        }
+        note?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp)) }
+        Box {
+            RowMenuButton("Options for ${multi.name}") { menuOpen = true }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                val pick = { action: () -> Unit -> menuOpen = false; action() }
+                if (feed.isNotEmpty()) {
+                    DropdownMenuItem(
+                        text = { Text(if (menu.state.isFavorite(feed)) "Unfavorite" else "Favorite") },
+                        onClick = { pick { menu.onToggleFavorite(feed) } },
+                    )
+                    if (!menu.state.isDefault(feed)) DropdownMenuItem(text = { Text("Set as default") }, onClick = { pick { menu.onSetDefault(feed) } })
+                }
+                DropdownMenuItem(text = { Text("Manage communities") }, onClick = { pick { multiMenu.onManage(multi) } })
+                DropdownMenuItem(text = { Text("Rename") }, onClick = { pick { multiMenu.onRename(multi) } })
+                DropdownMenuItem(text = { Text("Delete") }, onClick = { pick { multiMenu.onDelete(multi) } })
+            }
+        }
+    }
+}
 
 /**
  * A feed or community row: icon, name, optional "Default" tag or count, and Sync's ⋮ menu.
@@ -416,6 +571,10 @@ private fun FeedRow(
                     text = { Text(if (menu.state.isFavorite(name)) "Unfavorite" else "Favorite") },
                     onClick = { pick { menu.onToggleFavorite(name) } },
                 )
+                if (section == ExploreSection.FAVORITES) {
+                    DropdownMenuItem(text = { Text("Move up") }, onClick = { pick { menu.onMoveFavorite(name, -1) } })
+                    DropdownMenuItem(text = { Text("Move down") }, onClick = { pick { menu.onMoveFavorite(name, 1) } })
+                }
                 if (!menu.state.isDefault(name)) DropdownMenuItem(text = { Text("Set as default") }, onClick = { pick { menu.onSetDefault(name) } })
                 if (isCommunity) DropdownMenuItem(text = { Text("About") }, onClick = { pick { menu.onAbout(name) } })
                 if (isCommunity && menu.subscribed.any { it.equals(name, ignoreCase = true) }) {
@@ -467,9 +626,12 @@ private fun QueryRow(recent: Recent, iconUrl: String?, onClick: () -> Unit) {
     }
 }
 
-/** The front page gets Sync's white house on Reddit orange, Popular and All glyphs, communities their icon or a lettered circle. */
+/**
+ * The front page gets Sync's white house on Reddit orange, Popular and All glyphs, communities their icon or a lettered circle.
+ * Also used by the navigation drawer's feed rows (HomeChrome.kt).
+ */
 @Composable
-private fun FeedIcon(name: String, iconUrl: String?) {
+internal fun FeedIcon(name: String, iconUrl: String?) {
     if (name.isEmpty()) {
         Box(Modifier.size(32.dp).clip(CircleShape).background(FrontpageOrange), contentAlignment = Alignment.Center) {
             Icon(Icons.Outlined.Home, null, tint = Color.White, modifier = Modifier.size(20.dp))

@@ -7,13 +7,17 @@ import io.github.radixtrator.resync.data.AccountStore
 import io.github.radixtrator.resync.data.ApiConfig
 import io.github.radixtrator.resync.data.ApiConfigStore
 import io.github.radixtrator.resync.data.AvatarCache
+import io.github.radixtrator.resync.data.Backup
+import io.github.radixtrator.resync.data.BackupDocument
 import io.github.radixtrator.resync.data.Comment
+import io.github.radixtrator.resync.data.DraftStore
 import io.github.radixtrator.resync.data.ExploreStore
 import io.github.radixtrator.resync.data.FilterStore
 import io.github.radixtrator.resync.data.MediaDownloads
 import io.github.radixtrator.resync.data.NotifiedMessages
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostMemoryStore
+import io.github.radixtrator.resync.data.RecentPostsStore
 import io.github.radixtrator.resync.data.RedditApi
 import io.github.radixtrator.resync.data.RedditClient
 import io.github.radixtrator.resync.data.ReportReason
@@ -54,6 +58,8 @@ class AppContainer(context: Context) {
     val notifiedMessages = NotifiedMessages(prefs)
     val tags = UserTags(prefs)
     val filters = FilterStore(prefs)
+    val recentPosts = RecentPostsStore(prefs)
+    val drafts = DraftStore(prefs)
     val readAloud = ReadAloud(context)
     private val appContext = context.applicationContext
     private val accountStore = AccountStore(prefs)
@@ -78,6 +84,10 @@ class AppContainer(context: Context) {
     private val _subscriptions = MutableStateFlow<List<String>>(emptyList())
     /** The active account's subscriptions, shared by every feed and the Explore sheet. */
     val subscriptions: StateFlow<List<String>> = _subscriptions.asStateFlow()
+
+    private val _nsfwSubscriptions = MutableStateFlow<List<String>>(emptyList())
+    /** The subscriptions Reddit marks NSFW, for More actions › Random nsfw. */
+    val nsfwSubscriptions: StateFlow<List<String>> = _nsfwSubscriptions.asStateFlow()
 
     private val _moderated = MutableStateFlow<List<String>>(emptyList())
     val moderated: StateFlow<List<String>> = _moderated.asStateFlow()
@@ -117,6 +127,15 @@ class AppContainer(context: Context) {
         watch.unwatchPost(id)
         WatchWorker.schedule(appContext, !watch.isEmpty)
     }
+
+    /** Settings › Backup now: the backed-up preferences as a JSON document (never account tokens). */
+    fun exportBackup(): String = Backup.export(prefs)
+
+    /**
+     * Settings › Restore from backup. The stores keep what they loaded in memory, so the caller must restart the
+     * app straight away. Returns whether accounts were signed out (a restored API setup with a new client ID).
+     */
+    fun restoreBackup(doc: BackupDocument, includeApiConfig: Boolean): Boolean = Backup.restore(prefs, doc, includeApiConfig)
 
     fun emit(event: ContentEvent) {
         _events.tryEmit(event)
@@ -165,6 +184,7 @@ class AppContainer(context: Context) {
         val user = _username.value
         if (user == null) {
             _subscriptions.value = emptyList()
+            _nsfwSubscriptions.value = emptyList()
             _moderated.value = emptyList()
             subscriptionsLoadedFor = null
             return
@@ -173,6 +193,7 @@ class AppContainer(context: Context) {
         runCatching { api.subscriptions() }.onSuccess { subs ->
             subscriptionsLoadedFor = user // only once it worked, so a failure retries next time
             _subscriptions.value = subs.map { it.name }
+            _nsfwSubscriptions.value = subs.filter { it.over18 }.map { it.name }
             _subredditIcons.value += subs.iconsByName()
         }
         runCatching { api.moderated() }.onSuccess { subs ->
@@ -205,6 +226,7 @@ class AppContainer(context: Context) {
         _inboxCount.value = 0
         _avatar.value = null
         _subscriptions.value = emptyList()
+        _nsfwSubscriptions.value = emptyList()
         _moderated.value = emptyList()
         subscriptionsLoadedFor = null
     }

@@ -16,6 +16,7 @@ import io.github.radixtrator.resync.ui.common.likesFor
 import io.github.radixtrator.resync.ui.common.voteValue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -40,13 +41,20 @@ class PostViewModel(
         val error: String? = null,
         val message: String? = null,
         val postDeleted: Boolean = false,
+        /** Sports mode: comments reload by themselves every [sportsRefreshSeconds]. */
+        val sportsMode: Boolean = false,
     )
+
+    companion object {
+        private const val AUTOMOD = "AutoModerator"
+    }
 
     private val _state = MutableStateFlow(State(sort = container.settings.settings.value.commentSort))
     val state = _state.asStateFlow()
 
     private val memoryKey = PostMemoryStore.key(postId, focusCommentId)
-    private val remembering get() = container.settings.settings.value.rememberCommentPosition
+    private val settings get() = container.settings.settings.value
+    private val remembering get() = settings.rememberCommentPosition
 
     /** Where the user left this page last time, to restore once comments load. */
     val savedPosition: PostMemory? = container.postMemory[memoryKey]?.takeIf { remembering }
@@ -61,30 +69,68 @@ class PostViewModel(
         viewModelScope.launch { container.events.collect(::onEvent) }
     }
 
-    fun load(refresh: Boolean) {
+    /** [quiet]: a background refresh (sports mode) that shows no spinner and keeps quiet about failures. */
+    fun load(refresh: Boolean, quiet: Boolean = false) {
         loadJob?.cancel()
-        _state.update { it.copy(loading = !refresh, refreshing = refresh, error = null) }
+        _state.update { it.copy(loading = !refresh, refreshing = refresh && !quiet, error = if (quiet) it.error else null) }
         loadJob = viewModelScope.launch {
             try {
-                val result = container.api.comments(postId, _state.value.sort, focusCommentId, context)
+                val result = container.api.comments(postId, _state.value.sort, focusCommentId, context, settings.commentCount.limit)
+                val comments = shown(result.comments)
                 _state.update {
-                    // Keep folds across refreshes, and restore last visit's on first load.
-                    val folded = if (it.post == null) savedPosition?.collapsed.orEmpty() else it.collapsed
-                    val ids = result.comments.mapTo(HashSet()) { node -> node.id }
+                    // Keep folds across refreshes, and restore last visit's on first load. With no last visit,
+                    // "Collapse all threads by default" folds every top-level thread (not on single-thread pages).
+                    val folded = when {
+                        it.post != null -> it.collapsed
+                        savedPosition != null -> savedPosition.collapsed
+                        settings.collapseAllByDefault && focusCommentId == null -> topLevelIds(comments)
+                        else -> emptySet()
+                    }
+                    val ids = comments.mapTo(HashSet()) { node -> node.id }
                     it.copy(
                         post = result.post,
-                        comments = result.comments,
+                        comments = comments,
                         collapsed = folded.filterTo(HashSet()) { id -> id in ids },
                         loading = false,
                         refreshing = false,
                     )
                 }
                 if (_subredditIcon.value == null) loadSubredditIcon(result.post.subreddit)
-                loadAvatars(result.comments)
+                loadAvatars(comments)
+                container.recentPosts.record(result.post)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _state.update { it.copy(loading = false, refreshing = false, error = e.message ?: "Something went wrong") }
+                if (quiet) {
+                    _state.update { it.copy(loading = false, refreshing = false) }
+                } else {
+                    _state.update { it.copy(loading = false, refreshing = false, error = e.message ?: "Something went wrong") }
+                }
+            }
+        }
+    }
+
+    private var sportsJob: Job? = null
+
+    /** Sync's "Live comments refresh rate": sports mode's interval, read afresh for every wait. */
+    val sportsRefreshSeconds: Int get() = settings.liveRefresh.seconds
+
+    /**
+     * Sync's "Sports mode" (live threads): sort by New and reload the comments every [sportsRefreshSeconds]
+     * until it's turned off. Rows are keyed by comment id, so the list stays on what the user was reading.
+     */
+    fun setSportsMode(on: Boolean) {
+        if (on == _state.value.sportsMode) return
+        sportsJob?.cancel()
+        sportsJob = null
+        _state.update { it.copy(sportsMode = on) }
+        if (!on) return
+        if (_state.value.sort != CommentSort.NEW) setSort(CommentSort.NEW)
+        sportsJob = viewModelScope.launch {
+            while (true) {
+                delay(sportsRefreshSeconds * 1000L)
+                // Don't cut off a load the user started (pull to refresh, a sort change).
+                if (loadJob?.isActive != true) load(refresh = true, quiet = true)
             }
         }
     }
@@ -134,8 +180,34 @@ class PostViewModel(
 
     /** Sync's "Collapse all": fold every top-level thread down to its first comment. */
     fun collapseAll() {
-        _state.update { s -> s.copy(collapsed = s.comments.filter { it is Comment && it.depth == 0 }.mapTo(HashSet()) { it.id }) }
+        _state.update { s -> s.copy(collapsed = topLevelIds(s.comments)) }
         rememberFolds()
+    }
+
+    private fun topLevelIds(nodes: List<CommentNode>): Set<String> =
+        nodes.filter { it is Comment && it.depth == 0 }.mapTo(HashSet()) { it.id }
+
+    /**
+     * The comments as the Comments settings want them: "Hide AutoMod comments" drops AutoModerator's comments with
+     * everything under them, and "Show user flair" off drops authors' flair.
+     */
+    private fun shown(nodes: List<CommentNode>): List<CommentNode> {
+        val s = settings
+        if (!s.hideAutoMod && s.commentFlair) return nodes
+        val out = ArrayList<CommentNode>(nodes.size)
+        var skipBelow = -1 // depth of a hidden bot comment whose replies are being skipped
+        for (node in nodes) {
+            if (skipBelow >= 0) {
+                if (node.depth > skipBelow) continue
+                skipBelow = -1
+            }
+            if (s.hideAutoMod && node is Comment && node.author.equals(AUTOMOD, ignoreCase = true)) {
+                skipBelow = node.depth
+                continue
+            }
+            out += if (!s.commentFlair && node is Comment && node.flair != null) node.copy(flair = null) else node
+        }
+        return out
     }
 
     private fun rememberFolds() {
@@ -167,7 +239,7 @@ class PostViewModel(
                 loadAvatars(loaded)
                 _state.update {
                     it.copy(
-                        comments = CommentTree.splice(it.comments, more, loaded, remaining = more.children.drop(100)),
+                        comments = shown(CommentTree.splice(it.comments, more, loaded, remaining = more.children.drop(100))),
                         loadingMore = it.loadingMore - more.id,
                     )
                 }

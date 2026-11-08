@@ -2,6 +2,7 @@ package io.github.radixtrator.resync.ui.media
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.view.TextureView
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -61,15 +64,16 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
-import androidx.media3.ui.PlayerView
 import io.github.radixtrator.resync.data.MediaDownloads
 import io.github.radixtrator.resync.data.VideoQuality
 import io.github.radixtrator.resync.ui.common.AppIcons
 import io.github.radixtrator.resync.ui.common.DismissibleMedia
+import io.github.radixtrator.resync.ui.common.dataSavingActive
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import kotlinx.coroutines.delay
@@ -98,13 +102,21 @@ fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: Me
     val adaptive = url.contains(".m3u8")
     var error by remember { mutableStateOf<String?>(null) }
     var muted by rememberSaveable { mutableStateOf(settings.muteVideos || loop) }
-    var hd by rememberSaveable { mutableStateOf(startInHd(context, settings.hdVideo)) }
+    // Data saving keeps videos in SD whatever "HD Reddit video quality" says; the HD button still switches.
+    val savingData = dataSavingActive()
+    var hd by rememberSaveable { mutableStateOf(!savingData && startInHd(context, settings.hdVideo)) }
     var speed by rememberSaveable { mutableFloatStateOf(1f) }
     var controls by rememberSaveable { mutableStateOf(!loop) }
     var panelOpen by rememberSaveable { mutableStateOf(false) }
     var playing by remember { mutableStateOf(true) }
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
+    var buffering by remember { mutableStateOf(false) }
+    // Width / height of the picture, once known; the TextureView is sized to it (PlayerView's job before).
+    var aspect by remember { mutableFloatStateOf(0f) }
+    // Pinch to zoom and pan the video like an image. Swipe-to-dismiss is off while zoomed, as in the image viewer.
+    var zoomed by remember { mutableStateOf(false) }
+    val zoom = remember { ZoomState { zoomed = it } }
     val download = rememberDownloader(downloads)
 
     // Hardware decoders occasionally die mid-stream (Media3's own fallback only covers ones that
@@ -127,7 +139,13 @@ fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: Me
         }
     }
     DisposableEffect(player) {
+        fun updateAspect(size: VideoSize) {
+            if (size.width > 0 && size.height > 0) aspect = size.width * size.pixelWidthHeightRatio / size.height
+        }
+        updateAspect(player.videoSize)
         val listener = object : Player.Listener {
+            override fun onVideoSizeChanged(videoSize: VideoSize) = updateAspect(videoSize)
+
             override fun onPlayerError(e: PlaybackException) {
                 if (e.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED && !softwareFirst) {
                     softwareFirst = true
@@ -158,6 +176,7 @@ fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: Me
             playing = player.playWhenReady && player.playbackState != Player.STATE_ENDED
             position = player.currentPosition
             duration = player.duration.coerceAtLeast(0L)
+            buffering = player.playWhenReady && player.playbackState == Player.STATE_BUFFERING
             delay(200)
         }
     }
@@ -165,30 +184,37 @@ fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: Me
 
     DismissibleMedia(
         onDismiss = onClose,
-        enabled = !panelOpen,
+        enabled = !panelOpen && !zoomed,
+        dismissOnDrag = settings.swipeToClose,
         onSwipeUp = {
             controls = true
             panelOpen = true
         },
     ) {
         Box(Modifier.fillMaxSize()) {
-            AndroidView(
-                factory = { ctx ->
-                    PlayerView(ctx).apply {
-                        useController = false
-                        setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
-                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                    }
-                },
-                update = { it.player = player }, // replaced when retrying with software decoders
-                modifier = Modifier.fillMaxSize(),
-            )
+            // A TextureView rather than PlayerView's default SurfaceView: a SurfaceView ignores Compose's
+            // graphicsLayer, so it couldn't be zoomed.
+            Box(Modifier.fillMaxSize().zoomTransform(zoom), contentAlignment = Alignment.Center) {
+                AndroidView(
+                    factory = { ctx -> TextureView(ctx) },
+                    // Attached once per player (re-attaching would rebuild the surface); the player is
+                    // replaced when retrying with software decoders.
+                    update = { view ->
+                        if (view.tag !== player) {
+                            view.tag = player
+                            player.setVideoTextureView(view)
+                        }
+                    },
+                    modifier = if (aspect > 0f) Modifier.aspectRatio(aspect) else Modifier.fillMaxSize(),
+                )
+            }
+            if (buffering && error == null) {
+                CircularProgressIndicator(color = Color.White, modifier = Modifier.align(Alignment.Center))
+            }
             Box(
                 Modifier
                     .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTapGestures(onTap = { if (panelOpen) panelOpen = false else controls = !controls })
-                    },
+                    .zoomGestures(zoom, onTap = { if (panelOpen) panelOpen = false else controls = !controls }),
             )
             error?.let { message ->
                 Column(
@@ -214,10 +240,12 @@ fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: Me
                         .fillMaxWidth()
                         .background(if (panelOpen) MediaPanelColor else Color.Transparent),
                 ) {
-                    SeekBar(
-                        fraction = if (duration > 0) position.toFloat() / duration else 0f,
-                        onSeek = { player.seekTo((it * duration).toLong()) },
-                    )
+                    if (settings.videoSeekBar) {
+                        SeekBar(
+                            fraction = if (duration > 0) position.toFloat() / duration else 0f,
+                            onSeek = { player.seekTo((it * duration).toLong()) },
+                        )
+                    }
                     // Sync packs the playback buttons 38dp apart from the left edge.
                     Row(Modifier.fillMaxWidth().padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (adaptive) HdToggle(hd, onToggle = { hd = !hd })
@@ -245,7 +273,7 @@ fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: Me
                         }
                     }
                     if (panelOpen) {
-                        SpeedControl(speed, onChange = { speed = it })
+                        if (settings.videoSpeedControls) SpeedControl(speed, onChange = { speed = it })
                         MediaLinkInfo(url, emptyList())
                         MediaActionBar(url, postId)
                     } else {

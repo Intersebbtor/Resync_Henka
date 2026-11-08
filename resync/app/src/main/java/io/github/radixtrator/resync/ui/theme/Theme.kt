@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.Font
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.em
 import io.github.radixtrator.resync.R
 import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.data.ThemeMode
+import io.github.radixtrator.resync.data.Typeface
 
 // Sync builds its theme from Monet tonal palettes (N1/N2 neutrals, A1–A3 accents). These are the tones
 // Sync showed on the reference device (sync-reference/SYNC_PARITY_LOG.md §1), mapped onto M3 roles the
@@ -118,26 +120,78 @@ private val Roboto = FontFamily(
  */
 private val SYNC_LETTER_SPACING = 0.015.em
 
-/** Material's roles in Roboto, spaced like Sync's text. */
-private val ResyncTypography = Typography().run {
+/** Material's roles in [family], spaced like Sync's text. */
+private fun typographyFor(family: FontFamily) = Typography().run {
     copy(
-        displayLarge = displayLarge.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        displayMedium = displayMedium.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        displaySmall = displaySmall.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        headlineLarge = headlineLarge.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        headlineMedium = headlineMedium.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        headlineSmall = headlineSmall.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        titleLarge = titleLarge.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        titleMedium = titleMedium.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        titleSmall = titleSmall.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        bodyLarge = bodyLarge.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        bodyMedium = bodyMedium.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        bodySmall = bodySmall.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        labelLarge = labelLarge.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        labelMedium = labelMedium.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
-        labelSmall = labelSmall.copy(fontFamily = Roboto, letterSpacing = SYNC_LETTER_SPACING),
+        displayLarge = displayLarge.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        displayMedium = displayMedium.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        displaySmall = displaySmall.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        headlineLarge = headlineLarge.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        headlineMedium = headlineMedium.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        headlineSmall = headlineSmall.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        titleLarge = titleLarge.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        titleMedium = titleMedium.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        titleSmall = titleSmall.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        bodyLarge = bodyLarge.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        bodyMedium = bodyMedium.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        bodySmall = bodySmall.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        labelLarge = labelLarge.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        labelMedium = labelMedium.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
+        labelSmall = labelSmall.copy(fontFamily = family, letterSpacing = SYNC_LETTER_SPACING),
     )
 }
+
+private val Typographies by lazy {
+    mapOf(
+        Typeface.ROBOTO to typographyFor(Roboto),
+        Typeface.SANS to typographyFor(FontFamily.SansSerif),
+        Typeface.SERIF to typographyFor(FontFamily.Serif),
+        Typeface.MONOSPACE to typographyFor(FontFamily.Monospace),
+    )
+}
+
+/**
+ * Tints [base] from a hand-picked [seed], standing in for Monet's tonal palettes: accents take the seed's hue at
+ * the tones Sync uses for each role, neutrals take it at low saturation ([extra]: a lot more of it). [intensity]
+ * is Sync's Color intensity: it scales every saturation, 0 giving greys and 2 twice the usual colour.
+ */
+private fun ColorScheme.tintedBy(seed: Color, dark: Boolean, extra: Boolean, intensity: Float): ColorScheme {
+    val hsv = FloatArray(3)
+    android.graphics.Color.colorToHSV(seed.toArgb(), hsv)
+    val hue = hsv[0]
+    val scale = intensity.coerceIn(0f, Settings.COLOR_INTENSITY_MAX)
+    val sat = (hsv[1].coerceIn(0.25f, 0.9f) * scale).coerceIn(0f, 1f)
+    fun accent(l: Float, s: Float = sat) = Color.hsl(hue, s.coerceIn(0f, 1f), l)
+    val neutralSat = ((if (extra) 0.22f else 0.06f) * scale).coerceIn(0f, 0.5f)
+    fun neutral(l: Float) = Color.hsl(hue, neutralSat, l)
+    return if (dark) {
+        copy(
+            primary = accent(0.75f), onPrimary = accent(0.15f), primaryContainer = accent(0.30f), onPrimaryContainer = accent(0.90f),
+            secondary = accent(0.80f, sat * 0.4f), onSecondary = accent(0.18f, sat * 0.4f),
+            secondaryContainer = accent(0.28f, sat * 0.4f), onSecondaryContainer = accent(0.90f, sat * 0.4f),
+            tertiary = Color.hsl((hue + 60f) % 360f, sat * 0.5f, 0.80f), tertiaryContainer = Color.hsl((hue + 60f) % 360f, sat * 0.4f, 0.28f),
+            background = neutral(0.07f), surface = neutral(0.07f), surfaceContainerLowest = neutral(0.07f),
+            surfaceContainerLow = neutral(0.10f), surfaceContainer = neutral(0.14f), surfaceContainerHigh = neutral(0.17f),
+            surfaceContainerHighest = neutral(0.20f), surfaceVariant = neutral(0.16f), outlineVariant = neutral(0.20f),
+        )
+    } else {
+        copy(
+            primary = accent(0.38f), onPrimary = Color.White, primaryContainer = accent(0.38f), onPrimaryContainer = Color.White,
+            secondary = accent(0.40f, sat * 0.4f), onSecondary = Color.White,
+            secondaryContainer = accent(0.84f, sat * 0.4f), onSecondaryContainer = accent(0.12f, sat * 0.4f),
+            tertiary = Color.hsl((hue + 60f) % 360f, sat * 0.4f, 0.40f), tertiaryContainer = Color.hsl((hue + 60f) % 360f, sat * 0.6f, 0.90f),
+            background = neutral(0.94f), surface = neutral(0.94f), surfaceContainerLowest = neutral(0.94f),
+            surfaceContainerLow = neutral(0.99f), surfaceContainer = neutral(0.90f), surfaceContainerHigh = neutral(0.88f),
+            surfaceContainerHighest = neutral(0.86f), surfaceVariant = neutral(0.95f), outlineVariant = neutral(0.80f),
+        )
+    }
+}
+
+/** The accent choices offered in Settings › Theme color, after "Default" (ARGB). */
+val THEME_SEEDS = listOf(
+    0xFF4484F6.toInt(), 0xFF9C27B0.toInt(), 0xFFE91E63.toInt(), 0xFFE5484D.toInt(),
+    0xFFFF9800.toInt(), 0xFF4CAF50.toInt(), 0xFF009688.toInt(), 0xFF795548.toInt(),
+)
 
 /** Pure black surfaces for OLED screens; cards stay a hair lighter so they still read as cards. */
 private fun ColorScheme.blackened() = copy(
@@ -150,6 +204,17 @@ private fun ColorScheme.blackened() = copy(
 )
 
 /**
+ * Resync's own palette (not Material You): Sync's sampled Monet colors, tinted from [seed] (ARGB) when one is
+ * picked, [extra] colorful or not, at Color [intensity], and pure black when [black] (dark only). Theme management
+ * draws its previews with this too.
+ */
+fun resyncColorScheme(dark: Boolean, black: Boolean, seed: Int?, extra: Boolean, intensity: Float = 1f): ColorScheme {
+    val base = if (dark) DarkColors else LightColors
+    val tinted = if (seed != null) base.tintedBy(Color(seed), dark, extra, intensity) else base
+    return if (black && dark) tinted.blackened() else tinted
+}
+
+/**
  * Sync's "Base font size" is "Smaller" by default on phones, and it shrinks every sp in the app by this
  * much: its 14sp rows and bodies, 16sp titles and 20sp sheet headers all measure at 0.9x the device's
  * font scale in sync-reference. MainActivity applies it to its configuration, so sheets, menus and
@@ -157,11 +222,14 @@ private fun ColorScheme.blackened() = copy(
  */
 const val BASE_FONT_SCALE = 0.9f
 
-/** [content] at the device's own font scale, without [BASE_FONT_SCALE], like Sync's settings. */
+/** The base font scale in force (the chosen [BaseFontSize]), which MainActivity applied to its configuration. */
+val LocalBaseFontScale = staticCompositionLocalOf { BASE_FONT_SCALE }
+
+/** [content] at the device's own font scale, without the base font size, like Sync's settings. */
 @Composable
 fun FullSizeText(content: @Composable () -> Unit) {
     val density = LocalDensity.current
-    CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale / BASE_FONT_SCALE), content = content)
+    CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale / LocalBaseFontScale.current), content = content)
 }
 
 @Composable
@@ -172,16 +240,17 @@ fun ResyncTheme(settings: Settings, content: @Composable () -> Unit) {
         ThemeMode.DARK, ThemeMode.BLACK -> true
     }
     val context = LocalContext.current
-    val base = when {
-        settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
-            if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        dark -> DarkColors
-        else -> LightColors
+    val black = settings.theme == ThemeMode.BLACK
+    val scheme = if (settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val dynamic = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        if (black) dynamic.blackened() else dynamic
+    } else {
+        resyncColorScheme(dark, black, settings.seedColor, settings.extraColorful, settings.colorIntensity)
     }
     CompositionLocalProvider(LocalDarkTheme provides dark) {
         MaterialTheme(
-            colorScheme = if (settings.theme == ThemeMode.BLACK) base.blackened() else base,
-            typography = ResyncTypography,
+            colorScheme = scheme,
+            typography = Typographies.getValue(settings.typeface),
             content = content,
         )
     }

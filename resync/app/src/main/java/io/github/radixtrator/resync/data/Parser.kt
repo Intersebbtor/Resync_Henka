@@ -235,6 +235,14 @@ object Parser {
         d.string("profile_img")?.takeIf { it.startsWith("http") }?.let { id to it }
     }.toMap()
 
+    /** /api/multi/mine: an array of LabeledMulti things. */
+    fun multis(root: JsonElement): List<Multi> = (root as? JsonArray).orEmpty().mapNotNull { element ->
+        val d = (element as? JsonObject)?.obj("data") ?: return@mapNotNull null
+        val name = d.string("display_name") ?: d.string("name") ?: return@mapNotNull null
+        val path = d.string("path")?.trim('/') ?: return@mapNotNull null
+        Multi(name, path, d.arr("subreddits").orEmpty().mapNotNull { (it as? JsonObject)?.string("name") })
+    }
+
     /** /r/sub/about/rules, in the community's order. */
     fun rules(root: JsonElement): List<SubredditRule> = root.jsonObject.arr("rules").orEmpty().mapNotNull { element ->
         val d = element as? JsonObject ?: return@mapNotNull null
@@ -266,8 +274,70 @@ object Parser {
     fun linkFlairs(root: JsonElement): List<LinkFlair> = (root as? JsonArray).orEmpty().mapNotNull { element ->
         val d = element as? JsonObject ?: return@mapNotNull null
         val text = d.string("text")?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
-        LinkFlair(text, flairColor(d.string("background_color")))
+        LinkFlair(text, flairColor(d.string("background_color")), d.string("id"))
     }.distinctBy { it.text }
+
+    /**
+     * GET /api/mod/conversations: `conversations` is a map by id, `conversationIds` their order (newest first).
+     * Anything else (demo data, an empty answer) reads as no conversations.
+     */
+    fun modMailConversations(root: JsonElement): List<ModMailConversation> {
+        val o = root as? JsonObject ?: return emptyList()
+        val byId = o.obj("conversations") ?: return emptyList()
+        val order = o.arr("conversationIds")?.mapNotNull { (it as? JsonPrimitive)?.content } ?: byId.keys.toList()
+        return order.mapNotNull { id -> byId.obj(id)?.let { modMailConversation(it, id) } }
+    }
+
+    /**
+     * GET or POST /api/mod/conversations/{id}: the conversation plus a `messages` map, put in the order of the
+     * conversation's `objIds` (oldest first), else by date.
+     */
+    fun modMailThread(root: JsonElement): ModMailThread {
+        val o = root as? JsonObject ?: throw RedditException("Reddit didn't return the conversation")
+        val c = o.obj("conversation") ?: throw RedditException("Reddit didn't return the conversation")
+        val conversation = modMailConversation(c, c.string("id").orEmpty())
+        val byId = o.obj("messages")
+        val messages = byId.orEmpty().mapNotNull { (id, value) -> (value as? JsonObject)?.let { modMailMessage(it, id) } }
+        val order = c.arr("objIds").orEmpty().mapNotNull { e ->
+            (e as? JsonObject)?.takeIf { it.string("key") == "messages" }?.string("id")
+        }
+        val sorted = if (order.isNotEmpty() && messages.all { it.id in order }) {
+            messages.sortedBy { order.indexOf(it.id) }
+        } else {
+            messages.sortedBy { it.dateUtc }
+        }
+        return ModMailThread(conversation, sorted)
+    }
+
+    private fun modMailConversation(c: JsonObject, fallbackId: String): ModMailConversation = ModMailConversation(
+        id = c.string("id") ?: fallbackId,
+        subject = c.string("subject").orEmpty(),
+        community = c.obj("owner")?.string("displayName").orEmpty(),
+        participants = c.arr("authors").orEmpty().mapNotNull { (it as? JsonObject)?.string("name") }.distinct(),
+        lastUpdatedUtc = isoSeconds(c.string("lastUpdated")),
+        numMessages = c.int("numMessages") ?: 0,
+        highlighted = c.bool("isHighlighted"),
+        unread = c.string("lastUnread") != null,
+        archived = c.int("state") == 2,
+    )
+
+    private fun modMailMessage(m: JsonObject, fallbackId: String): ModMailMessage {
+        val author = m.obj("author")
+        return ModMailMessage(
+            id = m.string("id") ?: fallbackId,
+            author = author?.string("name") ?: "[deleted]",
+            bodyHtml = m.string("body").orEmpty(),
+            bodyMarkdown = m.string("bodyMarkdown").orEmpty(),
+            dateUtc = isoSeconds(m.string("date")),
+            authorIsMod = author?.bool("isMod") ?: false,
+            authorHidden = author?.bool("isHidden") ?: false,
+            internal = m.bool("isInternal"),
+        )
+    }
+
+    /** Mod mail's timestamps, "2018-06-04T19:49:33.104036+00:00", to epoch seconds; 0 if missing or unreadable. */
+    internal fun isoSeconds(text: String?): Long =
+        text?.let { runCatching { java.time.OffsetDateTime.parse(it).toEpochSecond() }.getOrNull() } ?: 0L
 
     /** "#46d160" → opaque ARGB; "" or "transparent" (no color set) → null. */
     private fun flairColor(hex: String?): Int? {

@@ -23,29 +23,48 @@ class Navigator(
     private val context: Context,
     private val backStack: MutableList<NavKey>,
     private val settings: () -> Settings,
+    /** This is [listPane]: the navigator the feed sees while a post is open beside it. */
+    private val inListPane: Boolean = false,
 ) : UriHandler {
+
+    /**
+     * For the feed in Tablet mode's dual pane (ui/home/DualPane.kt), whose post sits on top of it in the
+     * back stack. It acts as if that post weren't there: opening another post or feed replaces the open
+     * post instead of stacking on it, back closes the feed (and its post), and [top] is the feed.
+     * Other pages (media, profiles, search...) still open over both panes, keeping the post.
+     */
+    val listPane: Navigator by lazy { Navigator(context, backStack, settings, inListPane = true) }
 
     val canPop: Boolean get() = backStack.size > 1
 
-    val top: NavKey get() = backStack.last()
+    val top: NavKey get() = if (inListPane) backStack.lastOrNull { it !is PostRoute } ?: backStack.last() else backStack.last()
 
     fun push(route: NavKey) {
+        if (inListPane && (route is PostRoute || route is FeedRoute)) closeDetailPane()
         backStack.add(route)
     }
 
     fun pop() {
+        if (inListPane) closeDetailPane()
         if (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
     }
 
     /** Pops while [predicate] holds for the top screen, never past the root. */
     fun popWhile(predicate: (NavKey) -> Boolean) {
+        if (inListPane) closeDetailPane()
         while (backStack.size > 1 && predicate(backStack.last())) backStack.removeAt(backStack.lastIndex)
     }
 
     /** Swaps the current screen, e.g. the submit form for the post it created. */
     fun replaceTop(route: NavKey) {
+        if (inListPane) closeDetailPane()
         backStack.add(route)
         backStack.removeAt(backStack.lastIndex - 1)
+    }
+
+    /** Closes the post(s) open in the dual pane's right side, back down to the feed under them. */
+    private fun closeDetailPane() {
+        while (backStack.size > 1 && backStack.last() is PostRoute) backStack.removeAt(backStack.lastIndex)
     }
 
     fun resetTo(route: NavKey) {
@@ -108,6 +127,9 @@ val LocalContainer = staticCompositionLocalOf<AppContainer> { error("No AppConta
 
 /** Your tags for users (Sync's "Tag user"), by lowercase name. */
 val LocalUserTags = compositionLocalOf<Map<String, String>> { emptyMap() }
+
+/** ARGB tag tints by lowercase user name; see [LocalUserTags]. */
+val LocalUserTagColors = compositionLocalOf<Map<String, Int>> { emptyMap() }
 
 /** Active account name, or null when logged out. */
 val LocalAccount = compositionLocalOf<String?> { null }

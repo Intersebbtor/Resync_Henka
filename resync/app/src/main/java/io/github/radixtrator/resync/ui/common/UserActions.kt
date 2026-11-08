@@ -1,6 +1,15 @@
 package io.github.radixtrator.resync.ui.common
 
 import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -96,6 +105,9 @@ fun ReportSheet(fullname: String, subreddit: String, comment: Boolean, onDismiss
     }
 }
 
+/** The tag tints on offer, after the theme default: red, orange, yellow, green, blue, purple (ARGB). */
+private val TAG_COLORS = listOf(0xFFE57373.toInt(), 0xFFFFB74D.toInt(), 0xFFFFF176.toInt(), 0xFF81C784.toInt(), 0xFF64B5F6.toInt(), 0xFFBA68C8.toInt())
+
 /** Sync's "Tag user": a label of your own for [user], shown beside their name. Empty is refused, as in Sync. */
 @Composable
 fun TagUserDialog(user: String, onDismiss: () -> Unit) {
@@ -104,10 +116,12 @@ fun TagUserDialog(user: String, onDismiss: () -> Unit) {
     val current = remember(user) { container.tags.tagOf(user) }
     var text by remember(user) { mutableStateOf(current.orEmpty()) }
     var empty by remember { mutableStateOf(false) }
+    var color by remember(user) { mutableStateOf(container.tags.colorOf(user)) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Tag u/$user") },
         text = {
+          Column {
             OutlinedTextField(
                 text,
                 {
@@ -119,6 +133,20 @@ fun TagUserDialog(user: String, onDismiss: () -> Unit) {
                 isError = empty,
                 supportingText = if (empty) ({ Text("Tag name must not be empty.") }) else null,
             )
+            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf<Int?>(null) .plus(TAG_COLORS).forEach { swatch ->
+                    val selected = swatch == color
+                    Box(
+                        Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(swatch?.let { Color(it) } ?: MaterialTheme.colorScheme.tertiaryContainer)
+                            .border(if (selected) 3.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                            .clickable { color = swatch },
+                    )
+                }
+            }
+          }
         },
         confirmButton = {
             TextButton(onClick = {
@@ -126,6 +154,7 @@ fun TagUserDialog(user: String, onDismiss: () -> Unit) {
                     empty = true
                 } else {
                     container.tags.set(user, text)
+                    container.tags.setColor(user, color)
                     Toast.makeText(context, "Tag added: ${text.trim()}", Toast.LENGTH_SHORT).show()
                     onDismiss()
                 }

@@ -72,6 +72,7 @@ import io.github.radixtrator.resync.data.UserProfile
 import io.github.radixtrator.resync.data.UserSort
 import io.github.radixtrator.resync.data.UserWhere
 import io.github.radixtrator.resync.ui.common.AppIcons
+import io.github.radixtrator.resync.ui.common.ChipMenu
 import io.github.radixtrator.resync.ui.common.HeaderChip
 import io.github.radixtrator.resync.ui.common.LargeHeader
 import io.github.radixtrator.resync.ui.common.ListingViewModel
@@ -176,7 +177,7 @@ fun ProfileScreen(name: String, initialTab: UserWhere, container: AppContainer) 
     val isSelf = me.equals(name, ignoreCase = true)
     val canAct = me != null && !isSelf
     val layout = LocalSettings.current.layout
-    val columns = layout.columns(LocalConfiguration.current.screenWidthDp)
+    val columns = layout.columns(LocalConfiguration.current.screenWidthDp, LocalSettings.current.viewOptionsFor(layout).columns)
     val callbacks = remember(vm) { vm.postCallbacks(allowHide = false) }
     val items = state.items.visiblePosts { (it as? ProfileItem.PostItem)?.post }
     // The toolbar shows the name only once the big header has scrolled away.
@@ -298,23 +299,6 @@ private fun SortMenu(onPick: (UserSort) -> Unit) {
                 DropdownMenuItem(text = { Text(sort.label) }, onClick = {
                     open = false
                     onPick(sort)
-                })
-            }
-        }
-    }
-}
-
-/** A header chip whose ▾ opens a menu of [options], like Sync's section and sort chips. */
-@Composable
-private fun <T> ChipMenu(label: String, icon: ImageVector, options: List<T>, labelOf: (T) -> String, onPick: (T) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        HeaderChip(label, icon, { open = true }, dropdown = true)
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            options.forEach { option ->
-                DropdownMenuItem(text = { Text(labelOf(option)) }, onClick = {
-                    open = false
-                    onPick(option)
                 })
             }
         }

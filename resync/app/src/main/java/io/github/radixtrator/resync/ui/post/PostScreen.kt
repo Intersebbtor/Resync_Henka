@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -31,10 +33,15 @@ import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Refresh
@@ -44,16 +51,21 @@ import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -66,6 +78,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -83,6 +96,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
@@ -109,6 +123,18 @@ import io.github.radixtrator.resync.data.MediaPreviewSize
 import io.github.radixtrator.resync.data.MoreComments
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostMedia
+import io.github.radixtrator.resync.data.RecentPost
+import io.github.radixtrator.resync.data.Subreddit
+import io.github.radixtrator.resync.ui.feed.AboutAction
+import io.github.radixtrator.resync.ui.feed.CommunityActionSheet
+import io.github.radixtrator.resync.ui.feed.SubredditInfoSheet
+import io.github.radixtrator.resync.ui.feed.rememberWatchToggle
+import io.github.radixtrator.resync.ui.feed.runAboutAction
+import io.github.radixtrator.resync.ui.common.isImageLink
+import io.github.radixtrator.resync.ui.navigation.Navigator
+import io.github.radixtrator.resync.ui.navigation.SearchRoute
+import io.github.radixtrator.resync.ui.navigation.ImageRoute
+import io.github.radixtrator.resync.data.CommentNode
 import io.github.radixtrator.resync.data.SwipeAction
 import io.github.radixtrator.resync.data.VisibleNode
 import io.github.radixtrator.resync.ui.common.AppIcons
@@ -152,6 +178,7 @@ import io.github.radixtrator.resync.ui.navigation.UserRoute
 import io.github.radixtrator.resync.ui.theme.ResyncColors
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 // Sync's comment page (sync-reference/SYNC_PARITY_LOG.md §3.8): one surface for toolbar, post and
@@ -178,37 +205,75 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
     // The comment whose action bar is open (Sync shows one at a time).
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var optionsFor by remember { mutableStateOf<Comment?>(null) }
+    var recentsOpen by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    val reader = remember { CommentReader(context) }
+    val readerState by reader.state.collectAsStateWithLifecycle()
     val surface = MaterialTheme.colorScheme.surfaceContainerLow
+    val settings = LocalSettings.current
+    // Sync's Tablet › "Tabbed comments": Post | Comments tabs instead of one scroll. The comments list then
+    // has no post header row.
+    val tabbed = settings.tabletMode && settings.tabbedComments
+    // A single thread, or a remembered position down in the comments, opens on the Comments tab.
+    var commentsTab by rememberSaveable { mutableStateOf(vm.focusCommentId != null || (vm.savedPosition?.index ?: 0) > 0) }
+    val showComments = !tabbed || commentsTab
+    val headerRows = if (tabbed) 0 else 1
+    val currentHeaderRows by rememberUpdatedState(headerRows)
+    // A jump into the comments list (index, offset) asked for while it wasn't on screen (the Post tab).
+    var pendingScroll by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var aboutOpen by rememberSaveable { mutableStateOf(false) }
 
     MessageEffect(state.message, snackbar, vm::messageShown)
     LaunchedEffect(state.postDeleted) { if (state.postDeleted) nav.pop() }
     LaunchedEffect(route.postId) { container.visited.mark(route.postId) }
+    LaunchedEffect(settings.readerSpeechRate) { reader.setSpeechRate(settings.readerSpeechRate) }
 
     // Sync's "Remember comment position": return to last visit's spot once the comments are in,
-    // and note where the user is whenever this page leaves the screen.
+    // and note where the user is whenever this page leaves the screen. Positions are stored as in the
+    // single-scroll list (post header at row 0), so they survive switching tabbed comments on or off.
     var restored by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(state.comments.isNotEmpty()) {
         if (!restored && state.comments.isNotEmpty()) {
-            vm.savedPosition?.let { listState.scrollToItem(it.index, it.offset) }
+            vm.savedPosition?.let {
+                val index = (it.index - 1 + headerRows).coerceAtLeast(0)
+                if (showComments) {
+                    listState.scrollToItem(index, it.offset)
+                } else {
+                    pendingScroll = index to it.offset
+                }
+            }
             restored = true
         }
     }
     DisposableEffect(Unit) {
-        onDispose { vm.saveScroll(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) }
+        onDispose {
+            val (index, offset) = pendingScroll ?: (listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset)
+            // The top of the tabbed comments list is saved as the top of the page, so it reopens on the Post tab.
+            if (index == 0 && offset == 0) vm.saveScroll(0, 0) else vm.saveScroll(index + 1 - currentHeaderRows, offset)
+            // Sports mode and the comment reader only run while this page is on screen.
+            vm.setSportsMode(false)
+            reader.release()
+        }
     }
 
     fun reply(target: String, quote: String) {
         if (vm.requireLogin()) nav.push(ComposeRoute(ComposeMode.REPLY, target = target, quote = quote))
     }
 
-    // LazyColumn rows: post header, optional single-thread banner, then the comments.
-    val firstCommentRow = 1 + if (vm.focusCommentId != null) 1 else 0
+    // LazyColumn rows: post header (not when tabbed), optional single-thread banner, then the comments.
+    val firstCommentRow = headerRows + if (vm.focusCommentId != null) 1 else 0
     val topLevelRows = remember(visible, firstCommentRow) {
         visible.indices.filter { visible[it].node.depth == 0 }.map { it + firstCommentRow }
     }
     fun scrollToComment(fullname: String) {
         val index = visible.indexOfFirst { (it.node as? Comment)?.fullname == fullname }
-        scope.launch { listState.animateScrollToItem(if (index < 0) 0 else index + firstCommentRow) }
+        val target = if (index < 0) 0 else index + firstCommentRow
+        if (showComments) {
+            scope.launch { listState.animateScrollToItem(target) }
+        } else {
+            commentsTab = true
+            pendingScroll = target to 0
+        }
     }
 
     SwipeBack(enabled = LocalSettings.current.swipeBack, onBack = nav::pop) {
@@ -231,7 +296,11 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
                                 Spacer(Modifier.width(12.dp))
                                 Column {
                                     Text(post.subreddit, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(state.sort.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        if (state.sportsMode) "${state.sort.label} · Live" else state.sort.label,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
                             }
                         }
@@ -243,13 +312,43 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
                     },
                 )
             },
+            bottomBar = {
+                if (state.sportsMode || readerState.active) {
+                    Column(Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh).navigationBarsPadding()) {
+                        if (state.sportsMode) {
+                            SportsBar(
+                                seconds = settings.liveRefresh.seconds,
+                                onRefresh = { vm.load(refresh = true) },
+                                onStop = { vm.setSportsMode(false) },
+                            )
+                        }
+                        if (readerState.active) {
+                            ReaderBar(
+                                state = readerState,
+                                readReplies = settings.readerReplies,
+                                speechRate = settings.readerSpeechRate,
+                                onTogglePlay = reader::togglePlay,
+                                onPrevious = reader::previous,
+                                onNext = reader::next,
+                                onStop = reader::stop,
+                                onReadReplies = { on ->
+                                    container.settings.update { it.copy(readerReplies = on) }
+                                    state.post?.let { post -> reader.replaceItems(readerQueue(post, state.comments, ::plainText, replies = on)) }
+                                },
+                                onSpeechRate = { rate -> container.settings.update { it.copy(readerSpeechRate = rate) } },
+                            )
+                        }
+                    }
+                }
+            },
             floatingActionButton = {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     horizontalAlignment = Alignment.End,
-                    modifier = Modifier.navigationBarsPadding(),
+                    // With a bottom bar showing, the Scaffold already lifts the buttons above it.
+                    modifier = if (state.sportsMode || readerState.active) Modifier else Modifier.navigationBarsPadding(),
                 ) {
-                    if (LocalSettings.current.commentNavigation && topLevelRows.size > 1) {
+                    if (settings.commentNavigation && showComments && topLevelRows.size > 1) {
                         SmallFloatingActionButton(onClick = {
                             val target = topLevelRows.lastOrNull { it < listState.firstVisibleItemIndex } ?: 0
                             scope.launch { listState.animateScrollToItem(target) }
@@ -294,71 +393,104 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
                     return@PullToRefreshBox
                 }
                 val post = state.post!!
-                LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 120.dp)) {
-                    item(key = "post") {
-                        PostHeader(post = post, onVote = vm::votePost, onToggleSave = vm::toggleSavePost, onMore = { postSheet = true })
+                val commentList: @Composable () -> Unit = {
+                    LaunchedEffect(pendingScroll) {
+                        pendingScroll?.let { (index, offset) ->
+                            listState.scrollToItem(index, offset)
+                            pendingScroll = null
+                        }
                     }
-                    if (vm.focusCommentId != null) {
-                        item(key = "focus") {
-                            Row(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                    .padding(start = 16.dp, end = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text("Viewing a single thread", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-                                TextButton(onClick = { nav.replaceTop(PostRoute(post.id)) }) { Text("View all comments") }
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 120.dp)) {
+                        if (!tabbed) {
+                            item(key = "post") {
+                                PostHeader(post = post, onVote = vm::votePost, onToggleSave = vm::toggleSavePost, onMore = { postSheet = true })
+                            }
+                        }
+                        if (vm.focusCommentId != null) {
+                            item(key = "focus") {
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                        .padding(start = 16.dp, end = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text("Viewing a single thread", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                                    TextButton(onClick = { nav.replaceTop(PostRoute(post.id)) }) { Text("View all comments") }
+                                }
+                            }
+                        }
+                        items(visible, key = { (if (it.node is Comment) "c" else "m") + it.node.id }) { row ->
+                            // Sync separates top-level threads with a band of the window color.
+                            val separated = row.node.depth == 0 && row !== visible.firstOrNull()
+                            when (val node = row.node) {
+                                is Comment -> CommentRow(
+                                    comment = node,
+                                    avatarUrl = node.authorFullname?.let { avatars[it] }.takeIf { showAvatars },
+                                    collapsed = node.id in state.collapsed,
+                                    hiddenCount = row.hiddenCount,
+                                    separated = separated,
+                                    selected = selected == node.id,
+                                    onToggle = {
+                                        selected = null
+                                        vm.toggleCollapsed(node)
+                                    },
+                                    onSelect = { selected = if (selected == node.id) null else node.id },
+                                    onVote = { vm.voteComment(node, it) },
+                                    onToggleSave = { vm.toggleSaveComment(node) },
+                                    onReply = { reply(node.fullname, node.body) },
+                                    onParent = { scrollToComment(node.parentId) },
+                                    onMore = { optionsFor = node },
+                                    onShare = { nav.share("https://www.reddit.com${post.permalink}${node.id}/", post.title) },
+                                )
+                                is MoreComments -> MoreRow(
+                                    more = node,
+                                    separated = separated,
+                                    loading = node.id in state.loadingMore,
+                                    onClick = {
+                                        if (node.children.isNotEmpty()) {
+                                            vm.loadMore(node)
+                                        } else {
+                                            // "Continue this thread": a new page rooted at the parent comment.
+                                            nav.push(PostRoute(post.id, node.parentId.removePrefix("t1_")))
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                        item(key = "status") {
+                            Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                                when {
+                                    state.loading -> CircularProgressIndicator()
+                                    state.error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(state.error!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                                        TextButton(onClick = { vm.load(refresh = false) }) { Text("Retry") }
+                                    }
+                                    state.comments.isEmpty() -> Text("No comments yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
                     }
-                    items(visible, key = { (if (it.node is Comment) "c" else "m") + it.node.id }) { row ->
-                        // Sync separates top-level threads with a band of the window color.
-                        val separated = row.node.depth == 0 && row !== visible.firstOrNull()
-                        when (val node = row.node) {
-                            is Comment -> CommentRow(
-                                comment = node,
-                                avatarUrl = node.authorFullname?.let { avatars[it] }.takeIf { showAvatars },
-                                collapsed = node.id in state.collapsed,
-                                hiddenCount = row.hiddenCount,
-                                separated = separated,
-                                selected = selected == node.id,
-                                onToggle = {
-                                    selected = null
-                                    vm.toggleCollapsed(node)
-                                },
-                                onSelect = { selected = if (selected == node.id) null else node.id },
-                                onVote = { vm.voteComment(node, it) },
-                                onToggleSave = { vm.toggleSaveComment(node) },
-                                onReply = { reply(node.fullname, node.body) },
-                                onParent = { scrollToComment(node.parentId) },
-                                onMore = { optionsFor = node },
-                                onShare = { nav.share("https://www.reddit.com${post.permalink}${node.id}/", post.title) },
-                            )
-                            is MoreComments -> MoreRow(
-                                more = node,
-                                separated = separated,
-                                loading = node.id in state.loadingMore,
-                                onClick = {
-                                    if (node.children.isNotEmpty()) {
-                                        vm.loadMore(node)
-                                    } else {
-                                        // "Continue this thread": a new page rooted at the parent comment.
-                                        nav.push(PostRoute(post.id, node.parentId.removePrefix("t1_")))
-                                    }
-                                },
-                            )
-                        }
+                }
+                if (!tabbed) {
+                    commentList()
+                    return@PullToRefreshBox
+                }
+                Column(Modifier.fillMaxSize()) {
+                    PrimaryTabRow(selectedTabIndex = if (commentsTab) 1 else 0, containerColor = surface) {
+                        Tab(selected = !commentsTab, onClick = { commentsTab = false }, text = { Text("Post") })
+                        Tab(
+                            selected = commentsTab,
+                            onClick = { commentsTab = true },
+                            text = { Text("Comments (${Format.count(post.numComments)})", maxLines = 1) },
+                        )
                     }
-                    item(key = "status") {
-                        Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                            when {
-                                state.loading -> CircularProgressIndicator()
-                                state.error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(state.error!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
-                                    TextButton(onClick = { vm.load(refresh = false) }) { Text("Retry") }
-                                }
-                                state.comments.isEmpty() -> Text("No comments yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        if (commentsTab) {
+                            commentList()
+                        } else {
+                            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 120.dp)) {
+                                PostHeader(post = post, onVote = vm::votePost, onToggleSave = vm::toggleSavePost, onMore = { postSheet = true })
                             }
                         }
                     }
@@ -379,14 +511,41 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
                 listOf(
                     QuickAction("Reply", AppIcons.Reply) { reply(post.fullname, post.title) },
                     QuickAction("Refresh", Icons.Outlined.Refresh) { vm.load(refresh = true) },
+                    QuickAction("About", Icons.Outlined.Info) { aboutOpen = true },
                     QuickAction("Collapse all", AppIcons.CollapseAll, onClick = vm::collapseAll),
                     QuickAction("Settings", Icons.Outlined.Settings) { nav.push(SettingsRoute) },
                     QuickAction("Sort", AppIcons.Sort) { sortOpen = true },
                     QuickAction("Search", Icons.Outlined.Search) { searchOpen = true },
-                ),
+                    QuickAction("Recents", AppIcons.Clock) { recentsOpen = true },
+                    QuickAction("Sports mode", AppIcons.Flame, active = state.sportsMode) { vm.setSportsMode(!state.sportsMode) },
+                    QuickAction("Read aloud", AppIcons.VolumeOn, active = readerState.active) {
+                        if (readerState.active) {
+                            reader.stop()
+                        } else {
+                            container.readAloud.stop()
+                            reader.start(readerQueue(post, state.comments, ::plainText, replies = settings.readerReplies))
+                        }
+                    },
+                ) + commentActionExtras(post, state.comments, nav),
                 onPicked = { actionsOpen = false },
             )
         }
+    }
+    if (aboutOpen && post != null) {
+        CommunityAbout(container, post.subreddit, onDismiss = { aboutOpen = false }, onMessage = { message ->
+            scope.launch { snackbar.showSnackbar(message) }
+        })
+    }
+    if (recentsOpen) {
+        val recents by container.recentPosts.posts.collectAsStateWithLifecycle()
+        RecentsSheet(
+            posts = recents.filter { it.id != route.postId },
+            onDismiss = { recentsOpen = false },
+            onPick = {
+                recentsOpen = false
+                nav.push(PostRoute(it.id))
+            },
+        )
     }
     if (searchOpen) {
         CommentSearchSheet(
@@ -574,7 +733,7 @@ private fun CommentHeader(comment: Comment, avatarUrl: String?, collapsed: Boole
     val flairBackground = MaterialTheme.colorScheme.surfaceVariant
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val tag = LocalUserTags.current[comment.author.lowercase()]
-    val tagStyle = userTagStyle()
+    val tagStyle = userTagStyle(comment.author)
     val text = buildAnnotatedString {
         withStyle(SpanStyle(color = nameColor)) { append(comment.author) }
         tag?.let {
@@ -831,7 +990,7 @@ private fun CommentOptionsSheet(comment: Comment, post: Post, onDismiss: () -> U
                         if (speaking) {
                             readAloud.stop()
                         } else {
-                            readAloud.speak(Html.fromHtml(comment.bodyHtml, Html.FROM_HTML_MODE_COMPACT).toString().ifBlank { comment.body })
+                            readAloud.speak(plainText(comment.bodyHtml, comment.body))
                         }
                     }
                 })
@@ -904,6 +1063,215 @@ private fun CommentSearchSheet(rows: List<VisibleNode>, onDismiss: () -> Unit, o
                 Column(Modifier.fillMaxWidth().clickable { onPick(comment) }.padding(horizontal = 16.dp, vertical = 10.dp)) {
                     Text(comment.author, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     Text(comment.body, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
+}
+
+
+private val HREF = Regex("""href="([^"]+)"""")
+
+/**
+ * Sync's other Comment actions: Other discussions (the same link posted elsewhere), View images (the post's
+ * and the comments' images in the viewer) and Translate (the post's text in Google Translate).
+ */
+private fun commentActionExtras(post: Post, comments: List<CommentNode>, nav: Navigator): List<QuickAction> = buildList {
+    if (!post.isSelf && post.url.startsWith("http")) {
+        add(QuickAction("Other discussions", AppIcons.Link) { nav.push(SearchRoute(query = "url:${post.url}")) })
+    }
+    val images = buildList {
+        when (val m = post.media) {
+            is PostMedia.Image -> add(m.url)
+            is PostMedia.Gallery -> addAll(m.images.map { it.url })
+            else -> {}
+        }
+        comments.forEach { node ->
+            (node as? Comment)?.let { c -> HREF.findAll(c.bodyHtml).map { it.groupValues[1].replace("&amp;", "&") }.filter(::isImageLink).forEach(::add) }
+        }
+    }.distinct()
+    if (images.isNotEmpty()) add(QuickAction("View images", AppIcons.Image) { nav.push(ImageRoute(images, postId = post.id)) })
+    add(QuickAction("Translate", AppIcons.Text) {
+        val text = java.net.URLEncoder.encode(post.title, "UTF-8")
+        nav.openExternal("https://translate.google.com/?sl=auto&op=translate&text=$text")
+    })
+}
+
+/** A body's HTML as plain text for speech, or [fallback] when there's no HTML or it renders empty. */
+private fun plainText(html: String?, fallback: String): String =
+    html?.let { Html.fromHtml(it, Html.FROM_HTML_MODE_COMPACT).toString() }?.takeIf { it.isNotBlank() } ?: fallback
+
+// --- Bottom bars ---
+
+/**
+ * Comment actions › About: the post's community's About sheet, as Explore shows it, with Join / Watch / Favorite
+ * and the ⋮ items (wiki, flairs, rules, mods and the rest open their sheets in its place).
+ */
+@Composable
+private fun CommunityAbout(container: AppContainer, name: String, onDismiss: () -> Unit, onMessage: (String) -> Unit) {
+    val nav = LocalNavigator.current
+    val scope = rememberCoroutineScope()
+    val explore by container.explore.state.collectAsStateWithLifecycle()
+    val watched by container.watch.watched.collectAsStateWithLifecycle()
+    val toggleWatch = rememberWatchToggle(container, onMessage)
+    var about by remember(name) { mutableStateOf<Subreddit?>(null) }
+    var sheet by remember(name) { mutableStateOf<AboutAction?>(null) }
+    LaunchedEffect(name) {
+        runCatching { container.api.subredditAbout(name) }
+            .onSuccess { about = it }
+            .onFailure {
+                if (it is CancellationException) throw it
+                onMessage("Couldn't load r/$name: ${it.message}")
+                onDismiss()
+            }
+    }
+    val action = sheet
+    if (action != null) {
+        CommunityActionSheet(container, name, action, onDismiss = onDismiss, onNavigate = { route -> nav.push(route) })
+        return
+    }
+    SubredditInfoSheet(
+        about = about,
+        watching = name.lowercase() in watched,
+        favorite = explore.isFavorite(name),
+        onDismiss = onDismiss,
+        onToggleSubscribe = {
+            val sub = about ?: return@SubredditInfoSheet
+            about = sub.copy(isSubscribed = !sub.isSubscribed)
+            scope.launch {
+                runCatching { container.api.setSubscribed(sub.name, !sub.isSubscribed) }.onFailure { about = sub }
+                container.refreshSubscriptions(force = true)
+            }
+        },
+        onToggleWatch = { toggleWatch(name) },
+        onToggleFavorite = { container.explore.toggleFavorite(name) },
+        onAction = { picked ->
+            when (picked) {
+                AboutAction.SHARE, AboutAction.MESSAGE_MODS -> {
+                    onDismiss()
+                    nav.runAboutAction(picked, name)
+                }
+                else -> sheet = picked
+            }
+        },
+    )
+}
+
+/** Sync's live-thread bar (`view_sports`): a live marker, Refresh and Stop; [seconds] is the refresh rate. */
+@Composable
+private fun SportsBar(seconds: Int, onRefresh: () -> Unit, onStop: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().height(48.dp).padding(start = 16.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.error))
+        Spacer(Modifier.width(12.dp))
+        Text(
+            "Sports mode · new comments every ${seconds}s",
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = onRefresh) { Icon(Icons.Outlined.Refresh, "Refresh now") }
+        IconButton(onClick = onStop) { Icon(Icons.Default.Close, "Stop sports mode") }
+    }
+}
+
+/** The comment reader's ⋮ speeds (TextToSpeech speech rates). */
+private val ReaderSpeeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+
+private fun speedLabel(rate: Float): String =
+    (if (rate == rate.toInt().toFloat()) rate.toInt().toString() else rate.toString()) + "×"
+
+/**
+ * Sync's comment text-to-speech player (`view_tts`): what's being read, then Stop, Previous, Play/Pause, Next,
+ * and a ⋮ with "Read replies" and the speech speed.
+ */
+@Composable
+private fun ReaderBar(
+    state: CommentReader.State,
+    readReplies: Boolean,
+    speechRate: Float,
+    onTogglePlay: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onStop: () -> Unit,
+    onReadReplies: (Boolean) -> Unit,
+    onSpeechRate: (Float) -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().height(56.dp).padding(start = 16.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                state.current?.label.orEmpty(),
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                "Reading ${state.index + 1} of ${state.items.size}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        IconButton(onClick = onStop) { Icon(Icons.Default.Close, "Stop reading") }
+        IconButton(onClick = onPrevious, enabled = state.index > 0) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Previous") }
+        IconButton(onClick = onTogglePlay) {
+            if (state.playing) Icon(AppIcons.Pause, "Pause") else Icon(Icons.Default.PlayArrow, "Play")
+        }
+        IconButton(onClick = onNext, enabled = state.index < state.items.lastIndex) {
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, "Next")
+        }
+        Box {
+            IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, "Reader options") }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("Read replies") },
+                    leadingIcon = { Icon(Icons.Outlined.Check, null, tint = if (readReplies) MaterialTheme.colorScheme.primary else Color.Transparent) },
+                    onClick = {
+                        menuOpen = false
+                        onReadReplies(!readReplies)
+                    },
+                )
+                HorizontalDivider()
+                Text(
+                    "Speed",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+                ReaderSpeeds.forEach { rate ->
+                    DropdownMenuItem(
+                        text = { Text(speedLabel(rate)) },
+                        leadingIcon = { Icon(Icons.Outlined.Check, null, tint = if (rate == speechRate) MaterialTheme.colorScheme.primary else Color.Transparent) },
+                        onClick = {
+                            menuOpen = false
+                            onSpeechRate(rate)
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Sync's comment-page "Recents": the posts opened lately, newest first; picking one opens it. */
+@Composable
+internal fun RecentsSheet(posts: List<RecentPost>, onDismiss: () -> Unit, onPick: (RecentPost) -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, dragHandle = { SheetHandle() }) {
+        SheetTitle("Recents", topPadding = 0.dp)
+        LazyColumn(Modifier.fillMaxWidth().navigationBarsPadding().padding(top = 8.dp, bottom = 8.dp)) {
+            if (posts.isEmpty()) {
+                item { Text("No recently viewed posts", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp)) }
+            }
+            items(posts, key = { it.id }) { recent ->
+                Column(Modifier.fillMaxWidth().clickable { onPick(recent) }.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                    Text(recent.title, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text("r/${recent.subreddit}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

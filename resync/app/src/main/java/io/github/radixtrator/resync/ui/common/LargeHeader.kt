@@ -1,6 +1,7 @@
 package io.github.radixtrator.resync.ui.common
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -18,10 +19,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -92,4 +99,21 @@ fun HeaderChip(
             trailingIconContentColor = MaterialTheme.colorScheme.onSurface,
         ),
     )
+}
+
+/** A header chip whose ▾ opens a menu of [options], like Sync's section and sort chips. */
+@Composable
+fun <T> ChipMenu(label: String, icon: ImageVector, options: List<T>, labelOf: (T) -> String, onPick: (T) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        HeaderChip(label, icon, { open = true }, dropdown = true)
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(text = { Text(labelOf(option)) }, onClick = {
+                    open = false
+                    onPick(option)
+                })
+            }
+        }
+    }
 }

@@ -1,5 +1,10 @@
 package io.github.radixtrator.resync.ui.common
 
+import android.content.Context
+import android.net.ConnectivityManager
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import io.github.radixtrator.resync.data.DataSaving
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -40,6 +45,24 @@ fun Post.thumbnail(): ImageSource? = when (val m = media) {
     is PostMedia.Link -> m.thumbnail
     else -> m.largePreview()
 }
+
+/**
+ * Whether Sync's "Data saving mode" applies right now: feeds then leave thumbnails and card previews unloaded,
+ * and Reddit videos open in SD. "On mobile data" means any metered connection, checked once per item.
+ */
+@Composable
+fun dataSavingActive(): Boolean {
+    val context = LocalContext.current
+    return when (LocalSettings.current.dataSaving) {
+        DataSaving.NEVER -> false
+        DataSaving.ALWAYS -> true
+        DataSaving.MOBILE -> remember(context) { context.onMeteredNetwork() }
+    }
+}
+
+/** True on a metered connection (mobile data, a metered Wi-Fi), as Android reports it. */
+fun Context.onMeteredNetwork(): Boolean =
+    getSystemService(ConnectivityManager::class.java)?.isActiveNetworkMetered ?: false
 
 /** Whether this post's preview should be blurred under the current settings. */
 @Composable

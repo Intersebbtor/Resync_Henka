@@ -13,6 +13,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import io.github.radixtrator.resync.data.PostMedia
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Notifications
@@ -46,6 +51,7 @@ import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.SwipeAction
 import io.github.radixtrator.resync.notify.Notifications
+import io.github.radixtrator.resync.ui.feed.AddToMultiSheet
 import io.github.radixtrator.resync.ui.navigation.ComposeMode
 import io.github.radixtrator.resync.ui.navigation.ComposeRoute
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
@@ -101,6 +107,8 @@ fun PostListItem(
             onMore = { sheetOpen = true },
             onVote = { callbacks.onVote(post, it) },
             onToggleSave = { callbacks.onToggleSave(post) },
+            // Customize view's Hide button shows only where the list can hide.
+            onHide = callbacks.onHide?.let { hide -> { hide(post) } },
         )
     }
     val settings = LocalSettings.current
@@ -153,9 +161,12 @@ fun PostActionsSheet(
     val isOwn = LocalAccount.current?.equals(post.author, ignoreCase = true) == true
     val permalink = "https://www.reddit.com${post.permalink}"
     var copying by remember { mutableStateOf(false) }
+    var sharing by remember { mutableStateOf(false) }
+    var includeTitle by remember { mutableStateOf(false) }
     var filtering by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var reporting by remember { mutableStateOf(false) }
+    var addingToMulti by remember { mutableStateOf(false) }
     val container = LocalContainer.current
     val context = LocalContext.current
     val watchedPosts by container.watch.posts.collectAsStateWithLifecycle()
@@ -191,10 +202,30 @@ fun PostActionsSheet(
         ReportSheet(post.fullname, post.subreddit, comment = false, onDismiss = onDismiss)
         return
     }
+    if (addingToMulti) {
+        AddToMultiSheet(container, post.subreddit, onDismiss)
+        return
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, dragHandle = { SheetHandle() }) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 8.dp)) {
-            if (copying) {
+            if (sharing) {
+                // Sync's Share ⋮: what to share, optionally with the title in front.
+                SheetTitle("Share", topPadding = 0.dp)
+                fun shareUrl(url: String) = act { nav.share(if (includeTitle) "${post.title}\n$url" else url, post.title) }
+                OptionRow("Include title", null, onClick = { includeTitle = !includeTitle }, trailing = {
+                    androidx.compose.material3.Switch(checked = includeTitle, onCheckedChange = { includeTitle = it })
+                })
+                val preview = when (val m = post.media) {
+                    is PostMedia.Image -> m.url
+                    is PostMedia.Gallery -> m.images.firstOrNull()?.url
+                    is PostMedia.Video -> m.url
+                    else -> null
+                }
+                preview?.let { url -> OptionRow("Post preview", AppIcons.Image, onClick = { shareUrl(url) }) }
+                OptionRow("Post comments", AppIcons.Text, onClick = { shareUrl(permalink) })
+                if (!post.isSelf) OptionRow("Link", AppIcons.Link, onClick = { shareUrl(post.url) })
+            } else if (copying) {
                 SheetTitle("Copy", topPadding = 0.dp)
                 OptionRow("Copy title", AppIcons.Text, onClick = { copy(post.title) })
                 OptionRow("Copy permalink", AppIcons.Link, onClick = { copy(permalink) })
@@ -208,6 +239,11 @@ fun PostActionsSheet(
                 OptionRow("Filter /u/${post.author}", Icons.Outlined.AccountCircle, onClick = {
                     filter("Filtered u/${post.author}") { container.filters.filterUser(post.author) }
                 })
+                post.flair?.takeIf { it.isNotBlank() }?.let { flair ->
+                    OptionRow("Filter flair ($flair)", AppIcons.Tag, onClick = {
+                        filter("Filtered flair $flair") { container.filters.filterFlair(flair) }
+                    })
+                }
                 if (domain != null) {
                     OptionRow("Filter domain ($domain)", AppIcons.Link, onClick = {
                         filter("Filtered ${post.domain}") { container.filters.filterDomain(post.domain) }
@@ -217,7 +253,9 @@ fun PostActionsSheet(
                 SheetTitle("Post options", topPadding = 0.dp)
                 onHide?.let { hide -> OptionRow("Hide", Icons.Default.Close, onClick = { act(hide) }) }
                 onMarkRead?.let { markRead -> OptionRow("Mark as read", Icons.Default.Check, onClick = { act(markRead) }) }
-                OptionRow("Share", Icons.Outlined.Share, onClick = { act { nav.share(permalink, post.title) } })
+                OptionRow("Share", Icons.Outlined.Share, onClick = { act { nav.share(permalink, post.title) } }, trailing = {
+                    IconButton(onClick = { sharing = true }) { Icon(Icons.Default.MoreVert, "Share as…") }
+                })
                 OptionRow(if (watching) "Stop watching" else "Watch", if (watching) Icons.Filled.Notifications else Icons.Outlined.Notifications, onClick = {
                     when {
                         watching -> {
@@ -238,6 +276,7 @@ fun PostActionsSheet(
                 HorizontalDivider()
                 OptionRow("Copy...", AppIcons.Copy, onClick = { copying = true })
                 OptionRow("Filter...", AppIcons.Filter, onClick = { filtering = true })
+                OptionRow("Add r/${post.subreddit} to multi...", Icons.Default.Add, onClick = { addingToMulti = true })
                 if (isOwn && post.isSelf) {
                     OptionRow("Edit", Icons.Outlined.Edit, onClick = {
                         act { nav.push(ComposeRoute(ComposeMode.EDIT, target = post.fullname, quote = post.title, initial = post.selfText)) }

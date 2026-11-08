@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
+import android.app.Activity
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.ContentTransform
@@ -16,6 +18,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.IntOffset
 import io.github.radixtrator.resync.ui.common.LocalPreviousScreen
@@ -42,18 +47,24 @@ import io.github.radixtrator.resync.notify.Notifications
 import io.github.radixtrator.resync.ui.compose.ComposeScreen
 import io.github.radixtrator.resync.ui.compose.SubmitScreen
 import io.github.radixtrator.resync.ui.feed.FeedScreen
+import io.github.radixtrator.resync.ui.home.DualPaneDetail
+import io.github.radixtrator.resync.ui.home.DualPaneList
+import io.github.radixtrator.resync.ui.home.rememberDualPaneSceneStrategies
 import io.github.radixtrator.resync.ui.inbox.InboxScreen
 import io.github.radixtrator.resync.ui.login.LoginScreen
 import io.github.radixtrator.resync.ui.media.ImageViewerScreen
 import io.github.radixtrator.resync.ui.media.VideoPlayerScreen
 import io.github.radixtrator.resync.ui.navigation.ComposeRoute
+import io.github.radixtrator.resync.ui.navigation.CustomizeViewRoute
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
+import io.github.radixtrator.resync.ui.navigation.FilterEditorRoute
 import io.github.radixtrator.resync.ui.navigation.ImageRoute
 import io.github.radixtrator.resync.ui.navigation.InboxRoute
 import io.github.radixtrator.resync.ui.navigation.LocalAccount
 import io.github.radixtrator.resync.ui.navigation.LocalContainer
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
+import io.github.radixtrator.resync.ui.navigation.LocalUserTagColors
 import io.github.radixtrator.resync.ui.navigation.LocalUserTags
 import io.github.radixtrator.resync.ui.navigation.LocalVisited
 import io.github.radixtrator.resync.ui.navigation.LoginRoute
@@ -61,6 +72,15 @@ import io.github.radixtrator.resync.ui.navigation.Navigator
 import io.github.radixtrator.resync.ui.navigation.PostRoute
 import io.github.radixtrator.resync.ui.navigation.SearchRoute
 import io.github.radixtrator.resync.ui.navigation.SettingsRoute
+import io.github.radixtrator.resync.ui.navigation.ThemeManagementRoute
+import io.github.radixtrator.resync.ui.navigation.SwipeModeRoute
+import io.github.radixtrator.resync.ui.navigation.ModRoute
+import io.github.radixtrator.resync.ui.feed.ModScreen
+import io.github.radixtrator.resync.ui.mod.ModMailConversationScreen
+import io.github.radixtrator.resync.ui.mod.ModMailScreen
+import io.github.radixtrator.resync.ui.navigation.ModMailConversationRoute
+import io.github.radixtrator.resync.ui.navigation.ModMailRoute
+import io.github.radixtrator.resync.ui.feed.SwipeModeScreen
 import io.github.radixtrator.resync.ui.navigation.SetupRoute
 import io.github.radixtrator.resync.ui.navigation.SubmitRoute
 import io.github.radixtrator.resync.ui.navigation.UserRoute
@@ -68,9 +88,19 @@ import io.github.radixtrator.resync.ui.navigation.VideoRoute
 import io.github.radixtrator.resync.ui.post.PostScreen
 import io.github.radixtrator.resync.ui.profile.ProfileScreen
 import io.github.radixtrator.resync.ui.search.SearchScreen
+import io.github.radixtrator.resync.ui.settings.CustomizeViewScreen
+import io.github.radixtrator.resync.ui.settings.FilterEditorScreen
 import io.github.radixtrator.resync.ui.settings.SettingsScreen
+import io.github.radixtrator.resync.ui.settings.ThemeManagementScreen
 import io.github.radixtrator.resync.ui.setup.SetupScreen
-import io.github.radixtrator.resync.ui.theme.BASE_FONT_SCALE
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Color
+import io.github.radixtrator.resync.data.Settings
+import io.github.radixtrator.resync.data.savedBaseFontScale
+import io.github.radixtrator.resync.ui.theme.LocalBaseFontScale
 import io.github.radixtrator.resync.ui.theme.FullSizeText
 import io.github.radixtrator.resync.ui.theme.ResyncTheme
 
@@ -78,7 +108,7 @@ class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase)
         // Only fontScale is set, so every other setting still follows the device.
-        applyOverrideConfiguration(Configuration().apply { fontScale = newBase.resources.configuration.fontScale * BASE_FONT_SCALE })
+        applyOverrideConfiguration(Configuration().apply { fontScale = newBase.resources.configuration.fontScale * savedBaseFontScale(newBase.getSharedPreferences("resync", Context.MODE_PRIVATE)) })
     }
 
     /** A page to open, from a tapped notification (a watched community's post, an inbox message). */
@@ -91,7 +121,23 @@ class MainActivity : ComponentActivity() {
         val container = (application as ResyncApp).container
         setContent {
             val settings by container.settings.settings.collectAsStateWithLifecycle()
-            ResyncTheme(settings) { ResyncNavHost(container, openRoute, onRouteOpened = { openRoute = null }) }
+            CompositionLocalProvider(LocalBaseFontScale provides settings.baseFontSize.scale) {
+                ResyncTheme(settings) {
+                    // Sync's "Dark overlay": a black layer drawn over everything after it, so it dims without
+                    // taking touches. Dialogs and sheets are their own windows and stay undimmed.
+                    Box(
+                        Modifier.fillMaxSize().drawWithContent {
+                            drawContent()
+                            if (settings.darkOverlay) {
+                                val alpha = settings.darkOverlayLevel.coerceIn(Settings.DARK_OVERLAY_MIN, Settings.DARK_OVERLAY_MAX)
+                                drawRect(Color.Black.copy(alpha = alpha))
+                            }
+                        },
+                    ) {
+                        ResyncNavHost(container, openRoute, onRouteOpened = { openRoute = null })
+                    }
+                }
+            }
         }
     }
 
@@ -109,8 +155,9 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
     val username by container.username.collectAsStateWithLifecycle()
     val visited by container.visited.ids.collectAsStateWithLifecycle()
     val tags by container.tags.tags.collectAsStateWithLifecycle()
+    val tagColors by container.tags.colors.collectAsStateWithLifecycle()
     val currentSettings by rememberUpdatedState(settings)
-    val navigator = remember(backStack) { Navigator(context, backStack) { currentSettings } }
+    val navigator = remember(backStack) { Navigator(context, backStack, { currentSettings }) }
     LaunchedEffect(openRoute) {
         if (openRoute != null && container.isConfigured) navigator.push(openRoute)
         if (openRoute != null) onRouteOpened()
@@ -123,6 +170,7 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
         LocalAccount provides username,
         LocalVisited provides visited,
         LocalUserTags provides tags,
+        LocalUserTagColors provides tagColors,
         LocalContainer provides container,
     ) {
         val entries = rememberDecoratedNavEntries(
@@ -141,8 +189,13 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
                     )
                 }
                 entry<LoginRoute> { LoginScreen(container = container, onFinished = navigator::pop) }
-                entry<FeedRoute> { route -> FeedScreen(route, container) }
-                entry<PostRoute> { route -> PostScreen(route, container) }
+                // Tablet mode's dual pane puts a post beside the feed it was opened from (ui/home/DualPane.kt).
+                entry<FeedRoute>(metadata = DualPaneList) { route -> FeedScreen(route, container) }
+                entry<PostRoute>(metadata = DualPaneDetail) { route -> PostScreen(route, container) }
+                entry<ModRoute> { route -> ModScreen(route.subreddit, container) }
+                entry<ModMailRoute> { route -> ModMailScreen(route.subreddit, container) }
+                entry<ModMailConversationRoute> { route -> ModMailConversationScreen(route.id, container) }
+                entry<SwipeModeRoute> { route -> SwipeModeScreen(route.subreddit, container) }
                 entry<ImageRoute>(metadata = MediaFade) { route -> ImageViewerScreen(route.urls, route.start, route.postId, container.downloads, onClose = navigator::pop) }
                 entry<VideoRoute>(metadata = MediaFade) { route -> VideoPlayerScreen(route.url, route.loop, route.postId, container.downloads, onClose = navigator::pop) }
                 entry<UserRoute> { route -> ProfileScreen(route.name, route.tab, container) }
@@ -152,13 +205,39 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
                 entry<ComposeRoute> { route -> ComposeScreen(route, container) }
                 // Sync's settings don't shrink with its base font size.
                 entry<SettingsRoute> { FullSizeText { SettingsScreen(container) } }
+                entry<ThemeManagementRoute> { FullSizeText { ThemeManagementScreen(container) } }
+                // Its preview stays at feed size; the screen sizes its own option rows like the settings.
+                entry<CustomizeViewRoute> { route -> CustomizeViewScreen(route.layout, container) }
+                entry<FilterEditorRoute> { route -> FullSizeText { FilterEditorScreen(route.type, container) } }
             },
         )
         LaunchedEffect(backStack.size) { SwipeBackState.popping = false }
+        // Sync's "Confirm exit": back on the last page asks first. Only enabled with one page left, when NavDisplay's
+        // own back handling has nothing to pop (and SwipeBack, which only pops, isn't on root pages). It's composed
+        // before NavDisplay, so handlers inside pages (the drawer, sheets, viewers' panels) register later and
+        // still get back first.
+        var confirmingExit by remember { mutableStateOf(false) }
+        BackHandler(enabled = settings.confirmExit && backStack.size == 1) { confirmingExit = true }
+        if (confirmingExit) {
+            AlertDialog(
+                onDismissRequest = { confirmingExit = false },
+                title = { Text("Exit Resync?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmingExit = false
+                        (context as? Activity)?.finish()
+                    }) { Text("Exit") }
+                },
+                dismissButton = { TextButton(onClick = { confirmingExit = false }) { Text("Cancel") } },
+            )
+        }
         val previous: (@Composable () -> Unit)? = entries.getOrNull(entries.size - 2)?.let { entry -> { entry.Content() } }
+        // The dual pane scene sets LocalPreviousScreen for each of its panes, so neither redraws the other.
+        val sceneStrategies = rememberDualPaneSceneStrategies()
         CompositionLocalProvider(LocalPreviousScreen provides previous) {
             NavDisplay(
                 entries = entries,
+                sceneStrategies = sceneStrategies,
                 onBack = navigator::pop,
                 transitionSpec = { cardPush() },
                 popTransitionSpec = { if (SwipeBackState.popping) noTransition() else cardPop() },

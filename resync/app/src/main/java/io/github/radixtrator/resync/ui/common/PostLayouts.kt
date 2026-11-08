@@ -24,11 +24,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,9 +50,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
@@ -66,14 +70,22 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import io.github.radixtrator.resync.data.ImageSource
 import io.github.radixtrator.resync.data.Post
+import io.github.radixtrator.resync.data.PostColumns
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.PostMedia
+import io.github.radixtrator.resync.data.ViewOptions
 import io.github.radixtrator.resync.ui.navigation.LocalAccount
+import io.github.radixtrator.resync.ui.navigation.LocalContainer
+import io.github.radixtrator.resync.ui.navigation.LocalNavigator
+import io.github.radixtrator.resync.ui.navigation.LocalUserTagColors
+import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import io.github.radixtrator.resync.ui.navigation.LocalUserTags
 import io.github.radixtrator.resync.ui.navigation.LocalVisited
+import io.github.radixtrator.resync.ui.navigation.ModRoute
 import io.github.radixtrator.resync.ui.theme.ResyncColors
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -81,40 +93,70 @@ import kotlin.math.roundToInt
 // Sync's six feed layouts (sync-reference/SYNC_PARITY_LOG.md §3.3). Each takes the post plus
 // [PostActions]; spacing between items belongs to the list, see [gutter] and [spacing].
 
-/** What a feed item can do with its post. */
+/**
+ * What a feed item can do with its post. [onHide] is null where the list can't drop posts (the Hide button then
+ * stays out); [onShare] and [onModTools] null mean the usual share sheet and Moderator screen.
+ */
 class PostActions(
     val onOpen: () -> Unit,
     val onMedia: () -> Unit,
     val onMore: () -> Unit,
     val onVote: (Int) -> Unit,
     val onToggleSave: () -> Unit,
+    val onHide: (() -> Unit)? = null,
+    val onShare: (() -> Unit)? = null,
+    val onModTools: (() -> Unit)? = null,
 )
 
-/** Side gutter and column gap: card layouts float on the window, row layouts run edge to edge. */
+/**
+ * Side gutter and column gap: card layouts float on the window, row layouts run edge to edge, and so do Cards with
+ * "Full width cards" on ([fullWidthCards]).
+ */
 val PostLayout.gutter: Dp
-    get() = when (this) {
+    @Composable get() = when (this) {
         PostLayout.LIST, PostLayout.COMPACT, PostLayout.SLIDES -> 0.dp
-        PostLayout.SMALLER_CARDS, PostLayout.SMALL_CARDS, PostLayout.CARD -> 16.dp
+        PostLayout.CARD -> if (fullWidthCards()) 0.dp else 16.dp
+        PostLayout.SMALLER_CARDS, PostLayout.SMALL_CARDS -> 16.dp
     }
 
-/** Gap between consecutive items. Rows draw their own dividers instead. */
+/**
+ * Gap between consecutive items. Rows draw their own dividers instead, as do Slides with the thick divider off
+ * ([ViewOptions.thickDivider]); full-width Cards sit closer, like Slides.
+ */
 val PostLayout.spacing: Dp
-    get() = when (this) {
+    @Composable get() = when (this) {
         PostLayout.LIST, PostLayout.COMPACT -> 0.dp
-        PostLayout.SLIDES -> 8.dp
-        PostLayout.SMALLER_CARDS, PostLayout.SMALL_CARDS, PostLayout.CARD -> 16.dp
+        PostLayout.SLIDES -> if (LocalSettings.current.viewOptionsFor(this).thickDivider) 8.dp else 0.dp
+        PostLayout.CARD -> if (fullWidthCards()) 8.dp else 16.dp
+        PostLayout.SMALLER_CARDS, PostLayout.SMALL_CARDS -> 16.dp
     }
 
 /** The item's outline, so the swipe panel behind a card has the card's corners. */
 val PostLayout.swipeShape: Shape
-    get() = when (this) {
-        PostLayout.CARD, PostLayout.SMALL_CARDS -> RoundedCornerShape(8.dp)
+    @Composable get() = when (this) {
+        PostLayout.CARD -> if (fullWidthCards()) RectangleShape else RoundedCornerShape(8.dp)
+        PostLayout.SMALL_CARDS -> RoundedCornerShape(8.dp)
         PostLayout.SMALLER_CARDS -> RoundedCornerShape(10.dp)
         PostLayout.LIST, PostLayout.COMPACT, PostLayout.SLIDES -> RectangleShape
     }
 
-/** Cards and small cards tile into columns on wide screens, as on Sync's foldable cover screen. */
-fun PostLayout.columns(widthDp: Int): Int = when (this) {
+/**
+ * Whether this is Cards with Customize view's "Full width cards" ([ViewOptions.cardFullWidth]) taking effect: Sync
+ * offers it for a single column only, so it applies while the feed's [columns] (from the window width, as feeds
+ * count them) come to one.
+ */
+@Composable
+private fun PostLayout.fullWidthCards(): Boolean {
+    if (this != PostLayout.CARD) return false
+    val options = LocalSettings.current.viewOptionsFor(this)
+    return options.cardFullWidth && columns(LocalConfiguration.current.screenWidthDp, options.columns) == 1
+}
+
+/**
+ * Cards and small cards tile into columns on wide screens, as on Sync's foldable cover screen. A Customize view
+ * [override] other than Auto ([ViewOptions.columns]) fixes the count instead, whatever the width.
+ */
+fun PostLayout.columns(widthDp: Int, override: PostColumns = PostColumns.AUTO): Int = override.count ?: when (this) {
     PostLayout.CARD, PostLayout.SMALL_CARDS -> when {
         widthDp >= 840 -> 3
         widthDp >= 480 -> 2
@@ -123,17 +165,19 @@ fun PostLayout.columns(widthDp: Int): Int = when (this) {
     else -> 1
 }
 
+/** [post] drawn in [layout], honoring that layout's Customize view options ([ViewOptions]) from [LocalSettings]. */
 @Composable
 fun PostLayoutItem(layout: PostLayout, post: Post, showSubreddit: Boolean, actions: PostActions) {
+    val options = LocalSettings.current.viewOptionsFor(layout)
     when (layout) {
-        PostLayout.LIST -> RowPost(post, showSubreddit, actions, flushThumbnail = true, inCard = false)
-        PostLayout.COMPACT -> RowPost(post, showSubreddit, actions, flushThumbnail = false, inCard = false)
+        PostLayout.LIST -> RowPost(post, showSubreddit, actions, options, flushThumbnail = true, inCard = false)
+        PostLayout.COMPACT -> RowPost(post, showSubreddit, actions, options, flushThumbnail = false, inCard = false)
         PostLayout.SMALLER_CARDS -> SyncCard(RoundedCornerShape(10.dp)) {
-            RowPost(post, showSubreddit, actions, flushThumbnail = false, inCard = true)
+            RowPost(post, showSubreddit, actions, options, flushThumbnail = false, inCard = true)
         }
-        PostLayout.SMALL_CARDS -> SmallCardPost(post, showSubreddit, actions)
-        PostLayout.CARD -> CardPost(post, showSubreddit, actions)
-        PostLayout.SLIDES -> SlidePost(post, actions)
+        PostLayout.SMALL_CARDS -> SmallCardPost(post, showSubreddit, actions, options)
+        PostLayout.CARD -> CardPost(post, showSubreddit, actions, options)
+        PostLayout.SLIDES -> SlidePost(post, actions, options)
     }
 }
 
@@ -146,59 +190,125 @@ private fun SyncCard(shape: Shape, content: @Composable ColumnScope.() -> Unit) 
 
 // --- Cards ---
 
+/**
+ * Sync's Cards. [options]: image above or below the title (`card_image_above`), full-height or cropped previews,
+ * selftext previews, full width cards (square corners here; the list drops the gutter), the title, description and
+ * selftext sizes, and the footer's Save / Hide / Share / Mod tools buttons.
+ */
 @Composable
-private fun CardPost(post: Post, showSubreddit: Boolean, actions: PostActions) {
-    SyncCard(RoundedCornerShape(8.dp)) {
+private fun CardPost(post: Post, showSubreddit: Boolean, actions: PostActions, options: ViewOptions) {
+    val previewMaxHeight = if (options.cardFullHeight) null else CroppedPreviewHeight
+    // Rounded, or square with "Full width cards" on.
+    SyncCard(PostLayout.CARD.swipeShape) {
         Column(Modifier.combinedClickable(onClick = actions.onOpen, onLongClick = actions.onMore)) {
-            CardPreview(post, onClick = actions.onMedia)
+            if (options.imageAboveTitle) CardPreview(post, onClick = actions.onMedia, maxHeight = previewMaxHeight)
             Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
-                PostTitle(post, CardTitle)
+                PostTitle(post, CardTitle.scaledBy(options.titleSize.scale))
                 Spacer(Modifier.height(4.dp))
-                PostMeta(post, showSubreddit, maxLines = 3)
-                if (post.flair != null) {
+                PostMeta(post, showSubreddit, maxLines = 3, style = CardMeta.scaledBy(options.descriptionSize.scale), showAuthor = feedAuthors)
+                if (post.shownFlair() != null) {
                     Spacer(Modifier.height(8.dp))
                     FlairChip(post)
                 }
-                selfTextPreview(post)?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 6, overflow = TextOverflow.Ellipsis)
+                if (options.selftextPreviews) {
+                    selfTextPreview(post)?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodyMedium.scaledBy(options.selftextSize.scale),
+                            maxLines = 6,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
-            StatsFooter(post, actions.onMore)
+            if (!options.imageAboveTitle) {
+                CardPreview(post, onClick = actions.onMedia, modifier = Modifier.padding(top = 12.dp), maxHeight = previewMaxHeight)
+            }
+            StatsFooter(post, actions, PostButtons(options.cardSaveButton, options.hideButton, options.shareButton, options.modButton))
         }
     }
 }
 
+/**
+ * Sync's Small cards. [options]: the thumbnail top-right, or top-left (`small_cards_thumbnail_align_left`), the title
+ * and description sizes, and the footer's Save / Hide / Share / Mod tools buttons, as on Cards.
+ */
 @Composable
-private fun SmallCardPost(post: Post, showSubreddit: Boolean, actions: PostActions) {
+private fun SmallCardPost(post: Post, showSubreddit: Boolean, actions: PostActions, options: ViewOptions) {
     SyncCard(RoundedCornerShape(8.dp)) {
         Column(Modifier.combinedClickable(onClick = actions.onOpen, onLongClick = actions.onMore)) {
             Row(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
+                val hasThumbnail = post.thumbnail() != null
+                if (hasThumbnail && options.thumbnailLeft) {
+                    Thumbnail(post, 64.dp, RoundedCornerShape(8.dp), onClick = actions.onMedia)
+                    Spacer(Modifier.width(12.dp))
+                }
                 Column(Modifier.weight(1f)) {
-                    PostTitle(post, CardTitle, maxLines = 5)
+                    PostTitle(post, CardTitle.scaledBy(options.titleSize.scale), maxLines = 5)
                     Spacer(Modifier.height(4.dp))
-                    PostMeta(post, showSubreddit, maxLines = 3, style = RowMeta)
-                    if (post.flair != null) {
+                    PostMeta(post, showSubreddit, maxLines = 3, style = RowMeta.scaledBy(options.descriptionSize.scale), showAuthor = feedAuthors)
+                    if (post.shownFlair() != null) {
                         Spacer(Modifier.height(8.dp))
                         FlairChip(post)
                     }
                 }
-                if (post.thumbnail() != null) {
+                if (hasThumbnail && !options.thumbnailLeft) {
                     Spacer(Modifier.width(12.dp))
                     Thumbnail(post, 64.dp, RoundedCornerShape(8.dp), onClick = actions.onMedia)
                 }
             }
-            StatsFooter(post, actions.onMore)
+            StatsFooter(post, actions, PostButtons(options.cardSaveButton, options.hideButton, options.shareButton, options.modButton))
         }
     }
 }
 
-/** "10.6k points / 154 comments" on the left, ⋮ on the right: Sync's card footer. */
+/** "10.6k points / 154 comments" on the left, then any of [buttons] and ⋮ on the right: Sync's card footer. */
 @Composable
-private fun StatsFooter(post: Post, onMore: () -> Unit) {
+private fun StatsFooter(post: Post, actions: PostActions, buttons: PostButtons = PostButtons.None) {
     Row(Modifier.fillMaxWidth().padding(start = 12.dp, top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         PostStats(post, Modifier.weight(1f))
-        IconButton(onClick = onMore) { Icon(Icons.Default.MoreVert, "Post options", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        PostButtonIcons(post, actions, buttons, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        IconButton(onClick = actions.onMore) { Icon(Icons.Default.MoreVert, "Post options", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+    }
+}
+
+/** Which of Sync's optional post buttons (Customize view › Buttons) a button row shows. */
+private class PostButtons(val save: Boolean, val hide: Boolean, val share: Boolean, val mod: Boolean) {
+    companion object {
+        val None = PostButtons(save = false, hide = false, share = false, mod = false)
+    }
+}
+
+/**
+ * The switched-on [buttons] in Sync's settings order: Save, Hide (only where the list can hide), Share, and Mod tools
+ * (only in communities you moderate). Emitted straight into the caller's row.
+ */
+@Composable
+private fun PostButtonIcons(post: Post, actions: PostActions, buttons: PostButtons, tint: Color) {
+    val nav = LocalNavigator.current
+    if (buttons.save) {
+        IconButton(onClick = actions.onToggleSave) {
+            Icon(
+                if (post.saved) AppIcons.BookmarkFilled else AppIcons.Bookmark,
+                if (post.saved) "Unsave" else "Save",
+                tint = if (post.saved) ResyncColors.Saved else tint,
+            )
+        }
+    }
+    if (buttons.hide) {
+        actions.onHide?.let { hide -> IconButton(onClick = hide) { Icon(Icons.Default.Close, "Hide", tint = tint) } }
+    }
+    if (buttons.share) {
+        val share: () -> Unit = actions.onShare ?: { nav.share("https://www.reddit.com${post.permalink}", post.title) }
+        IconButton(onClick = share) { Icon(Icons.Outlined.Share, "Share", tint = tint) }
+    }
+    if (buttons.mod) {
+        val moderated by LocalContainer.current.moderated.collectAsStateWithLifecycle()
+        if (moderated.any { it.equals(post.subreddit, ignoreCase = true) }) {
+            val modTools: () -> Unit = actions.onModTools ?: { nav.push(ModRoute(post.subreddit)) }
+            IconButton(onClick = modTools) { Icon(AppIcons.Shield, "Mod tools", tint = tint) }
+        }
     }
 }
 
@@ -207,33 +317,42 @@ private fun StatsFooter(post: Post, onMore: () -> Unit) {
 /**
  * Sync's List ([flushThumbnail]: square thumbnail against the left edge) and Compact (inset rounded
  * thumbnail) rows; Smaller cards wraps the compact row in a card. ⌄ expands the media or text inline.
+ * [options]: thumbnails (left or right), the type indicator, a one-line title and the title and description sizes, as
+ * Sync's List/Compact/Smaller cards screens offer.
  */
 @Composable
-private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, flushThumbnail: Boolean, inCard: Boolean) {
+private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, options: ViewOptions, flushThumbnail: Boolean, inCard: Boolean) {
     var expanded by rememberSaveable(post.fullname) { mutableStateOf(false) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val short = LocalSettings.current.shortScores
     Column(
         Modifier
             // Opaque so a swipe's action panel shows only where the row has slid away.
             .background(if (inCard) Color.Transparent else MaterialTheme.colorScheme.background)
             .combinedClickable(onClick = actions.onOpen, onLongClick = actions.onMore),
     ) {
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        val right = options.thumbnailRight
+        val thumbnail = @Composable {
             if (flushThumbnail) {
                 Thumbnail(post, 72.dp, RectangleShape, onClick = actions.onMedia)
             } else {
-                Thumbnail(post, 64.dp, RoundedCornerShape(8.dp), onClick = actions.onMedia, modifier = Modifier.padding(start = 8.dp, top = 8.dp))
+                val inset = if (right) Modifier.padding(end = 8.dp, top = 8.dp) else Modifier.padding(start = 8.dp, top = 8.dp)
+                Thumbnail(post, 64.dp, RoundedCornerShape(8.dp), onClick = actions.onMedia, modifier = inset)
             }
+        }
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            if (options.thumbnails && !right) thumbnail()
             Column(Modifier.weight(1f).padding(start = 12.dp, top = 8.dp, bottom = 10.dp, end = 4.dp)) {
-                PostTitle(post, RowTitle, maxLines = 4)
-                PostMeta(post, showSubreddit, maxLines = 1, style = RowMeta)
+                PostTitle(post, RowTitle.scaledBy(options.titleSize.scale), maxLines = if (options.singleLineTitle) 1 else 4)
+                val description = RowMeta.scaledBy(options.descriptionSize.scale)
+                PostMeta(post, showSubreddit, maxLines = 1, style = description, showAuthor = feedAuthors)
                 Text(
-                    "${points(post.score)} • ${comments(post.numComments)}",
-                    style = RowMeta,
+                    "${points(post.score, short)} • ${comments(post.numComments, short)}",
+                    style = description,
                     color = muted,
                     maxLines = 1,
                 )
-                post.flair?.let {
+                post.shownFlair()?.let {
                     Text(it, style = if (flushThumbnail) RowMeta else RowTitle, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
@@ -244,13 +363,19 @@ private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, fl
             }
             val type = @Composable { Icon(typeIcon(post), null, tint = muted, modifier = Modifier.padding(8.dp).size(20.dp)) }
             if (flushThumbnail) {
-                Row(Modifier.fillMaxHeight().padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) { expand(); type() }
+                Row(Modifier.fillMaxHeight().padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    expand()
+                    if (options.typeIndicators) type()
+                }
             } else {
                 Column(Modifier.fillMaxHeight().padding(end = 4.dp), verticalArrangement = Arrangement.SpaceBetween, horizontalAlignment = Alignment.CenterHorizontally) {
-                    type()
+                    // Without the type icon, ⌄ still sits at the bottom.
+                    if (options.typeIndicators) type() else Spacer(Modifier.weight(1f))
                     expand()
                 }
             }
+            // "Align thumbnail right": past ⌄ and the type icon, against the row's end.
+            if (options.thumbnails && right) thumbnail()
         }
         if (expanded) {
             if (post.thumbnail() != null && !post.isSelf) {
@@ -269,79 +394,136 @@ private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, fl
 
 // --- Slides ---
 
-/** Sync's Slides: a full-width post with the sub on top, big media, and vote/comment pills. */
+/**
+ * Sync's Slides: a full-width post with the sub on top, big media, and vote/comment pills. [options]: image and
+ * selftext previews and the image's full height / full width / place before the title, the subreddit icon, the
+ * border around selftext, the thick divider (off: a hairline here, and no gap in the list), the title, description
+ * and selftext sizes, and the button row (Save / Hide / Share / Mod tools, voting on the right, or no buttons at all).
+ */
 @Composable
-private fun SlidePost(post: Post, actions: PostActions) {
+private fun SlidePost(post: Post, actions: PostActions, options: ViewOptions) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    // "Preview before title": the media opens the slide, flush with its top edge when it also runs full width.
+    val previewFirst = options.imagePreviews && options.slideImageTop && post.hasCardPreview()
     Column(
         Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .combinedClickable(onClick = actions.onOpen, onLongClick = actions.onMore)
-            .padding(top = 16.dp, bottom = 8.dp),
+            .padding(top = if (previewFirst && options.slideFullWidth) 0.dp else 16.dp),
     ) {
-        Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            LetterAvatar(post.subreddit, 32.dp)
-            Spacer(Modifier.width(12.dp))
+        if (previewFirst) SlidePreview(post, actions, options, top = 0.dp)
+        Row(
+            Modifier.padding(start = 16.dp, end = 16.dp, top = if (previewFirst) 12.dp else 0.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (options.subredditIcons) {
+                LetterAvatar(post.subreddit, 32.dp)
+                Spacer(Modifier.width(12.dp))
+            }
             Column {
+                val description = CardMeta.scaledBy(options.descriptionSize.scale)
                 Text(
                     buildAnnotatedString {
                         append("r/")
                         withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) { append(post.subreddit) }
                     },
-                    style = CardMeta,
+                    style = description,
                     color = muted,
                 )
-                PostMeta(post, showSubreddit = false, maxLines = 1)
+                PostMeta(post, showSubreddit = false, maxLines = 1, style = description, showAuthor = feedAuthors)
             }
         }
-        PostTitle(post, CardTitle.copy(fontSize = 15.sp), modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp))
-        if (post.flair != null) FlairChip(post, Modifier.padding(start = 16.dp, top = 8.dp))
-        CardPreview(
+        PostTitle(
             post,
-            onClick = actions.onMedia,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp).clip(RoundedCornerShape(12.dp)),
-            // Slides crop media to a fixed band, unlike the full-height cards.
-            height = 220.dp,
+            CardTitle.copy(fontSize = 15.sp).scaledBy(options.titleSize.scale),
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp),
         )
-        selfTextPreview(post)?.let {
+        if (post.shownFlair() != null) FlairChip(post, Modifier.padding(start = 16.dp, top = 8.dp))
+        if (options.imagePreviews && !options.slideImageTop) SlidePreview(post, actions, options, top = 12.dp)
+        val selftext = if (options.selftextPreviews) selfTextPreview(post) else null
+        selftext?.let {
             Text(
                 it,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium.scaledBy(options.selftextSize.scale),
                 maxLines = 8,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .padding(start = 16.dp, end = 16.dp, top = 12.dp)
                     .fillMaxWidth()
-                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(8.dp))
-                    .padding(12.dp),
+                    .then(
+                        if (options.selftextBorder) {
+                            Modifier
+                                .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(8.dp))
+                                .padding(12.dp)
+                        } else Modifier,
+                    ),
             )
         }
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            VotePill(post.likes, post.score, actions.onVote)
-            Spacer(Modifier.width(8.dp))
+        if (!options.hideAllButtons) {
+            val buttons = PostButtons(options.saveButton, options.hideButton, options.shareButton, options.modButton)
+            val onSurface = MaterialTheme.colorScheme.onSurface
+            // "Right aligned voting" mirrors the row: icons and ⋮ on the left, the comment and vote pills on the right.
+            val voteRight = options.voteRight
             Row(
-                Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                    .clickable(onClick = actions.onOpen)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                Modifier.fillMaxWidth().padding(start = if (voteRight) 4.dp else 16.dp, end = if (voteRight) 16.dp else 4.dp, top = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(AppIcons.Comment, "Comments", modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(Format.count(post.numComments), style = MaterialTheme.typography.labelLarge)
+                if (voteRight) {
+                    PostButtonIcons(post, actions, buttons, tint = onSurface)
+                    IconButton(onClick = actions.onMore) { Icon(Icons.Default.MoreVert, "Post options") }
+                    Spacer(Modifier.weight(1f))
+                    CommentsPill(post.numComments, actions.onOpen)
+                    Spacer(Modifier.width(8.dp))
+                    VotePill(post.likes, post.score, actions.onVote)
+                } else {
+                    VotePill(post.likes, post.score, actions.onVote)
+                    Spacer(Modifier.width(8.dp))
+                    CommentsPill(post.numComments, actions.onOpen)
+                    Spacer(Modifier.weight(1f))
+                    PostButtonIcons(post, actions, buttons, tint = onSurface)
+                    IconButton(onClick = actions.onMore) { Icon(Icons.Default.MoreVert, "Post options") }
+                }
             }
-            Spacer(Modifier.weight(1f))
-            IconButton(onClick = actions.onToggleSave) {
-                Icon(
-                    if (post.saved) AppIcons.BookmarkFilled else AppIcons.Bookmark,
-                    if (post.saved) "Unsave" else "Save",
-                    tint = if (post.saved) ResyncColors.Saved else MaterialTheme.colorScheme.onSurface,
-                )
-            }
-            IconButton(onClick = actions.onMore) { Icon(Icons.Default.MoreVert, "Post options") }
         }
+        Spacer(Modifier.height(8.dp))
+        // Without the thick divider the list leaves no gap between slides, so each ends on a hairline.
+        if (!options.thickDivider) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+/**
+ * A slide's big preview, [top] below what comes before it: inset with rounded corners, or edge to edge with "Preview
+ * full width"; cropped to a band unless "Preview full height" is on.
+ */
+@Composable
+private fun SlidePreview(post: Post, actions: PostActions, options: ViewOptions, top: Dp) {
+    CardPreview(
+        post,
+        onClick = actions.onMedia,
+        modifier = if (options.slideFullWidth) {
+            Modifier.padding(top = top)
+        } else {
+            Modifier.padding(start = 16.dp, end = 16.dp, top = top).clip(RoundedCornerShape(12.dp))
+        },
+        height = if (options.slideFullHeight) null else CroppedPreviewHeight,
+    )
+}
+
+/** The comment count pill beside Slides' vote pill; opens the comments. */
+@Composable
+private fun CommentsPill(count: Int, onOpen: () -> Unit) {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .clickable(onClick = onOpen)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(AppIcons.Comment, "Comments", modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(Format.count(count, LocalSettings.current.shortScores), style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -362,7 +544,7 @@ private fun VotePill(likes: Boolean?, score: Int, onVote: (Int) -> Unit) {
         IconButton(onClick = { onVote(if (likes == true) 0 else 1) }, modifier = Modifier.size(40.dp)) {
             Icon(Icons.Default.KeyboardArrowUp, "Upvote", tint = tint)
         }
-        Text(Format.count(score), style = MaterialTheme.typography.labelLarge, color = tint)
+        Text(Format.count(score, LocalSettings.current.shortScores), style = MaterialTheme.typography.labelLarge, color = tint)
         IconButton(onClick = { onVote(if (likes == false) 0 else -1) }, modifier = Modifier.size(40.dp)) {
             Icon(Icons.Default.KeyboardArrowDown, "Downvote", tint = tint)
         }
@@ -381,6 +563,13 @@ private val RowTitle: TextStyle
     @Composable get() = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 1.2.em)
 private val RowMeta: TextStyle
     @Composable get() = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 1.2.em)
+
+/** Customize view's title size ([ViewOptions.titleSize]): the size times [scale]; em line heights follow on their own. */
+private fun TextStyle.scaledBy(scale: Float): TextStyle =
+    if (scale == 1f) this else copy(fontSize = fontSize * scale, lineHeight = if (lineHeight.isSp) lineHeight * scale else lineHeight)
+
+/** The band Slides crop previews to, and that Cards with "Full height" off crop tall previews to. */
+private val CroppedPreviewHeight = 220.dp
 
 /** The title, dimmed once read (in feeds), with Sync's pin and lock marks inline. */
 @Composable
@@ -435,36 +624,40 @@ fun PostMeta(
     maxLines: Int = 2,
     style: TextStyle = CardMeta,
     suffix: String? = null,
+    showAuthor: Boolean = true,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     val flairBg = MaterialTheme.colorScheme.surfaceVariant
     val tag = LocalUserTags.current[post.author.lowercase()]
-    val tagStyle = userTagStyle()
+    val tagStyle = userTagStyle(post.author)
     val me = LocalAccount.current
     val text = buildAnnotatedString {
         if (showSubreddit) {
             withStyle(SpanStyle(color = accent)) { append(post.subreddit) }
-            append(" • ")
         }
-        append(post.author)
-        // Sync marks your own posts with a person after your name.
-        if (post.author.equals(me, ignoreCase = true)) {
-            append(" ")
-            appendInlineContent("you", "[you]")
+        if (showAuthor) {
+            if (showSubreddit) append(" • ")
+            append(post.author)
+            // Sync marks your own posts with a person after your name.
+            if (post.author.equals(me, ignoreCase = true)) {
+                append(" ")
+                appendInlineContent("you", "[you]")
+            }
+            tag?.let {
+                append(" ")
+                withStyle(tagStyle) { append(" $it ") }
+            }
+            post.distinguished?.takeIf { it in DISTINGUISHED }?.let {
+                append(" ")
+                appendInlineContent(it, "[$it]")
+            }
+            post.authorFlair?.let {
+                append(" ")
+                withStyle(SpanStyle(background = flairBg)) { append(" $it ") }
+            }
         }
-        tag?.let {
-            append(" ")
-            withStyle(tagStyle) { append(" $it ") }
-        }
-        post.distinguished?.takeIf { it in DISTINGUISHED }?.let {
-            append(" ")
-            appendInlineContent(it, "[$it]")
-        }
-        post.authorFlair?.let {
-            append(" ")
-            withStyle(SpanStyle(background = flairBg)) { append(" $it ") }
-        }
-        append(" • ${Format.timeAgo(post.createdUtc)}")
+        if (showSubreddit || showAuthor) append(" • ")
+        append(Format.timeAgo(post.createdUtc))
         post.editedUtc?.let { append("* (last edited ${Format.timeAgo(it)})") }
         shortDomain(post)?.let { append(" • $it") }
         if (post.over18) withStyle(SpanStyle(color = ResyncColors.Nsfw, fontWeight = FontWeight.Bold)) { append(" • NSFW") }
@@ -486,7 +679,15 @@ private val DISTINGUISHED = setOf("moderator", "admin")
 
 /** Your tag for a user (Sync's "Tag user"): a tinted label after their name. */
 @Composable
-fun userTagStyle() = SpanStyle(background = MaterialTheme.colorScheme.tertiaryContainer, color = MaterialTheme.colorScheme.onTertiaryContainer)
+fun userTagStyle(user: String? = null): SpanStyle {
+    val custom = user?.let { LocalUserTagColors.current[it.lowercase()] }
+    return if (custom == null) {
+        SpanStyle(background = MaterialTheme.colorScheme.tertiaryContainer, color = MaterialTheme.colorScheme.onTertiaryContainer)
+    } else {
+        // Dark text on light tints, light text on dark ones.
+        SpanStyle(background = Color(custom), color = if (Color(custom).luminance() > 0.5f) Color.Black else Color.White)
+    }
+}
 
 /** Inline content for [DISTINGUISHED] ids: Sync's shield, in the accent color (red for admins). */
 @Composable
@@ -510,6 +711,14 @@ internal fun shortDomain(post: Post): String? = when {
     post.isSelf || post.domain.isEmpty() || post.domain.startsWith("self.") -> null
     else -> post.domain.removeSuffix(".com")
 }
+
+/** Post options › "Show post author", for feed items' [PostMeta]; off leaves the name and its marks out. */
+private val feedAuthors: Boolean
+    @Composable get() = LocalSettings.current.showPostAuthor
+
+/** The post's flair, unless Post options › Flair hides flair in feeds. */
+@Composable
+private fun Post.shownFlair(): String? = flair?.takeIf { LocalSettings.current.showPostFlair }
 
 /** A rounded flair chip, tinted with the subreddit's flair color when it has one. */
 @Composable
@@ -543,14 +752,16 @@ fun PostStats(post: Post, modifier: Modifier = Modifier, style: TextStyle = Card
         false -> ResyncColors.Downvote
         null -> muted
     }
+    val short = LocalSettings.current.shortScores
     Column(modifier) {
-        Text(points(post.score), style = style, color = pointsColor)
-        Text(comments(post.numComments), style = style, color = muted)
+        Text(points(post.score, short), style = style, color = pointsColor)
+        Text(comments(post.numComments, short), style = style, color = muted)
     }
 }
 
-private fun points(score: Int) = if (score == 1) "1 point" else "${Format.count(score)} points"
-private fun comments(n: Int) = if (n == 1) "1 comment" else "${Format.count(n)} comments"
+/** [short]: Post options › "Display short scores" (10.6k, else 10,600). */
+private fun points(score: Int, short: Boolean) = if (score == 1) "1 point" else "${Format.count(score, short)} points"
+private fun comments(n: Int, short: Boolean) = if (n == 1) "1 comment" else "${Format.count(n, short)} comments"
 
 /** Whether [CardPreview] has a big image to show (links without one fall back to a link row). */
 fun Post.hasCardPreview(): Boolean = media.cardImage() != null
@@ -572,6 +783,7 @@ private fun PostMedia.cardImage(): ImageSource? = when (this) {
 fun CardPreview(post: Post, onClick: () -> Unit, modifier: Modifier = Modifier, height: Dp? = null, maxHeight: Dp? = null) {
     val image = post.media.cardImage() ?: return
     val blur = post.shouldBlur()
+    val saving = dataSavingActive()
     val ratio = image.aspectRatio.coerceIn(0.5f, 2.2f)
     Box(
         modifier
@@ -592,16 +804,21 @@ fun CardPreview(post: Post, onClick: () -> Unit, modifier: Modifier = Modifier, 
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(onClick = onClick),
     ) {
-        AsyncImage(
-            model = image.url,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.matchParentSize().then(if (blur) Modifier.blur(40.dp) else Modifier),
-        )
+        // Data saving leaves the preview unloaded: the empty frame keeps its size, with the post's type in it.
+        if (!saving) {
+            AsyncImage(
+                model = image.url,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize().then(if (blur) Modifier.blur(40.dp) else Modifier),
+            )
+        }
         when (post.media) {
             is PostMedia.Gallery -> CenterBadge(AppIcons.Gallery, "Gallery", Modifier.align(Alignment.Center))
             is PostMedia.Video -> CenterBadge(AppIcons.PlayCircle, "Video", Modifier.align(Alignment.Center))
-            else -> Unit
+            else -> if (saving && !blur) {
+                Icon(typeIcon(post), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.Center).size(32.dp))
+            }
         }
         if (post.media is PostMedia.Link) UrlBand(post.domain, post.url, Modifier.align(Alignment.BottomCenter))
         if (blur) {
@@ -655,7 +872,9 @@ private fun UrlBand(domain: String, url: String, modifier: Modifier) {
 /** A square or rounded thumbnail; posts without an image get their content-type icon. */
 @Composable
 private fun Thumbnail(post: Post, size: Dp, shape: Shape, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val thumb = post.thumbnail()
+    // Data saving shows the type icon in place of the image.
+    val saving = dataSavingActive()
+    val thumb = post.thumbnail()?.takeUnless { saving }
     Box(
         modifier
             .size(size)

@@ -3,11 +3,22 @@
 package io.github.radixtrator.resync.ui.settings
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import io.github.radixtrator.resync.ui.theme.THEME_SEEDS
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -36,6 +48,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,7 +59,17 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.BuildConfig
+import io.github.radixtrator.resync.data.Backup
+import io.github.radixtrator.resync.data.BackupDocument
+import io.github.radixtrator.resync.data.BackupFormatException
+import io.github.radixtrator.resync.data.BackupPart
+import io.github.radixtrator.resync.data.BaseFontSize
+import io.github.radixtrator.resync.data.CommentCount
 import io.github.radixtrator.resync.data.CommentSort
+import io.github.radixtrator.resync.data.DataSaving
+import io.github.radixtrator.resync.data.FilterType
+import io.github.radixtrator.resync.data.Typeface
+import io.github.radixtrator.resync.data.LiveRefresh
 import io.github.radixtrator.resync.data.MediaPreviewSize
 import io.github.radixtrator.resync.data.MessageCheck
 import io.github.radixtrator.resync.data.NsfwMode
@@ -57,9 +80,16 @@ import io.github.radixtrator.resync.data.VideoQuality
 import io.github.radixtrator.resync.notify.InboxWorker
 import io.github.radixtrator.resync.notify.Notifications
 import io.github.radixtrator.resync.ui.common.SwipeBack
+import io.github.radixtrator.resync.ui.home.QUICK_ACTION_LABELS
+import io.github.radixtrator.resync.ui.navigation.CustomizeViewRoute
+import io.github.radixtrator.resync.ui.navigation.FilterEditorRoute
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.SetupRoute
+import io.github.radixtrator.resync.ui.navigation.ThemeManagementRoute
 import io.github.radixtrator.resync.watch.WatchWorker
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsScreen(container: AppContainer) {
@@ -89,15 +119,94 @@ fun SettingsScreen(container: AppContainer) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     Toggle("Material You colors", "Use your wallpaper's colors", settings.dynamicColor) { v -> update { it.copy(dynamicColor = v) } }
                 }
+                if (!(settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)) {
+                    Text("Theme color", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
+                    Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        (listOf<Int?>(null) + THEME_SEEDS).forEach { seed ->
+                            val selected = settings.seedColor == seed
+                            Box(
+                                Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(seed?.let { Color(it) } ?: MaterialTheme.colorScheme.surfaceVariant)
+                                    .border(if (selected) 3.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                    .clickable { update { it.copy(seedColor = seed) } },
+                            )
+                        }
+                    }
+                    if (settings.seedColor != null) {
+                        Toggle("Extra colorful", "Tint backgrounds and cards with the accent too", settings.extraColorful) { v -> update { it.copy(extraColorful = v) } }
+                    }
+                }
+                ListItem(
+                    headlineContent = { Text("Theme management") },
+                    supportingContent = { Text("Preview, save, share and load themes") },
+                    modifier = Modifier.clickable { nav.push(ThemeManagementRoute) },
+                )
+                DarkOverlayRows(settings, update)
+                Choice("Typeface", Typeface.entries, settings.typeface, Typeface::label) { v -> update { it.copy(typeface = v) } }
+                Choice("Base font size", BaseFontSize.entries, settings.baseFontSize, BaseFontSize::label) { v ->
+                    update { it.copy(baseFontSize = v) }
+                    // The scale lives in the activity's configuration, which only a restart rebuilds.
+                    (context as? android.app.Activity)?.recreate()
+                }
+                Toggle("Tablet mode", "On wide screens, a navigation rail replaces the bottom bar", settings.tabletMode) { v -> update { it.copy(tabletMode = v) } }
+                // Sync's Tablet › Options: the dual pane per orientation, on windows wide enough for two panes.
+                if (settings.tabletMode) {
+                    Toggle("Dual pane (landscape)", "Show comments next to posts in landscape", settings.dualPaneLandscape) { v -> update { it.copy(dualPaneLandscape = v) } }
+                    Toggle("Dual pane (portrait)", "The same in portrait, on wide screens", settings.dualPanePortrait) { v -> update { it.copy(dualPanePortrait = v) } }
+                    Toggle("Tabbed comments", "Show a post and its comments as tabs", settings.tabbedComments) { v -> update { it.copy(tabbedComments = v) } }
+                }
+                Toggle("Drawer navigation", "A side drawer, opened from your avatar, replaces the bottom bar", settings.drawerNavigation) { v -> update { it.copy(drawerNavigation = v) } }
                 Choice("Default post layout", PostLayout.entries, settings.layout, PostLayout::label) { v -> update { it.copy(layout = v) } }
+                ListItem(
+                    headlineContent = { Text("View type") },
+                    supportingContent = { Text("Customize how posts look") },
+                    modifier = Modifier.clickable { nav.push(CustomizeViewRoute(settings.layout)) },
+                )
 
                 Section("Content")
                 Choice("NSFW posts", NsfwMode.entries, settings.nsfw, NsfwMode::label) { v -> update { it.copy(nsfw = v) } }
                 Toggle("Blur spoiler previews", null, settings.blurSpoilers) { v -> update { it.copy(blurSpoilers = v) } }
+                Toggle("Hide read posts", "Leave out posts you have already opened when a feed loads", settings.hideRead) { v -> update { it.copy(hideRead = v) } }
                 Choice("Default comment sort", CommentSort.entries, settings.commentSort, CommentSort::label) { v -> update { it.copy(commentSort = v) } }
                 Choice("Post media preview size", MediaPreviewSize.entries, settings.postMediaPreview, MediaPreviewSize::label) { v -> update { it.copy(postMediaPreview = v) } }
+
+                // Sync's Post options, Comments, Comment options, Media, Data options and History screens: the rows
+                // Resync honors.
+                Section("Post options")
+                Toggle("Show post flair", "Flair chips on posts in feeds", settings.showPostFlair) { v -> update { it.copy(showPostFlair = v) } }
+                Toggle("Show post author", "In feeds", settings.showPostAuthor) { v -> update { it.copy(showPostAuthor = v) } }
+                Toggle("Display short scores", "10.6k instead of 10,600", settings.shortScores) { v -> update { it.copy(shortScores = v) } }
+
+                Section("Comments")
+                Toggle("Show user flair", null, settings.commentFlair) { v -> update { it.copy(commentFlair = v) } }
+                Toggle("Hide AutoMod comments", "And the replies to them", settings.hideAutoMod) { v -> update { it.copy(hideAutoMod = v) } }
+                Choice("Live comments refresh rate", LiveRefresh.entries, settings.liveRefresh, LiveRefresh::label) { v -> update { it.copy(liveRefresh = v) } }
+
+                Section("Comment options")
+                Toggle("Collapse all threads by default", "The first time you open a post", settings.collapseAllByDefault) { v -> update { it.copy(collapseAllByDefault = v) } }
+                Choice("Initial comment count", CommentCount.entries, settings.commentCount, CommentCount::label) { v -> update { it.copy(commentCount = v) } }
+
+                Section("Media")
+                Toggle("Tap to close", "Tap an image to close the viewer", settings.tapToClose) { v -> update { it.copy(tapToClose = v) } }
+                Toggle("Swipe to close", "Fling images and videos down to close them", settings.swipeToClose) { v -> update { it.copy(swipeToClose = v) } }
                 Toggle("Start videos muted", null, settings.muteVideos) { v -> update { it.copy(muteVideos = v) } }
+                Toggle("Display seek bar", null, settings.videoSeekBar) { v -> update { it.copy(videoSeekBar = v) } }
+                Toggle("Display speed controls", null, settings.videoSpeedControls) { v -> update { it.copy(videoSpeedControls = v) } }
+
+                Section("Data options")
+                Choice("Data saving mode", DataSaving.entries, settings.dataSaving, DataSaving::label) { v -> update { it.copy(dataSaving = v) } }
+                Text(
+                    "Data saving leaves feed thumbnails and previews unloaded and opens Reddit videos in SD",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
                 Choice("HD Reddit video quality", VideoQuality.entries, settings.hdVideo, VideoQuality::label) { v -> update { it.copy(hdVideo = v) } }
+
+                Section("History")
+                Toggle("Mark posts as read on scroll", "Posts you scroll past in a feed count as read", settings.markReadOnScroll) { v -> update { it.copy(markReadOnScroll = v) } }
 
                 Section("Messaging")
                 Choice("Periodically check for new messages", MessageCheck.entries, settings.messageCheck, MessageCheck::label) { v ->
@@ -151,19 +260,23 @@ fun SettingsScreen(container: AppContainer) {
                     }
                 }
 
-                // Sync's Filter… from post options; this is where to take them back.
+                // Sync's Post filters: a row per list, each opening its editor. Post ⋮ → Filter… adds to them too.
                 Section("Filters")
-                if (filters.isEmpty) {
+                FilterType.entries.forEach { type ->
+                    val count = type.of(filters).size
                     ListItem(
-                        headlineContent = { Text("None yet") },
-                        supportingContent = { Text("Use Filter... in a post's options to hide a community, user or domain from feeds") },
+                        headlineContent = { Text(type.title) },
+                        supportingContent = { Text(if (count == 0) type.summary else "${type.summary} · $count") },
+                        modifier = Modifier.clickable { nav.push(FilterEditorRoute(type)) },
                     )
                 }
-                filters.subreddits.sorted().forEach { name ->
-                    FilterRow("r/$name", "Hidden outside r/$name itself") { container.filters.filterSubreddit(name, false) }
+
+                Section("Action visibility")
+                QUICK_ACTION_LABELS.forEach { label ->
+                    Toggle(label, null, label !in settings.hiddenActions) { on ->
+                        update { it.copy(hiddenActions = if (on) it.hiddenActions - label else it.hiddenActions + label) }
+                    }
                 }
-                filters.users.sorted().forEach { name -> FilterRow("u/$name", "Posts hidden from feeds") { container.filters.filterUser(name, false) } }
-                filters.domains.sorted().forEach { domain -> FilterRow(domain, "Links hidden from feeds") { container.filters.filterDomain(domain, false) } }
 
                 Section("Swipe actions")
                 Toggle("Swipe posts", "Drag a post left; drag further for the next action", settings.postSwipe) { v -> update { it.copy(postSwipe = v) } }
@@ -177,11 +290,14 @@ fun SettingsScreen(container: AppContainer) {
 
                 Section("Behavior")
                 Toggle("Slide to go back", "Drag a page to the right to close it", settings.swipeBack) { v -> update { it.copy(swipeBack = v) } }
+                Toggle("Confirm exit", "Ask before back closes the app", settings.confirmExit) { v -> update { it.copy(confirmExit = v) } }
                 Toggle("Open links in the app", "Custom Tabs instead of your browser app", settings.inAppBrowser) { v -> update { it.copy(inAppBrowser = v) } }
                 Toggle("Comment navigation buttons", "Jump between top-level comments", settings.commentNavigation) { v -> update { it.copy(commentNavigation = v) } }
                 Toggle("Remember comment position", "Reopen posts where you left off, threads folded as you left them", settings.rememberCommentPosition) { v -> update { it.copy(rememberCommentPosition = v) } }
                 Toggle("Link cards", "Number links and list them under posts and comments", settings.linkCards) { v -> update { it.copy(linkCards = v) } }
                 Toggle("Show profile pictures", "Authors' avatars in comment headers", settings.profilePictures) { v -> update { it.copy(profilePictures = v) } }
+
+                BackupSection(container)
 
                 Section("Reddit")
                 ListItem(
@@ -198,13 +314,134 @@ fun SettingsScreen(container: AppContainer) {
     }
 }
 
+/**
+ * Sync's Backup screen: Backup now and Restore from backup. The system file picker stands in for Sync's
+ * "Change backup directory". A restore asks first (what it replaces, and whether to take the Reddit API setup
+ * too), then restarts the app, since the stores keep what they loaded in memory.
+ */
 @Composable
-private fun FilterRow(title: String, subtitle: String, onRemove: () -> Unit) {
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(subtitle) },
-        trailingContent = { IconButton(onClick = onRemove) { Icon(Icons.Default.Close, "Stop filtering $title") } },
+private fun BackupSection(container: AppContainer) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var toRestore by remember { mutableStateOf<BackupDocument?>(null) }
+    var restarting by remember { mutableStateOf<Boolean?>(null) } // non-null once restored: whether accounts were signed out
+
+    val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val text = container.exportBackup()
+        scope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) } ?: error("couldn't open the file")
+                }
+            }
+            Toast.makeText(context, result.fold({ "Backup saved" }, { "Couldn't save the backup: ${it.message}" }), Toast.LENGTH_SHORT).show()
+        }
+    }
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching {
+                val text = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+                } ?: error("couldn't open the file")
+                Backup.decode(text)
+            }
+                .onSuccess { toRestore = it }
+                .onFailure {
+                    val message = (it as? BackupFormatException)?.message ?: "Couldn't read the backup: ${it.message}"
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                }
+        }
+    }
+
+    Section("Backup")
+    Text(
+        "Backups hold this device's settings, filters, tags, favorites, watched items and drafts. Your accounts and their sign-ins aren't included.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
     )
+    ListItem(
+        headlineContent = { Text("Backup now") },
+        supportingContent = { Text("Save a backup file wherever you choose") },
+        modifier = Modifier.clickable { backupLauncher.launch(Backup.fileName()) },
+    )
+    ListItem(
+        headlineContent = { Text("Restore from backup") },
+        supportingContent = { Text("Replace this device's data with a backup file") },
+        modifier = Modifier.clickable { restoreLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/*")) },
+    )
+
+    toRestore?.let { doc ->
+        var includeApi by remember(doc) { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { toRestore = null },
+            title = { Text("Restore from backup?") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    doc.created?.let { created ->
+                        Text("Backup from ${created.take(10)}", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Text("This replaces on this device:", Modifier.padding(top = 8.dp))
+                    BackupPart.entries.forEach { part ->
+                        Text("• ${part.label}", Modifier.padding(start = 8.dp, top = 2.dp))
+                    }
+                    Text(
+                        "Your accounts stay signed in. Resync restarts to load the backup.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    if (doc.hasApiConfig) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 8.dp).clickable { includeApi = !includeApi },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(checked = includeApi, onCheckedChange = { includeApi = it })
+                            Column(Modifier.padding(start = 4.dp)) {
+                                Text("Include Reddit API setup")
+                                Text(
+                                    "Client ID, redirect URI and user agent. A different client ID signs out your accounts.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    toRestore = null
+                    restarting = container.restoreBackup(doc, includeApi)
+                }) { Text("Restore") }
+            },
+            dismissButton = { TextButton(onClick = { toRestore = null }) { Text("Cancel") } },
+        )
+    }
+
+    restarting?.let { signedOut ->
+        // No way out but the restart: anything the in-memory stores saved now would overwrite the restored data.
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Backup restored") },
+            text = {
+                Text(
+                    if (signedOut) "The restored API setup uses a different client ID, so your accounts were signed out. Resync restarts to load the backup."
+                    else "Resync restarts to load the backup.",
+                )
+            },
+            confirmButton = { TextButton(onClick = { restartApp(context) }) { Text("Restart") } },
+        )
+    }
+}
+
+/** Relaunches the app in a fresh process, so every store reloads from preferences. */
+private fun restartApp(context: Context) {
+    val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+    launch?.component?.let { context.startActivity(Intent.makeRestartActivityTask(it)) }
+    Runtime.getRuntime().exit(0)
 }
 
 /** Sync's "First / Second / Third swipe action" rows. */
@@ -217,8 +454,9 @@ private fun SwipeStageChoices(stages: List<SwipeAction>, options: List<SwipeActi
     }
 }
 
+/** A settings group heading in the accent color, under a divider. */
 @Composable
-private fun Section(title: String) {
+internal fun Section(title: String) {
     HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
     Text(
         title,
@@ -228,8 +466,9 @@ private fun Section(title: String) {
     )
 }
 
+/** A switch row; tapping anywhere on it flips the switch. */
 @Composable
-private fun Toggle(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun Toggle(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = subtitle?.let { { Text(it) } },
@@ -238,8 +477,9 @@ private fun Toggle(title: String, subtitle: String?, checked: Boolean, onChange:
     )
 }
 
+/** A row showing [selected]; tapping it opens a dialog of radio [options]. */
 @Composable
-private fun <T> Choice(title: String, options: List<T>, selected: T, label: (T) -> String, onPick: (T) -> Unit) {
+internal fun <T> Choice(title: String, options: List<T>, selected: T, label: (T) -> String, onPick: (T) -> Unit) {
     var open by remember { mutableStateOf(false) }
     ListItem(
         headlineContent = { Text(title) },
