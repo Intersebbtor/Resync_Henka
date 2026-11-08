@@ -3,6 +3,8 @@
 package io.github.radixtrator.resync.ui.settings
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -45,6 +48,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +59,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.BuildConfig
+import io.github.radixtrator.resync.data.Backup
+import io.github.radixtrator.resync.data.BackupDocument
+import io.github.radixtrator.resync.data.BackupFormatException
+import io.github.radixtrator.resync.data.BackupPart
 import io.github.radixtrator.resync.data.BaseFontSize
 import io.github.radixtrator.resync.data.CommentCount
 import io.github.radixtrator.resync.data.CommentSort
@@ -79,6 +87,9 @@ import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.SetupRoute
 import io.github.radixtrator.resync.ui.navigation.ThemeManagementRoute
 import io.github.radixtrator.resync.watch.WatchWorker
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsScreen(container: AppContainer) {
@@ -286,6 +297,8 @@ fun SettingsScreen(container: AppContainer) {
                 Toggle("Link cards", "Number links and list them under posts and comments", settings.linkCards) { v -> update { it.copy(linkCards = v) } }
                 Toggle("Show profile pictures", "Authors' avatars in comment headers", settings.profilePictures) { v -> update { it.copy(profilePictures = v) } }
 
+                BackupSection(container)
+
                 Section("Reddit")
                 ListItem(
                     headlineContent = { Text("Reddit API") },
@@ -299,6 +312,136 @@ fun SettingsScreen(container: AppContainer) {
             }
         }
     }
+}
+
+/**
+ * Sync's Backup screen: Backup now and Restore from backup. The system file picker stands in for Sync's
+ * "Change backup directory". A restore asks first (what it replaces, and whether to take the Reddit API setup
+ * too), then restarts the app, since the stores keep what they loaded in memory.
+ */
+@Composable
+private fun BackupSection(container: AppContainer) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var toRestore by remember { mutableStateOf<BackupDocument?>(null) }
+    var restarting by remember { mutableStateOf<Boolean?>(null) } // non-null once restored: whether accounts were signed out
+
+    val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val text = container.exportBackup()
+        scope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) } ?: error("couldn't open the file")
+                }
+            }
+            Toast.makeText(context, result.fold({ "Backup saved" }, { "Couldn't save the backup: ${it.message}" }), Toast.LENGTH_SHORT).show()
+        }
+    }
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching {
+                val text = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+                } ?: error("couldn't open the file")
+                Backup.decode(text)
+            }
+                .onSuccess { toRestore = it }
+                .onFailure {
+                    val message = (it as? BackupFormatException)?.message ?: "Couldn't read the backup: ${it.message}"
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                }
+        }
+    }
+
+    Section("Backup")
+    Text(
+        "Backups hold this device's settings, filters, tags, favorites, watched items and drafts. Your accounts and their sign-ins aren't included.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+    ListItem(
+        headlineContent = { Text("Backup now") },
+        supportingContent = { Text("Save a backup file wherever you choose") },
+        modifier = Modifier.clickable { backupLauncher.launch(Backup.fileName()) },
+    )
+    ListItem(
+        headlineContent = { Text("Restore from backup") },
+        supportingContent = { Text("Replace this device's data with a backup file") },
+        modifier = Modifier.clickable { restoreLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/*")) },
+    )
+
+    toRestore?.let { doc ->
+        var includeApi by remember(doc) { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { toRestore = null },
+            title = { Text("Restore from backup?") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    doc.created?.let { created ->
+                        Text("Backup from ${created.take(10)}", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Text("This replaces on this device:", Modifier.padding(top = 8.dp))
+                    BackupPart.entries.forEach { part ->
+                        Text("• ${part.label}", Modifier.padding(start = 8.dp, top = 2.dp))
+                    }
+                    Text(
+                        "Your accounts stay signed in. Resync restarts to load the backup.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    if (doc.hasApiConfig) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 8.dp).clickable { includeApi = !includeApi },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(checked = includeApi, onCheckedChange = { includeApi = it })
+                            Column(Modifier.padding(start = 4.dp)) {
+                                Text("Include Reddit API setup")
+                                Text(
+                                    "Client ID, redirect URI and user agent. A different client ID signs out your accounts.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    toRestore = null
+                    restarting = container.restoreBackup(doc, includeApi)
+                }) { Text("Restore") }
+            },
+            dismissButton = { TextButton(onClick = { toRestore = null }) { Text("Cancel") } },
+        )
+    }
+
+    restarting?.let { signedOut ->
+        // No way out but the restart: anything the in-memory stores saved now would overwrite the restored data.
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Backup restored") },
+            text = {
+                Text(
+                    if (signedOut) "The restored API setup uses a different client ID, so your accounts were signed out. Resync restarts to load the backup."
+                    else "Resync restarts to load the backup.",
+                )
+            },
+            confirmButton = { TextButton(onClick = { restartApp(context) }) { Text("Restart") } },
+        )
+    }
+}
+
+/** Relaunches the app in a fresh process, so every store reloads from preferences. */
+private fun restartApp(context: Context) {
+    val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+    launch?.component?.let { context.startActivity(Intent.makeRestartActivityTask(it)) }
+    Runtime.getRuntime().exit(0)
 }
 
 /** Sync's "First / Second / Third swipe action" rows. */

@@ -7,6 +7,8 @@ import io.github.radixtrator.resync.data.AccountStore
 import io.github.radixtrator.resync.data.ApiConfig
 import io.github.radixtrator.resync.data.ApiConfigStore
 import io.github.radixtrator.resync.data.AvatarCache
+import io.github.radixtrator.resync.data.Backup
+import io.github.radixtrator.resync.data.BackupDocument
 import io.github.radixtrator.resync.data.Comment
 import io.github.radixtrator.resync.data.DraftStore
 import io.github.radixtrator.resync.data.ExploreStore
@@ -125,6 +127,15 @@ class AppContainer(context: Context) {
         watch.unwatchPost(id)
         WatchWorker.schedule(appContext, !watch.isEmpty)
     }
+
+    /** Settings › Backup now: the backed-up preferences as a JSON document (never account tokens). */
+    fun exportBackup(): String = Backup.export(prefs)
+
+    /**
+     * Settings › Restore from backup. The stores keep what they loaded in memory, so the caller must restart the
+     * app straight away. Returns whether accounts were signed out (a restored API setup with a new client ID).
+     */
+    fun restoreBackup(doc: BackupDocument, includeApiConfig: Boolean): Boolean = Backup.restore(prefs, doc, includeApiConfig)
 
     fun emit(event: ContentEvent) {
         _events.tryEmit(event)
