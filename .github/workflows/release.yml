@@ -45,6 +45,9 @@ jobs:
           java-version: 21
 
       - uses: android-actions/setup-android@v3
+        with:
+          # The default list includes the long-removed "tools" package, which current sdkmanager rejects.
+          packages: platform-tools
 
       - uses: gradle/actions/setup-gradle@v4
 

@@ -43,24 +43,51 @@ JSON in `app/src/debug/assets/demo/` (generated; the unit tests use the same fil
 ## Releases
 
 Pushing a version tag builds a signed APK and publishes it as a GitHub release
-(`.github/workflows/release.yml`), which is what Obtainium picks up:
+(`.github/workflows/release.yml`), which is what Obtainium picks up.
+
+### One-time setup
+
+1. Make a release key. `keytool` asks for a keystore password, then for name/organization fields (labels only,
+   anything or blank is fine). **Keep the keystore safe and out of the repo**: every release must be signed
+   with it, or installed copies can't update.
+
+   ```bash
+   keytool -genkeypair -v -keystore ~/resync-release.keystore -alias resync -keyalg RSA -keysize 4096 -validity 10000
+   ```
+
+2. Add it as repository secrets. Each `gh secret set` without `--body` prompts for the value, so passwords stay
+   out of shell history (or use Settings › Secrets and variables › Actions):
+
+   ```bash
+   base64 -w0 ~/resync-release.keystore | gh secret set RESYNC_KEYSTORE_BASE64
+   gh secret set RESYNC_KEYSTORE_PASSWORD
+   gh secret set RESYNC_KEY_PASSWORD        # same as the keystore password unless you set a separate one
+   gh secret set RESYNC_KEY_ALIAS --body resync
+   ```
+
+   `gh secret list` should then show all four.
+
+3. In Obtainium, add `https://github.com/Radixtrator/Resync` as an app source.
+
+### Publishing a release
 
 ```bash
 git tag v0.2.0 && git push origin v0.2.0      # v0.2.0-beta.1 publishes a pre-release
+gh run watch                                  # follow the build
 ```
 
-The version name comes from the tag and the version code is derived from it (1.2.3 → 10203), so tags must
-keep increasing. One-time setup: make a release key and add it as repository secrets (Settings › Secrets and
-variables › Actions). **Keep the keystore safe**: every release must be signed with it, or installed copies
-can't update.
+The version name comes from the tag and the version code is derived from it (1.2.3 → 10203), so tags must be
+`vMAJOR.MINOR.PATCH` and keep increasing. Unit tests run before the build, and release notes are generated
+from the commits. Pre-releases are skipped by Obtainium unless "Include prereleases" is on.
+
+If a run fails before publishing, fix the cause on `main`, then move the tag to the fixed commit and push it again:
 
 ```bash
-keytool -genkeypair -v -keystore resync-release.keystore -alias resync -keyalg RSA -keysize 4096 -validity 10000
-base64 -w0 resync-release.keystore   # -> RESYNC_KEYSTORE_BASE64
+git tag -f v0.2.0 && git push -f origin v0.2.0
 ```
 
-Other secrets: `RESYNC_KEYSTORE_PASSWORD`, `RESYNC_KEY_ALIAS` (`resync` above), `RESYNC_KEY_PASSWORD`.
-Local signed builds read the same names as environment variables, with `RESYNC_KEYSTORE` set to the file's path.
+Local signed builds read the same secret names as environment variables, with `RESYNC_KEYSTORE` set to the
+keystore's path.
 
 ## Layout
 
