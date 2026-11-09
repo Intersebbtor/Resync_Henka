@@ -384,6 +384,17 @@ object Parser {
         }
     }
 
+    /** A comment's animated media_metadata entries (Giphy picks and uploaded GIFs). */
+    private fun commentGifs(d: JsonObject): List<CommentGif> =
+        d.obj("media_metadata")?.entries.orEmpty().mapNotNull { (id, value) ->
+            val m = value as? JsonObject ?: return@mapNotNull null
+            if (m.string("e") != "AnimatedImage") return@mapNotNull null
+            if (m.string("status").let { it != null && it != "valid" }) return@mapNotNull null
+            val s = m.obj("s") ?: return@mapNotNull null
+            val url = s.string("gif") ?: s.string("u") ?: return@mapNotNull null
+            CommentGif(id, url, s.int("x") ?: 0, s.int("y") ?: 0, m.string("ext"))
+        }
+
     private fun node(thing: JsonObject, depth: Int): CommentNode? {
         val d = thing.obj("data") ?: return null
         val id = d.string("id") ?: return null
@@ -411,6 +422,7 @@ object Parser {
                 saved = d.bool("saved"),
                 editedUtc = d.long("edited"),
                 authorFullname = d.string("author_fullname"),
+                gifs = commentGifs(d),
             )
             "more" -> MoreComments(
                 id = id,
