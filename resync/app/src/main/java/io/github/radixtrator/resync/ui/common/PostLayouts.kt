@@ -819,6 +819,41 @@ private fun PostMedia.cardImage(): ImageSource? = when (this) {
 }
 
 /**
+ * What a feed of [layout] in [columns] will load for a post: the [CardPreview] or [Thumbnail] image, at the rendition and
+ * size those ask for, so [PreloadImages] can have it ready before it scrolls into view. Empty under data saving.
+ */
+@Composable
+fun rememberPostPreloads(layout: PostLayout, columns: Int): (Post) -> List<ImagePreload> {
+    val settings = LocalSettings.current
+    val saving = dataSavingActive()
+    val columnWidth = LocalWindowInfo.current.containerSize.width / columns.coerceAtLeast(1)
+    val density = LocalDensity.current
+    return remember(layout, settings, saving, columnWidth, density) {
+        val options = settings.viewOptionsFor(layout)
+        val thumbnailSize = when (layout) {
+            PostLayout.LIST -> if (options.thumbnails) 72.dp else null
+            PostLayout.COMPACT, PostLayout.SMALLER_CARDS -> if (options.thumbnails) 64.dp else null
+            PostLayout.SMALL_CARDS -> 64.dp
+            PostLayout.CARD, PostLayout.SLIDES -> null
+        }
+        val cards = layout == PostLayout.CARD || (layout == PostLayout.SLIDES && options.imagePreviews)
+        val thumbnailPx = thumbnailSize?.let { with(density) { it.roundToPx() } }
+        preloads@{ post: Post ->
+            if (saving) return@preloads emptyList()
+            val decode = !post.shouldBlur(settings)
+            when {
+                cards -> post.media.cardImage()?.let { image ->
+                    val ratio = image.aspectRatio.coerceIn(0.5f, 2.2f)
+                    listOf(ImagePreload(image.urlFor(columnWidth), columnWidth, (columnWidth / ratio).roundToInt(), decode))
+                }
+                thumbnailPx != null -> post.thumbnail()?.let { listOf(ImagePreload(it.urlFor(thumbnailPx), thumbnailPx, thumbnailPx, decode)) }
+                else -> null
+            }.orEmpty()
+        }
+    }
+}
+
+/**
  * Full-width media for cards and slides, at the image's own aspect (Sync's "Preview full height"),
  * with a centered badge for galleries and video and, on links, the domain/path band along the bottom.
  */

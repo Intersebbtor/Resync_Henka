@@ -78,6 +78,7 @@ import io.github.radixtrator.resync.ui.common.LargeHeader
 import io.github.radixtrator.resync.ui.common.ListingViewModel
 import io.github.radixtrator.resync.ui.common.MessageEffect
 import io.github.radixtrator.resync.ui.common.PagedGrid
+import io.github.radixtrator.resync.ui.common.rememberPostPreloads
 import io.github.radixtrator.resync.ui.common.PostListItem
 import io.github.radixtrator.resync.ui.common.SheetHandle
 import io.github.radixtrator.resync.ui.common.SheetTitle
@@ -178,6 +179,7 @@ fun ProfileScreen(name: String, initialTab: UserWhere, container: AppContainer) 
     val canAct = me != null && !isSelf
     val layout = LocalSettings.current.layout
     val columns = layout.columns(LocalConfiguration.current.screenWidthDp, LocalSettings.current.viewOptionsFor(layout).columns)
+    val postPreloads = rememberPostPreloads(layout, columns)
     val callbacks = remember(vm) { vm.postCallbacks(allowHide = false) }
     val items = state.items.visiblePosts { (it as? ProfileItem.PostItem)?.post }
     // The toolbar shows the name only once the big header has scrolled away.
@@ -218,6 +220,7 @@ fun ProfileScreen(name: String, initialTab: UserWhere, container: AppContainer) 
                     spacing = layout.spacing,
                     gridState = gridState,
                     bottomPadding = padding.calculateBottomPadding(),
+                    preloadsOf = { (it as? ProfileItem.PostItem)?.post?.let(postPreloads).orEmpty() },
                     emptyText = "Nothing to show",
                     header = {
                         LargeHeader(

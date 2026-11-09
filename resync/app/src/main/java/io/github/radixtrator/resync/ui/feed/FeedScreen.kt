@@ -83,6 +83,7 @@ import io.github.radixtrator.resync.ui.common.LargeHeader
 import io.github.radixtrator.resync.ui.common.MessageEffect
 import io.github.radixtrator.resync.ui.common.OptionRow
 import io.github.radixtrator.resync.ui.common.PagedGrid
+import io.github.radixtrator.resync.ui.common.rememberPostPreloads
 import io.github.radixtrator.resync.ui.common.PostListItem
 import io.github.radixtrator.resync.ui.common.RedditBodyText
 import io.github.radixtrator.resync.ui.common.SheetHandle
@@ -124,6 +125,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     val layout = settings.layoutFor(layoutFeed)
     // Customize view's Columns choice for this layout, else as many as the width fits.
     val columns = layout.columns(LocalConfiguration.current.screenWidthDp, settings.viewOptionsFor(layout).columns)
+    val postPreloads = rememberPostPreloads(layout, columns)
     val scope = rememberCoroutineScope()
     var sortOpen by rememberSaveable { mutableStateOf(false) }
     var viewOpen by rememberSaveable { mutableStateOf(false) }
@@ -206,6 +208,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
                     spacing = layout.spacing,
                     gridState = gridState,
                     bottomPadding = padding.calculateBottomPadding(),
+                    preloadsOf = { (it as? ProfileItem.PostItem)?.post?.let(postPreloads).orEmpty() },
                     emptyText = if (sort.kind == SortKind.COMMENTS) "No comments here" else "No posts here",
                     header = {
                         FeedHeader(

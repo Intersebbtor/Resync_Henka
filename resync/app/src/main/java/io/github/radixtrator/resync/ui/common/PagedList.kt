@@ -130,6 +130,7 @@ fun <T> PagedGrid(
     modifier: Modifier = Modifier,
     bottomPadding: Dp = 0.dp,
     emptyText: String = "Nothing here yet",
+    preloadsOf: ((T) -> List<ImagePreload>)? = null,
     header: @Composable () -> Unit,
     item: @Composable (T) -> Unit,
 ) {
@@ -140,6 +141,16 @@ fun <T> PagedGrid(
         }
     }
     LaunchedEffect(nearEnd, state.items.size) { if (nearEnd && state.items.isNotEmpty()) onLoadMore() }
+    // Images a few rows ahead load before they're reached. Grid item 0 is the header, so item i sits at grid index i + 1.
+    if (preloadsOf != null) {
+        PreloadImages(
+            items = state.items,
+            lastVisible = { (gridState.layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } ?: 0) - 1 },
+            decodeAhead = PRELOAD_DECODE_ROWS * columns,
+            fetchAhead = PRELOAD_FETCH_ROWS * columns,
+            preloadsOf = preloadsOf,
+        )
+    }
 
     CompositionLocalProvider(LocalFeedColumns provides columns) {
         LazyVerticalStaggeredGrid(
@@ -170,6 +181,10 @@ fun <T> PagedGrid(
         }
     }
 }
+
+/** How many rows past the screen [PagedGrid] decodes into memory, and how many more it only downloads. */
+private const val PRELOAD_DECODE_ROWS = 4
+private const val PRELOAD_FETCH_ROWS = 12
 
 /** Widens an item by [gutter] on both sides, cancelling the grid's content padding. */
 private fun Modifier.fullBleed(gutter: Dp) = layout { measurable, constraints ->

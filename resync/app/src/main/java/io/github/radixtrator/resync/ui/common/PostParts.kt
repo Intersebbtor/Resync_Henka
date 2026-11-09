@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import io.github.radixtrator.resync.data.ImageSource
 import io.github.radixtrator.resync.data.NsfwMode
+import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostMedia
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
@@ -66,10 +67,10 @@ fun Context.onMeteredNetwork(): Boolean =
 
 /** Whether this post's preview should be blurred under the current settings. */
 @Composable
-fun Post.shouldBlur(): Boolean {
-    val settings = LocalSettings.current
-    return (over18 && settings.nsfw == NsfwMode.BLUR) || (spoiler && settings.blurSpoilers)
-}
+fun Post.shouldBlur(): Boolean = shouldBlur(LocalSettings.current)
+
+fun Post.shouldBlur(settings: Settings): Boolean =
+    (over18 && settings.nsfw == NsfwMode.BLUR) || (spoiler && settings.blurSpoilers)
 
 @Composable
 fun LinkRow(post: Post, onClick: () -> Unit, modifier: Modifier = Modifier) {

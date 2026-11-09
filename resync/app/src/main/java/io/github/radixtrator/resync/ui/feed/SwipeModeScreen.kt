@@ -150,7 +150,7 @@ fun SwipeModeScreen(subreddit: String?, container: AppContainer) {
                             TextButton(onClick = vm::retry) { Text("Retry") }
                         }
                     }
-                    else -> HorizontalPager(pager, Modifier.fillMaxSize(), key = { posts[it].fullname }) { page ->
+                    else -> HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1, key = { posts[it].fullname }) { page ->
                         val post = posts[page]
                         SwipePage(
                             post = post,
