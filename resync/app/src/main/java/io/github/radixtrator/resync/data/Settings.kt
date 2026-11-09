@@ -318,8 +318,12 @@ data class Settings(
     val feedLayouts: Map<String, PostLayout> = emptyMap(),
     /** Sync's Customize view choices, per layout; a layout missing here uses the [ViewOptions] defaults. */
     val viewOptions: Map<PostLayout, ViewOptions> = emptyMap(),
+    /** Sorts saved from the sort sheet ("Always use Hot here?"), keyed by [feedKey]; other feeds open on Reddit's default. */
+    val feedSorts: Map<String, Sort> = emptyMap(),
 ) {
     fun layoutFor(subreddit: String?): PostLayout = feedLayouts[feedKey(subreddit)] ?: layout
+
+    fun sortFor(subreddit: String?): Sort? = feedSorts[feedKey(subreddit)]
 
     fun viewOptionsFor(layout: PostLayout): ViewOptions = viewOptions[layout] ?: ViewOptions()
 

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -37,6 +38,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -124,6 +126,8 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     val columns = layout.columns(LocalConfiguration.current.screenWidthDp, settings.viewOptionsFor(layout).columns)
     val scope = rememberCoroutineScope()
     var sortOpen by rememberSaveable { mutableStateOf(false) }
+    // What this feed opened on, so picking it again doesn't ask to save it.
+    val defaultOpening = remember(vm) { sort }
     var viewOpen by rememberSaveable { mutableStateOf(false) }
     var aboutOpen by rememberSaveable { mutableStateOf(false) }
     // Wiki, Flairs, Rules or Moderators, from a header chip or the About ⋮.
@@ -238,7 +242,28 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
         }
     }
 
-    if (sortOpen) SortSheet(current = sort, options = vm.sortOptions, onDismiss = { sortOpen = false }, onPick = vm::setSort)
+    // A sort other than the one this feed opens on asks whether to keep it ("Always use Hot for Frontpage?").
+    var offerToSave by remember { mutableStateOf<Sort?>(null) }
+    if (sortOpen) {
+        SortSheet(current = sort, options = vm.sortOptions, onDismiss = { sortOpen = false }, onPick = { picked ->
+            vm.setSort(picked)
+            if (picked != (settings.sortFor(vm.feedKey) ?: defaultOpening)) offerToSave = picked
+        })
+    }
+    offerToSave?.let { picked ->
+        AlertDialog(
+            onDismissRequest = { offerToSave = null },
+            title = { Text("Always use ${picked.label}?") },
+            text = { Text("Open $title sorted by ${picked.label} from now on.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.saveSort(picked)
+                    offerToSave = null
+                }) { Text("Always") }
+            },
+            dismissButton = { TextButton(onClick = { offerToSave = null }) { Text("Just this time") } },
+        )
+    }
     if (viewOpen) ChangeViewSheet(container, layoutFeed, current = layout, onDismiss = { viewOpen = false })
     if (aboutOpen) {
         SubredditInfoSheet(
