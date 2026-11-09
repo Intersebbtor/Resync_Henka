@@ -411,6 +411,7 @@ fun quickActions(
     val dark = LocalDarkTheme.current
     val settings = LocalSettings.current
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val accounts by container.accounts.collectAsStateWithLifecycle()
     // Toggle account steps to the next saved account (from logged out: the first one).
     val nextAccount = when {
@@ -426,7 +427,7 @@ fun quickActions(
         })
         onAbout?.let { add(QuickAction("About", Icons.Outlined.Info, onClick = it)) }
         add(QuickAction("Submit", Icons.Outlined.Create) { nav.push(SubmitRoute(subreddit)) })
-        add(QuickAction("Random", AppIcons.Dice) { nav.openRandomCommunity(container.subscriptions.value) })
+        add(QuickAction("Random", AppIcons.Dice) { scope.launch { nav.openRandomCommunity(container.api) } })
         add(QuickAction("Dark mode", AppIcons.Moon, active = dark) {
             container.settings.update { it.copy(theme = if (dark) ThemeMode.LIGHT else ThemeMode.DARK) }
         })
@@ -447,16 +448,9 @@ fun quickActions(
         add(QuickAction(ACTION_EXPLORE, AppIcons.Compass) {})
         add(QuickAction("Filters", AppIcons.Filter) { nav.push(SettingsRoute(SettingsCategory.FILTERS)) })
         if (me != null) add(QuickAction("Inbox", Icons.Outlined.Email) { nav.push(InboxRoute()) })
-        // Random from the NSFW communities you joined; Reddit's own /r/randnsfw is gone, like /r/random.
+        // A random NSFW community from all of Reddit (needs an account that allows NSFW).
         if (me != null && settings.nsfw != NsfwMode.HIDE) {
-            add(QuickAction("Random nsfw", AppIcons.Dice) {
-                val nsfw = container.nsfwSubscriptions.value
-                if (nsfw.isEmpty()) {
-                    Toast.makeText(context, "You haven't joined any NSFW communities", Toast.LENGTH_SHORT).show()
-                } else {
-                    nav.openRandomCommunity(nsfw)
-                }
-            })
+            add(QuickAction("Random nsfw", AppIcons.Dice) { scope.launch { nav.openRandomCommunity(container.api, nsfw = true) } })
         }
         add(QuickAction(ACTION_RECENTLY_VIEWED, AppIcons.Clock) {})
         onScrollToTop?.let { add(QuickAction("Scroll to top", AppIcons.ArrowUp, onClick = it)) }

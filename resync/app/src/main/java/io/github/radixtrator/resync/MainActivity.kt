@@ -53,6 +53,7 @@ import io.github.radixtrator.resync.ui.home.rememberDualPaneSceneStrategies
 import io.github.radixtrator.resync.ui.inbox.InboxScreen
 import io.github.radixtrator.resync.ui.login.LoginScreen
 import io.github.radixtrator.resync.ui.media.ImageViewerScreen
+import io.github.radixtrator.resync.ui.media.ScreenSnapshotHost
 import io.github.radixtrator.resync.ui.media.VideoPlayerScreen
 import io.github.radixtrator.resync.ui.navigation.ComposeRoute
 import io.github.radixtrator.resync.ui.navigation.CustomizeViewRoute
@@ -233,6 +234,7 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
             )
         }
         val sceneStrategies = rememberDualPaneSceneStrategies()
+        ScreenSnapshotHost {
         NavDisplay(
             entries = entries,
             sceneStrategies = sceneStrategies,
@@ -243,6 +245,7 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
             // Slide-to-go-back and the system's edge swipe: linear, so the page stays under the finger.
             predictivePopTransitionSpec = { cardPop(GestureSpec) },
         )
+        }
     }
 }
 

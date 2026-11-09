@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -37,7 +36,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -55,8 +53,6 @@ import io.github.radixtrator.resync.ui.theme.Motion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Locale
-import kotlin.math.max
-import kotlin.math.min
 
 /**
  * Sync's image viewer, with its control bar (download, host and URL, resolution, file size, then Comments / Open in
@@ -70,10 +66,6 @@ fun ImageViewerScreen(urls: List<String>, start: Int, postId: String?, downloads
     // Zoomed pages own their drags (panning), so swipe-to-dismiss is off while zoomed. With the info
     // sheet open, a tap or Back closes the sheet instead.
     val zoomed = remember { mutableStateMapOf<Int, Boolean>() }
-    // Sync tints the backdrop from the image: a dark, muted take on its colors, faded in from black.
-    val tints = remember { mutableStateMapOf<Int, Color>() }
-    // Drawn rather than composed, so the fade doesn't recompose the pager each frame.
-    val backdrop = animateColorAsState(tints[pager.currentPage] ?: Color.Black, tween(300), label = "backdrop")
     var infoOpen by rememberSaveable { mutableStateOf(false) }
     val download = rememberDownloader(downloads)
     val settings = LocalSettings.current
@@ -86,8 +78,10 @@ fun ImageViewerScreen(urls: List<String>, start: Int, postId: String?, downloads
         dismissOnDrag = !tapCloses || settings.swipeToClose,
         // Without onSwipeUp, a fling either way closes.
         onSwipeUp = if (tapCloses) ({ infoOpen = true }) else null,
+        // The page it was opened from, blurred.
+        backdrop = { BlurredScreenBackdrop() },
     ) {
-        Box(Modifier.fillMaxSize().drawBehind { drawRect(backdrop.value) }) {
+        Box(Modifier.fillMaxSize()) {
             HorizontalPager(state = pager, beyondViewportPageCount = 1, pageSpacing = 16.dp, modifier = Modifier.fillMaxSize()) { page ->
                 ZoomableImage(
                     urls[page],
@@ -99,7 +93,6 @@ fun ImageViewerScreen(urls: List<String>, start: Int, postId: String?, downloads
                         }
                     },
                     onZoomChange = { zoomed[page] = it },
-                    onTint = { tints[page] = it },
                 )
             }
             if (urls.size > 1) {
@@ -157,56 +150,9 @@ private suspend fun cachedImageInfo(context: Context, url: String): Pair<IntSize
     }.getOrNull()
 }
 
-/**
- * The backdrop tint for [url]: a weighted average of a tiny decode of the cached original (vivid pixels
- * count more, so a colorful image isn't averaged to mud), pushed dark and muted. Null if it isn't cached.
- */
-private suspend fun backdropTint(context: Context, url: String): Color? = withContext(Dispatchers.IO) {
-    runCatching {
-        SingletonImageLoader.get(context).diskCache?.openSnapshot(url)?.use { snapshot ->
-            val path = snapshot.data.toFile().path
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeFile(path, bounds)
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@use null
-            var sample = 1
-            while (max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 32) sample *= 2
-            val options = BitmapFactory.Options().apply {
-                inSampleSize = sample
-                inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
-            }
-            val bitmap = BitmapFactory.decodeFile(path, options) ?: return@use null
-            val pixels = IntArray(bitmap.width * bitmap.height)
-            bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-            bitmap.recycle()
-            var r = 0.0
-            var g = 0.0
-            var b = 0.0
-            var total = 0.0
-            for (p in pixels) {
-                if (p ushr 24 < 128) continue // transparent
-                val pr = p shr 16 and 0xFF
-                val pg = p shr 8 and 0xFF
-                val pb = p and 0xFF
-                val chroma = (max(pr, max(pg, pb)) - min(pr, min(pg, pb))) / 255.0
-                val weight = 0.05 + chroma * chroma
-                r += pr * weight
-                g += pg * weight
-                b += pb * weight
-                total += weight
-            }
-            if (total == 0.0) return@use null
-            val hsv = FloatArray(3)
-            android.graphics.Color.colorToHSV(android.graphics.Color.rgb((r / total).toInt(), (g / total).toInt(), (b / total).toInt()), hsv)
-            hsv[1] = hsv[1].coerceAtMost(0.5f)
-            hsv[2] = 0.2f
-            Color(android.graphics.Color.HSVToColor(hsv))
-        }
-    }.getOrNull()
-}
-
 /** Pinch/double-tap zoom that leaves single-finger swipes to the pager while not zoomed. */
 @Composable
-private fun ZoomableImage(url: String, onTap: () -> Unit, onZoomChange: (Boolean) -> Unit, onTint: (Color) -> Unit) {
+private fun ZoomableImage(url: String, onTap: () -> Unit, onZoomChange: (Boolean) -> Unit) {
     val context = LocalContext.current
     val zoom = remember { ZoomState(onZoomChange) }
     // Original size, so deep zoom shows real pixels rather than a screen-sized downsample.
@@ -226,11 +172,7 @@ private fun ZoomableImage(url: String, onTap: () -> Unit, onZoomChange: (Boolean
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
             is AsyncImagePainter.State.Error ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Couldn't load image", color = Color.White) }
-            is AsyncImagePainter.State.Success -> {
-                // Loaded means the original is in the disk cache, so the tint can be read from it.
-                LaunchedEffect(url) { backdropTint(context, url)?.let(onTint) }
-                SubcomposeAsyncImageContent()
-            }
+            is AsyncImagePainter.State.Success -> SubcomposeAsyncImageContent()
         }
     }
 }

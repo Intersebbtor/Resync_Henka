@@ -206,7 +206,7 @@ class RedditClient(
             path.startsWith("/comments/") -> "demo/comments.json"
             path.startsWith("/api/v1/me") -> "demo/me.json"
             path.startsWith("/subreddits/mine") -> "demo/subreddits.json"
-            path.startsWith("/subreddits/search") -> "demo/subreddit_search.json"
+            path.startsWith("/subreddits/search") || path.startsWith("/subreddits/popular") -> "demo/subreddit_search.json"
             path.startsWith("/api/morechildren") -> "demo/morechildren.json"
             path.matches(Regex("/r/[^/]+/about")) -> "demo/subreddit_about.json"
             path.matches(Regex("/user/[^/]+/about")) -> "demo/user_about.json"

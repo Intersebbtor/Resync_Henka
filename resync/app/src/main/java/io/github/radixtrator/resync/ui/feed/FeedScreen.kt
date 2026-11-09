@@ -223,7 +223,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
                             onWatch = { community?.let(toggleWatch) },
                             // Sync offers Random on the front page.
                             onRandom = if (subreddit == null && route.domain == null) {
-                                { nav.openRandomCommunity(container.subscriptions.value) }
+                                { scope.launch { nav.openRandomCommunity(container.api) } }
                             } else null,
                         )
                     },

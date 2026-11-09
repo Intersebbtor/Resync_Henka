@@ -100,6 +100,8 @@ fun DismissibleMedia(
     enabled: Boolean = true,
     dismissOnDrag: Boolean = true,
     onSwipeUp: (() -> Unit)? = null,
+    /** Drawn behind the media, filling the screen; it stays put and fades with the black as the media moves. */
+    backdrop: @Composable () -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     val offset = remember { Animatable(0f) }
@@ -142,6 +144,7 @@ fun DismissibleMedia(
                 )
             },
     ) {
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - progress() * 0.85f }) { backdrop() }
         Box(
             Modifier
                 .fillMaxSize()
