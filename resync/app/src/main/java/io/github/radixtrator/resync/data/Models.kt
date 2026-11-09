@@ -86,7 +86,15 @@ data class Comment(
     val editedUtc: Long? = null,
     /** The author's account id (t2_…), for fetching their profile picture. */
     val authorFullname: String? = null,
+    /** GIFs posted in the comment (Giphy picks and uploads), from its media_metadata. */
+    val gifs: List<CommentGif> = emptyList(),
 ) : CommentNode
+
+/**
+ * A GIF in a comment: [id] is its media_metadata key ("giphy|abc" or an upload's id), [url] the animated
+ * image, [page] where Reddit links it (Giphy's page for Giphy picks).
+ */
+data class CommentGif(val id: String, val url: String, val width: Int = 0, val height: Int = 0, val page: String? = null)
 
 /** A "load more comments" stub. Empty [children] means "continue this thread" (needs a new page). */
 data class MoreComments(

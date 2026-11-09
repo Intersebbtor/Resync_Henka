@@ -273,6 +273,7 @@ private fun CategoryRows(container: AppContainer, category: SettingsCategory, se
         SettingsCategory.LINKS -> {
             Toggle("Open links in the app", "Custom Tabs instead of your browser app", settings.inAppBrowser) { v -> update { it.copy(inAppBrowser = v) } }
             Toggle("Link cards", "Number links and list them under posts and comments", settings.linkCards) { v -> update { it.copy(linkCards = v) } }
+            Toggle("GIF previews in comments", "Play GIFs under the comments that post or link them", settings.commentGifs) { v -> update { it.copy(commentGifs = v) } }
         }
         SettingsCategory.HISTORY -> {
             Toggle("Mark posts as read on scroll", "Posts you scroll past in a feed count as read", settings.markReadOnScroll) { v -> update { it.copy(markReadOnScroll = v) } }

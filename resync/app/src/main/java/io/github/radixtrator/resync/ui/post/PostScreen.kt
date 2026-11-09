@@ -142,7 +142,10 @@ import io.github.radixtrator.resync.ui.common.CardPreview
 import io.github.radixtrator.resync.ui.common.ConfirmDeleteDialog
 import io.github.radixtrator.resync.ui.common.FlairChip
 import io.github.radixtrator.resync.ui.common.Format
+import io.github.radixtrator.resync.ui.common.CommentGifs
+import io.github.radixtrator.resync.ui.common.GifBody
 import io.github.radixtrator.resync.ui.common.LinkCards
+import io.github.radixtrator.resync.ui.common.gifBody
 import io.github.radixtrator.resync.ui.common.LinkRow
 import io.github.radixtrator.resync.ui.common.MessageEffect
 import io.github.radixtrator.resync.ui.common.OptionRow
@@ -697,9 +700,19 @@ private fun CommentRow(
                 // Collapsing a reply chain keeps the comment itself readable (Sync's default); a lone
                 // comment folds to its header.
                 if (!collapsed || hiddenCount > 0) {
-                    val body = rememberRedditText(comment.bodyHtml, footnotes = settings.linkCards)
-                    Spacer(Modifier.height(6.dp))
-                    RedditBodyText(body.text, CommentBody)
+                    val split = remember(comment.bodyHtml, comment.gifs, settings.commentGifs) {
+                        if (settings.commentGifs) gifBody(comment.bodyHtml, comment.gifs) else GifBody(comment.bodyHtml, emptyList())
+                    }
+                    val body = rememberRedditText(split.html, footnotes = settings.linkCards)
+                    if (body.text.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        RedditBodyText(body.text, CommentBody)
+                    }
+                    CommentGifs(
+                        split.gifs,
+                        onOpen = { i -> nav.push(ImageRoute(split.gifs.map { it.url }, start = i)) },
+                        Modifier.padding(top = 8.dp),
+                    )
                     LinkCards(body.links, Modifier.padding(top = 10.dp))
                 }
             }
