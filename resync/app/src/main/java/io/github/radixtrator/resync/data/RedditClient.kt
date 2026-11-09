@@ -15,7 +15,6 @@ import okhttp3.Credentials
 import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
-import okhttp3.OkHttpClient
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -36,7 +35,7 @@ class RedditClient(
     private val tokens: AccountStore,
     private val assets: AssetManager,
 ) {
-    private val http = OkHttpClient.Builder()
+    private val http = Http.base.newBuilder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .apply { if (BuildConfig.DEBUG) addInterceptor(::logExchange) }
@@ -143,15 +142,20 @@ class RedditClient(
                 .header("User-Agent", config.userAgent)
                 .header("Authorization", "bearer $token")
                 .build()
-            val (code, body) = withContext(Dispatchers.IO) {
-                http.newCall(request).execute().use { it.code to it.body.string() }
+            // Parsed off the main thread as well: a big comment thread is megabytes of JSON.
+            val (code, json) = withContext(Dispatchers.IO) {
+                http.newCall(request).execute().use { response ->
+                    val body = response.body.string()
+                    val ok = response.code in 200..299
+                    response.code to if (ok && body.isNotBlank()) JSON.parseToJsonElement(body) else null
+                }
             }
             if (code == 401 && attempt == 0) {
                 token = accessToken(forceRefresh = true)
                 return@repeat
             }
             if (code !in 200..299) throw RedditException(httpError(code), code)
-            return if (body.isBlank()) JsonObject(emptyMap()) else JSON.parseToJsonElement(body)
+            return json ?: JsonObject(emptyMap())
         }
         throw RedditException(httpError(401), 401)
     }

@@ -1,5 +1,7 @@
 package io.github.radixtrator.resync.data
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
@@ -45,13 +47,14 @@ class RedditApi(private val client: RedditClient) {
             "$base/${sort.path}",
             mapOf("after" to after, "limit" to limit.toString(), "t" to sort.time?.param),
         )
-        return Parser.postListing(json)
+        return parsed { Parser.postListing(json) }
     }
 
     /** The newest comments in [subreddit] (null = the front page's communities), for Sync's "Comments" sort. */
     suspend fun feedComments(subreddit: String?, after: String?): Listing<ProfileItem> {
         val base = if (subreddit == null) "" else "/r/$subreddit"
-        return Parser.profileListing(client.get("$base/comments", mapOf("after" to after, "limit" to "25")))
+        val json = client.get("$base/comments", mapOf("after" to after, "limit" to "25"))
+        return parsed { Parser.profileListing(json) }
     }
 
     /**
@@ -71,8 +74,8 @@ class RedditApi(private val client: RedditClient) {
         focusCommentId: String? = null,
         context: Int = 0,
         limit: Int = 200,
-    ): PostWithComments = Parser.comments(
-        client.get(
+    ): PostWithComments {
+        val json = client.get(
             "/comments/$postId",
             mapOf(
                 "sort" to sort.param,
@@ -80,22 +83,23 @@ class RedditApi(private val client: RedditClient) {
                 "comment" to focusCommentId,
                 "context" to context.takeIf { focusCommentId != null && it > 0 }?.toString(),
             ),
-        ),
-    )
+        )
+        return parsed { Parser.comments(json) }
+    }
 
-    suspend fun moreChildren(postFullname: String, children: List<String>, sort: CommentSort): List<CommentNode> =
-        Parser.moreChildren(
-            client.get(
-                "/api/morechildren",
-                mapOf(
-                    "api_type" to "json",
-                    "link_id" to postFullname,
-                    // The endpoint caps a single request at 100 IDs.
-                    "children" to children.take(100).joinToString(","),
-                    "sort" to sort.param,
-                ),
+    suspend fun moreChildren(postFullname: String, children: List<String>, sort: CommentSort): List<CommentNode> {
+        val json = client.get(
+            "/api/morechildren",
+            mapOf(
+                "api_type" to "json",
+                "link_id" to postFullname,
+                // The endpoint caps a single request at 100 IDs.
+                "children" to children.take(100).joinToString(","),
+                "sort" to sort.param,
             ),
         )
+        return parsed { Parser.moreChildren(json) }
+    }
 
     suspend fun me(): Me = Parser.me(client.get("/api/v1/me"))
 
@@ -183,13 +187,13 @@ class RedditApi(private val client: RedditClient) {
         client.post("/api/block_user", mapOf("name" to name))
     }
 
-    suspend fun userContent(name: String, where: UserWhere, sort: UserSort, after: String?): Listing<ProfileItem> =
-        Parser.profileListing(
-            client.get(
-                "/user/$name/${where.path}",
-                mapOf("sort" to sort.param, "t" to sort.time, "after" to after, "limit" to "25"),
-            ),
+    suspend fun userContent(name: String, where: UserWhere, sort: UserSort, after: String?): Listing<ProfileItem> {
+        val json = client.get(
+            "/user/$name/${where.path}",
+            mapOf("sort" to sort.param, "t" to sort.time, "after" to after, "limit" to "25"),
         )
+        return parsed { Parser.profileListing(json) }
+    }
 
     suspend fun inbox(box: InboxBox, after: String?): Listing<InboxItem> =
         // mark=false: opening a box shouldn't silently mark everything read.
@@ -202,20 +206,19 @@ class RedditApi(private val client: RedditClient) {
             subreddit == null -> "/search"
             else -> "/r/$subreddit/search"
         }
-        return Parser.postListing(
-            client.get(
-                path,
-                mapOf(
-                    "q" to query,
-                    "sort" to sort.param,
-                    "t" to sort.time,
-                    "type" to "link",
-                    "restrict_sr" to (subreddit ?: multi)?.let { "on" },
-                    "after" to after,
-                    "limit" to "25",
-                ),
+        val json = client.get(
+            path,
+            mapOf(
+                "q" to query,
+                "sort" to sort.param,
+                "t" to sort.time,
+                "type" to "link",
+                "restrict_sr" to (subreddit ?: multi)?.let { "on" },
+                "after" to after,
+                "limit" to "25",
             ),
         )
+        return parsed { Parser.postListing(json) }
     }
 
     suspend fun searchSubreddits(query: String, after: String?): Listing<Subreddit> =
@@ -426,4 +429,7 @@ class RedditApi(private val client: RedditClient) {
     suspend fun markAllRead() {
         client.post("/api/read_all_messages", emptyMap())
     }
+
+    /** Listings and comment threads walk hundreds of items, so they're turned into models off the main thread. */
+    private suspend fun <T> parsed(parse: () -> T): T = withContext(Dispatchers.Default) { parse() }
 }

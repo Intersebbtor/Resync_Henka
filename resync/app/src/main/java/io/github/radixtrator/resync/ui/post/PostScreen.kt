@@ -420,7 +420,7 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
                                 }
                             }
                         }
-                        items(visible, key = { (if (it.node is Comment) "c" else "m") + it.node.id }) { row ->
+                        items(visible, key = { (if (it.node is Comment) "c" else "m") + it.node.id }, contentType = { it.node is Comment }) { row ->
                             // Sync separates top-level threads with a band of the window color.
                             val separated = row.node.depth == 0 && row !== visible.firstOrNull()
                             when (val node = row.node) {
@@ -526,7 +526,7 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
                             reader.start(readerQueue(post, state.comments, ::plainText, replies = settings.readerReplies))
                         }
                     },
-                ) + commentActionExtras(post, state.comments, nav),
+                ) + remember(post, state.comments) { commentActionExtras(post, state.comments, nav) },
                 onPicked = { actionsOpen = false },
             )
         }

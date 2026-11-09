@@ -2,8 +2,12 @@ package io.github.radixtrator.resync.data
 
 data class Listing<T>(val items: List<T>, val after: String?)
 
-data class ImageSource(val url: String, val width: Int, val height: Int) {
+/** [smaller]: Reddit's narrower renditions of the same image, narrowest first, for small thumbnails and columns. */
+data class ImageSource(val url: String, val width: Int, val height: Int, val smaller: List<ImageSource> = emptyList()) {
     val aspectRatio: Float get() = if (width > 0 && height > 0) width.toFloat() / height else 16f / 9f
+
+    /** The narrowest rendition at least [widthPx] wide, so a 64dp thumbnail doesn't download a 1080px image. */
+    fun urlFor(widthPx: Int): String = smaller.firstOrNull { it.width >= widthPx }?.url ?: url
 }
 
 sealed interface PostMedia {

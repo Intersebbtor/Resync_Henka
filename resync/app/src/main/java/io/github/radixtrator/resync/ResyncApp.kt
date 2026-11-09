@@ -9,7 +9,9 @@ import coil3.gif.AnimatedImageDecoder
 import coil3.gif.GifDecoder
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import io.github.radixtrator.resync.data.Http
 import io.github.radixtrator.resync.notify.InboxWorker
+import io.github.radixtrator.resync.ui.theme.Motion
 import io.github.radixtrator.resync.watch.WatchWorker
 import okhttp3.OkHttpClient
 
@@ -20,10 +22,14 @@ class ResyncApp : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
-        // KEEP leaves a running schedule alone; this only repairs one lost to a data wipe or an update.
-        WatchWorker.schedule(this, !container.watch.isEmpty)
-        // Sync's message check: keeps the repeating check in line with the setting, or runs "On launch".
-        InboxWorker.schedule(this, container.settings.settings.value.messageCheck)
+        // WorkManager opens its database the first time it's used, so the schedules are checked off the main
+        // thread, where they'd only hold up the first frame.
+        Thread {
+            // KEEP leaves a running schedule alone; this only repairs one lost to a data wipe or an update.
+            WatchWorker.schedule(this, !container.watch.isEmpty)
+            // Sync's message check: keeps the repeating check in line with the setting, or runs "On launch".
+            InboxWorker.schedule(this, container.settings.settings.value.messageCheck)
+        }.apply { name = "resync-schedules" }.start()
     }
 
     /**
@@ -36,10 +42,11 @@ class ResyncApp : Application(), SingletonImageLoader.Factory {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) add(AnimatedImageDecoder.Factory()) else add(GifDecoder.Factory())
                 add(OkHttpNetworkFetcherFactory(callFactory = { imageHttpClient() }))
             }
-            .crossfade(true)
+            // Short enough not to read as lag when scrolling onto images that are still decoding.
+            .crossfade(Motion.FADE)
             .build()
 
-    private fun imageHttpClient(): OkHttpClient = OkHttpClient.Builder()
+    private fun imageHttpClient(): OkHttpClient = Http.base.newBuilder()
         .addInterceptor { chain ->
             chain.proceed(chain.request().newBuilder().header("User-Agent", "Resync/${BuildConfig.VERSION_NAME} (Android)").build())
         }

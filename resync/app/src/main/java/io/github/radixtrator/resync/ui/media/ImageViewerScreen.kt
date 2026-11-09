@@ -37,6 +37,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -50,6 +51,7 @@ import io.github.radixtrator.resync.data.MediaDownloads
 import io.github.radixtrator.resync.ui.common.AppIcons
 import io.github.radixtrator.resync.ui.common.DismissibleMedia
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
+import io.github.radixtrator.resync.ui.theme.Motion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Locale
@@ -68,7 +70,8 @@ fun ImageViewerScreen(urls: List<String>, start: Int, postId: String?, downloads
     val zoomed = remember { mutableStateMapOf<Int, Boolean>() }
     // Sync tints the backdrop from the image: a dark, muted take on its colors, faded in from black.
     val tints = remember { mutableStateMapOf<Int, Color>() }
-    val backdrop by animateColorAsState(tints[pager.currentPage] ?: Color.Black, tween(600), label = "backdrop")
+    // Drawn rather than composed, so the fade doesn't recompose the pager each frame.
+    val backdrop = animateColorAsState(tints[pager.currentPage] ?: Color.Black, tween(300), label = "backdrop")
     var infoOpen by rememberSaveable { mutableStateOf(false) }
     val download = rememberDownloader(downloads)
     // Media › "Tap to close" and "Swipe to close".
@@ -80,7 +83,7 @@ fun ImageViewerScreen(urls: List<String>, start: Int, postId: String?, downloads
         dismissOnDrag = settings.swipeToClose,
         onSwipeUp = { infoOpen = true },
     ) {
-        Box(Modifier.fillMaxSize().background(backdrop)) {
+        Box(Modifier.fillMaxSize().drawBehind { drawRect(backdrop.value) }) {
             HorizontalPager(state = pager, beyondViewportPageCount = 1, pageSpacing = 16.dp, modifier = Modifier.fillMaxSize()) { page ->
                 ZoomableImage(
                     urls[page],
@@ -101,8 +104,8 @@ fun ImageViewerScreen(urls: List<String>, start: Int, postId: String?, downloads
             }
             AnimatedVisibility(
                 visible = infoOpen,
-                enter = slideInVertically { it },
-                exit = slideOutVertically { it },
+                enter = slideInVertically(Motion.enter()) { it },
+                exit = slideOutVertically(Motion.exit()) { it },
                 modifier = Modifier.align(Alignment.BottomCenter),
             ) {
                 val url = urls[pager.currentPage]

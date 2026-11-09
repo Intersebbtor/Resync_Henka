@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.baselineprofile)
 }
 
 android {
@@ -25,11 +26,14 @@ android {
 
     buildTypes {
         release {
+            // The bundled demo feed (Setup's "browse demo data") is for checking the UI, not for users.
+            buildConfigField("boolean", "DEMO", "false")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         debug {
+            buildConfigField("boolean", "DEMO", "true")
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }
@@ -47,6 +51,22 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+}
+
+// The baseline profile is recorded on release-like builds (:baselineprofile drives the demo feed), so those builds get
+// the demo data and Setup's demo button too.
+androidComponents {
+    onVariants { variant ->
+        if (variant.buildType in setOf("nonMinifiedRelease", "benchmarkRelease")) {
+            variant.buildConfigFields?.put("DEMO", com.android.build.api.variant.BuildConfigField("boolean", "true", null))
+            variant.sources.assets?.addStaticSourceDirectory("src/debug/assets")
+        }
+    }
+}
+
+baselineProfile {
+    // Regenerated on request (./gradlew :app:generateBaselineProfile), not on every release build.
+    automaticGenerationDuringBuild = false
 }
 
 kotlin {
@@ -79,6 +99,8 @@ dependencies {
     implementation(libs.androidx.work.runtime)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.profileinstaller)
+    baselineProfile(project(":baselineprofile"))
 
     debugImplementation(libs.androidx.ui.tooling)
 

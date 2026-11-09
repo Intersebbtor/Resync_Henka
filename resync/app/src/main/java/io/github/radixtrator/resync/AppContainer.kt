@@ -51,21 +51,22 @@ class AppContainer(context: Context) {
     val configStore = ApiConfigStore(prefs)
     val settings = SettingsStore(prefs)
     val visited = VisitedStore(prefs)
-    val postMemory = PostMemoryStore(prefs)
+    // Stores no screen needs for the first frame load (and parse) when first used, not at launch.
+    val postMemory by lazy { PostMemoryStore(prefs) }
     val explore = ExploreStore(prefs)
-    val downloads = MediaDownloads(context)
+    val downloads by lazy { MediaDownloads(appContext) }
     val watch = WatchStore(prefs)
-    val notifiedMessages = NotifiedMessages(prefs)
+    val notifiedMessages by lazy { NotifiedMessages(prefs) }
     val tags = UserTags(prefs)
     val filters = FilterStore(prefs)
-    val recentPosts = RecentPostsStore(prefs)
-    val drafts = DraftStore(prefs)
-    val readAloud = ReadAloud(context)
+    val recentPosts by lazy { RecentPostsStore(prefs) }
+    val drafts by lazy { DraftStore(prefs) }
+    val readAloud by lazy { ReadAloud(appContext) }
     private val appContext = context.applicationContext
     private val accountStore = AccountStore(prefs)
     val client = RedditClient(configStore, accountStore, context.assets)
     val api = RedditApi(client)
-    val avatars = AvatarCache(api)
+    val avatars by lazy { AvatarCache(api) }
 
     private val _username = MutableStateFlow(accountStore.active?.username)
     /** Active account name, or null when browsing logged out. Feeds reload when it changes. */

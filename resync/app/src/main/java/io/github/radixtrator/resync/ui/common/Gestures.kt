@@ -2,10 +2,13 @@ package io.github.radixtrator.resync.ui.common
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -19,6 +22,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -95,13 +99,16 @@ fun DismissibleMedia(
     val scope = rememberCoroutineScope()
     var height by remember { mutableIntStateOf(1) }
     val swipeUp by rememberUpdatedState(onSwipeUp)
-    val travel = if (onSwipeUp != null) offset.value.coerceAtLeast(0f) else abs(offset.value)
-    val progress = (travel / (height * 0.5f)).coerceIn(0f, 1f)
+    // Read only from the draw and layer blocks below, so a drag redraws without recomposing the media.
+    fun progress(): Float {
+        val travel = if (swipeUp != null) offset.value.coerceAtLeast(0f) else abs(offset.value)
+        return (travel / (height * 0.5f)).coerceIn(0f, 1f)
+    }
     Box(
         Modifier
             .fillMaxSize()
             .onSizeChanged { height = it.height }
-            .background(Color.Black.copy(alpha = 1f - progress * 0.85f))
+            .drawBehind { drawRect(Color.Black.copy(alpha = 1f - progress() * 0.85f)) }
             .pointerInput(enabled, dismissOnDrag, onSwipeUp != null) {
                 if (!enabled || (!dismissOnDrag && onSwipeUp == null)) return@pointerInput
                 claimDrags(
@@ -118,11 +125,11 @@ fun DismissibleMedia(
                         when {
                             up != null && offset.value < 0f -> {
                                 if (offset.value < -height * 0.03f || velocity < -1500f) up()
-                                offset.animateTo(0f)
+                                offset.animateTo(0f, SettleSpec)
                             }
-                            !dismissOnDrag -> offset.animateTo(0f)
+                            !dismissOnDrag -> offset.animateTo(0f, SettleSpec, initialVelocity = velocity)
                             abs(offset.value) > height * 0.18f || abs(velocity) > 2500f -> onDismiss()
-                            else -> offset.animateTo(0f)
+                            else -> offset.animateTo(0f, SettleSpec, initialVelocity = velocity)
                         }
                     },
                 )
@@ -133,7 +140,7 @@ fun DismissibleMedia(
                 .fillMaxSize()
                 .graphicsLayer {
                     translationY = offset.value
-                    val s = 1f - progress * 0.15f
+                    val s = 1f - progress() * 0.15f
                     scaleX = s
                     scaleY = s
                 },
@@ -156,10 +163,14 @@ fun SwipeBack(enabled: Boolean, onBack: () -> Unit, content: @Composable () -> U
         content()
         return
     }
-    val offset = remember { Animatable(0f) }
+    // Bounded so springing back with the finger's leftward momentum can't carry the page past its place.
+    val offset = remember { Animatable(0f).apply { updateBounds(lowerBound = 0f) } }
     val scope = rememberCoroutineScope()
     var width by remember { mutableIntStateOf(1) }
     val previous = LocalPreviousScreen.current
+    // Only whether a drag is under way is read in composition; how far it's got is read while drawing.
+    val dragging by remember { derivedStateOf { offset.value > 0f } }
+    fun progress() = (offset.value / width).coerceIn(0f, 1f)
     Box(
         Modifier
             .fillMaxSize()
@@ -171,22 +182,25 @@ fun SwipeBack(enabled: Boolean, onBack: () -> Unit, content: @Composable () -> U
                     onDelta = { offset.snapTo((offset.value + it).coerceAtLeast(0f)) },
                     onEnd = { velocity ->
                         if (offset.value > width * 0.33f || velocity > 1800f) {
-                            offset.animateTo(width.toFloat(), tween(180, easing = LinearOutSlowInEasing))
+                            // Carry on at about the finger's speed: a fast fling finishes quickly, a slow drag glides.
+                            val remaining = width - offset.value
+                            val ms = (remaining / velocity.coerceAtLeast(1200f) * 1600f).toInt().coerceIn(90, 220)
+                            offset.animateTo(width.toFloat(), tween(ms, easing = LinearOutSlowInEasing))
                             SwipeBackState.popping = true
                             onBack()
                         } else {
-                            offset.animateTo(0f)
+                            offset.animateTo(0f, SettleSpec, initialVelocity = velocity)
                         }
                     },
                 )
             },
     ) {
-        val progress = (offset.value / width).coerceIn(0f, 1f)
-        if (previous != null && offset.value > 0f) {
-            Box(Modifier.fillMaxSize().graphicsLayer { translationX = -width * PARALLAX * (1f - progress) }) {
+        if (previous != null && dragging) {
+            Box(Modifier.fillMaxSize().graphicsLayer { translationX = -width * PARALLAX * (1f - progress()) }) {
                 CompositionLocalProvider(LocalPreviousScreen provides null) { previous() }
             }
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f * (1f - progress))))
+            // A sibling of the layer above, so dimming redraws one rectangle rather than the screen under it.
+            Box(Modifier.fillMaxSize().drawBehind { drawRect(Color.Black.copy(alpha = 0.3f * (1f - progress()))) })
         }
         Box(
             Modifier
@@ -199,6 +213,9 @@ fun SwipeBack(enabled: Boolean, onBack: () -> Unit, content: @Composable () -> U
         ) { content() }
     }
 }
+
+/** Springing back after a drag that didn't go far enough: no bounce, quick, and it keeps the fling's momentum. */
+private val SettleSpec = spring<Float>(stiffness = Spring.StiffnessMedium)
 
 /** How far the screen under a card shifts left, as a fraction of the width. */
 const val PARALLAX = 0.3f

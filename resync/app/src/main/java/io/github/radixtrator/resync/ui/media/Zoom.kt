@@ -31,7 +31,7 @@ internal class ZoomState(private val onZoomChange: (Boolean) -> Unit = {}) {
         private set
     val zoomed: Boolean get() = scale > 1f
 
-    fun setScale(value: Float) {
+    fun zoomTo(value: Float) {
         val wasZoomed = zoomed
         scale = value.coerceIn(1f, MAX_ZOOM)
         if (scale <= 1f) offset = Offset.Zero
@@ -43,7 +43,7 @@ internal class ZoomState(private val onZoomChange: (Boolean) -> Unit = {}) {
     }
 
     /** Double tap: back to 1x when zoomed, otherwise in to [DOUBLE_TAP_ZOOM]. */
-    fun toggle() = setScale(if (zoomed) 1f else DOUBLE_TAP_ZOOM)
+    fun toggle() = zoomTo(if (zoomed) 1f else DOUBLE_TAP_ZOOM)
 }
 
 /**
@@ -60,7 +60,7 @@ internal fun Modifier.zoomGestures(state: ZoomState, onTap: () -> Unit): Modifie
             do {
                 val event = awaitPointerEvent()
                 if (event.changes.size > 1 || state.zoomed) {
-                    state.setScale(state.scale * event.calculateZoom())
+                    state.zoomTo(state.scale * event.calculateZoom())
                     state.pan(event.calculatePan())
                     event.changes.forEach { if (it.positionChanged()) it.consume() }
                 }

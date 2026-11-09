@@ -14,10 +14,14 @@ class VisitedStore(private val prefs: SharedPreferences) {
     private val _ids = MutableStateFlow(load())
     val ids: StateFlow<Set<String>> = _ids.asStateFlow()
 
-    fun mark(postId: String) {
-        if (postId in _ids.value) return
-        val next = LinkedHashSet(_ids.value).apply {
-            add(postId)
+    fun mark(postId: String) = markAll(listOf(postId))
+
+    /** Marks several at once (Mark posts as read on scroll), with one update and one write. */
+    fun markAll(postIds: List<String>) {
+        val current = _ids.value
+        if (postIds.all { it in current }) return
+        val next = LinkedHashSet(current).apply {
+            addAll(postIds)
             while (size > MAX) remove(first())
         }
         _ids.value = next

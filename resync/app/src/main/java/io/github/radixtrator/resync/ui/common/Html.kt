@@ -1,5 +1,6 @@
 package io.github.radixtrator.resync.ui.common
 
+import android.util.LruCache
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,6 +44,7 @@ private val SPOILER = Regex("""<span class="md-spoiler-text">(.*?)</span>""", Re
 const val RULE = '\u2063'
 private val RELATIVE_LINK = Regex("""<a href="(/[^"]*)"([^>]*)>(.*?)</a>""", RegexOption.DOT_MATCHES_ALL)
 private val RULE_GAP = Regex("<p>$RULE</p><br>(?=<p>$RULE</p>)")
+private val TAG = Regex("<[^>]*>")
 
 /**
  * Renders the HTML Reddit generates from markdown (body_html / selftext_html).
@@ -71,12 +73,23 @@ fun redditHtml(
         LinkInteractionListener { link -> (link as? LinkAnnotation.Url)?.url?.let(handler) }
     }
     val parsed = AnnotatedString.fromHtml(
-        redditMarkup(html, revealSpoilers),
+        cachedMarkup(html, revealSpoilers),
         // Sync's "Show larger links": links are a quarter bigger than the text around them.
         linkStyles = TextLinkStyles(SpanStyle(color = linkColor, fontSize = 1.25.em)),
         linkInteractionListener = listener,
     )
     return parsed.subSequence(0, parsed.text.trimEnd().length)
+}
+
+/**
+ * Comment rows are recomposed from scratch whenever they scroll back in, so [redditMarkup]'s regex passes are
+ * kept for recently shown bodies instead of being redone each time.
+ */
+private val markupCache = LruCache<String, String>(300)
+
+private fun cachedMarkup(html: String, revealSpoilers: Boolean): String {
+    val key = if (revealSpoilers) "1$html" else "0$html"
+    return markupCache[key] ?: redditMarkup(html, revealSpoilers).also { markupCache.put(key, it) }
 }
 
 /** Reddit's HTML rewritten for fromHtml, which knows nothing of rules, spoilers or site-relative links. */
@@ -85,7 +98,7 @@ fun redditMarkup(html: String, revealSpoilers: Boolean): String {
     // Sync spells out where such a link goes, "(/wiki/)", unless the text already is the path (/r/foo, u/bar).
     var source = RELATIVE_LINK.replace(html) { m ->
         val path = m.groupValues[1]
-        val label = m.groupValues[3].replace(Regex("<[^>]*>"), "").trim()
+        val label = m.groupValues[3].replace(TAG, "").trim()
         val spelled = label.startsWith("/") || label.startsWith("r/") || label.startsWith("u/") || label.isEmpty()
         val link = "<a href=\"https://www.reddit.com$path\"${m.groupValues[2]}>${m.groupValues[3]}</a>"
         if (spelled || path.startsWith("//")) link else "$link ($path)"

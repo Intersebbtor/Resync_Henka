@@ -5,7 +5,12 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.UriHandler
 import androidx.core.net.toUri
@@ -119,8 +124,18 @@ class Navigator(
 val LocalNavigator = staticCompositionLocalOf<Navigator> { error("No Navigator provided") }
 val LocalSettings = compositionLocalOf { Settings() }
 
-/** Ids of posts the user has opened, for dimming them in feeds. */
-val LocalVisited = compositionLocalOf<Set<String>> { emptySet() }
+/**
+ * Ids of posts the user has opened, for dimming them in feeds. It's the state itself rather than its value, so
+ * marking a post read recomposes only rows that read it (through [rememberVisited]), not every row on screen.
+ */
+val LocalVisited = staticCompositionLocalOf<State<Set<String>>> { mutableStateOf(emptySet()) }
+
+/** Whether [postId] has been opened; the caller recomposes only when that answer changes. */
+@Composable
+fun rememberVisited(postId: String): Boolean {
+    val visited = LocalVisited.current
+    return remember(postId, visited) { derivedStateOf { postId in visited.value } }.value
+}
 
 /** The app's container, for shared sheets that load or send things themselves (reporting, tagging). */
 val LocalContainer = staticCompositionLocalOf<AppContainer> { error("No AppContainer provided") }

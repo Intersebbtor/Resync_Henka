@@ -26,6 +26,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -74,7 +75,8 @@ fun <T> PagedList(
 
     LazyColumn(state = listState, contentPadding = contentPadding, modifier = modifier.fillMaxSize()) {
         header?.invoke(this)
-        items(state.items, key = key) { item(it) }
+        // Typed by class, so a post row is only ever reused for a post and a comment row for a comment.
+        items(state.items, key = key, contentType = { it?.let { row -> row::class } }) { item(it) }
         item(key = "footer") {
             Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                 if (state.items.isEmpty()) {
@@ -139,27 +141,30 @@ fun <T> PagedGrid(
     }
     LaunchedEffect(nearEnd, state.items.size) { if (nearEnd && state.items.isNotEmpty()) onLoadMore() }
 
-    LazyVerticalStaggeredGrid(
-        columns = StaggeredGridCells.Fixed(columns),
-        state = gridState,
-        contentPadding = PaddingValues(start = gutter, end = gutter, bottom = bottomPadding),
-        horizontalArrangement = Arrangement.spacedBy(gutter),
-        verticalItemSpacing = spacing,
-        modifier = modifier.fillMaxSize(),
-    ) {
-        item(key = "header", span = StaggeredGridItemSpan.FullLine) { Box(Modifier.fullBleed(gutter)) { header() } }
-        items(state.items, key = key) { item(it) }
-        item(key = "footer", span = StaggeredGridItemSpan.FullLine) {
-            Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                if (state.items.isEmpty()) {
-                    EmptyState(state, emptyText, onRetry)
-                } else when {
-                    state.loading -> CircularProgressIndicator()
-                    state.error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(state.error, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
-                        TextButton(onClick = onRetry) { Text("Retry") }
+    CompositionLocalProvider(LocalFeedColumns provides columns) {
+        LazyVerticalStaggeredGrid(
+            columns = StaggeredGridCells.Fixed(columns),
+            state = gridState,
+            contentPadding = PaddingValues(start = gutter, end = gutter, bottom = bottomPadding),
+            horizontalArrangement = Arrangement.spacedBy(gutter),
+            verticalItemSpacing = spacing,
+            modifier = modifier.fillMaxSize(),
+        ) {
+            item(key = "header", span = StaggeredGridItemSpan.FullLine) { Box(Modifier.fullBleed(gutter)) { header() } }
+            // Typed by class, so a post row is only ever reused for a post and a comment row for a comment.
+            items(state.items, key = key, contentType = { it?.let { row -> row::class } }) { item(it) }
+            item(key = "footer", span = StaggeredGridItemSpan.FullLine) {
+                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    if (state.items.isEmpty()) {
+                        EmptyState(state, emptyText, onRetry)
+                    } else when {
+                        state.loading -> CircularProgressIndicator()
+                        state.error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(state.error, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                            TextButton(onClick = onRetry) { Text("Retry") }
+                        }
+                        state.endReached -> Text("You've reached the end", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    state.endReached -> Text("You've reached the end", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

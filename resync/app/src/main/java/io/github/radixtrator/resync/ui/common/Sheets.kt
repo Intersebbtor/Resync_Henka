@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import io.github.radixtrator.resync.ui.theme.Motion
 
 /**
  * Sync's drop-down sheet: slides from the top edge over a scrim. Used for sort and More actions,
@@ -66,8 +67,8 @@ fun TopSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit)
         ) {
             AnimatedVisibility(
                 visibleState = visible,
-                enter = slideInVertically { -it } + fadeIn(),
-                exit = slideOutVertically { -it } + fadeOut(),
+                enter = slideInVertically(Motion.enter()) { -it } + fadeIn(Motion.enter(Motion.FADE)),
+                exit = slideOutVertically(Motion.exit()) { -it } + fadeOut(Motion.exit()),
             ) {
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainerLow,

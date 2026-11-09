@@ -30,7 +30,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -49,8 +48,10 @@ import io.github.radixtrator.resync.data.ImageSource
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostMedia
 import io.github.radixtrator.resync.ui.common.AppIcons
+import io.github.radixtrator.resync.ui.common.CARD_BLUR_WIDTH
 import io.github.radixtrator.resync.ui.common.Format
 import io.github.radixtrator.resync.ui.common.PostTitle
+import io.github.radixtrator.resync.ui.common.rememberPreviewRequest
 import io.github.radixtrator.resync.ui.common.RedditBodyText
 import io.github.radixtrator.resync.ui.common.dataSavingActive
 import io.github.radixtrator.resync.ui.common.rememberRedditHtml
@@ -168,10 +169,10 @@ private fun SwipeMedia(post: Post, onMedia: () -> Unit) {
     Box(Modifier.fillMaxSize().clickable(onClick = onMedia), contentAlignment = Alignment.Center) {
         if (image != null) {
             AsyncImage(
-                model = image.url,
+                model = rememberPreviewRequest(image.url, blurWidth = if (blur) CARD_BLUR_WIDTH else null),
                 contentDescription = post.title,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize().then(if (blur) Modifier.blur(40.dp) else Modifier),
+                modifier = Modifier.fillMaxSize(),
             )
         }
         val badge: Pair<ImageVector, String>? = when (post.media) {

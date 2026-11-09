@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 class PostViewModel(
     private val container: AppContainer,
@@ -76,7 +78,7 @@ class PostViewModel(
         loadJob = viewModelScope.launch {
             try {
                 val result = container.api.comments(postId, _state.value.sort, focusCommentId, context, settings.commentCount.limit)
-                val comments = shown(result.comments)
+                val comments = withContext(Dispatchers.Default) { shown(result.comments) }
                 _state.update {
                     // Keep folds across refreshes, and restore last visit's on first load. With no last visit,
                     // "Collapse all threads by default" folds every top-level thread (not on single-thread pages).

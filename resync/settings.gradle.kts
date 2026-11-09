@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Resync"
 include(":app")
+include(":baselineprofile")

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -45,7 +44,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -53,7 +51,10 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
@@ -84,7 +85,7 @@ import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalUserTagColors
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import io.github.radixtrator.resync.ui.navigation.LocalUserTags
-import io.github.radixtrator.resync.ui.navigation.LocalVisited
+import io.github.radixtrator.resync.ui.navigation.rememberVisited
 import io.github.radixtrator.resync.ui.navigation.ModRoute
 import io.github.radixtrator.resync.ui.theme.ResyncColors
 import kotlin.math.min
@@ -340,9 +341,8 @@ private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, op
                 Thumbnail(post, 64.dp, RoundedCornerShape(8.dp), onClick = actions.onMedia, modifier = inset)
             }
         }
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-            if (options.thumbnails && !right) thumbnail()
-            Column(Modifier.weight(1f).padding(start = 12.dp, top = 8.dp, bottom = 10.dp, end = 4.dp)) {
+        val text = @Composable {
+            Column(Modifier.padding(start = 12.dp, top = 8.dp, bottom = 10.dp, end = 4.dp)) {
                 PostTitle(post, RowTitle.scaledBy(options.titleSize.scale), maxLines = if (options.singleLineTitle) 1 else 4)
                 val description = RowMeta.scaledBy(options.descriptionSize.scale)
                 PostMeta(post, showSubreddit, maxLines = 1, style = description, showAuthor = feedAuthors)
@@ -356,12 +356,14 @@ private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, op
                     Text(it, style = if (flushThumbnail) RowMeta else RowTitle, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            val expand = @Composable {
+        }
+        val expand = @Composable {
                 IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(40.dp)) {
                     Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, if (expanded) "Collapse" else "Expand", tint = muted)
                 }
             }
-            val type = @Composable { Icon(typeIcon(post), null, tint = muted, modifier = Modifier.padding(8.dp).size(20.dp)) }
+        val type = @Composable { Icon(typeIcon(post), null, tint = muted, modifier = Modifier.padding(8.dp).size(20.dp)) }
+        val side = @Composable {
             if (flushThumbnail) {
                 Row(Modifier.fillMaxHeight().padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     expand()
@@ -374,9 +376,15 @@ private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, op
                     expand()
                 }
             }
-            // "Align thumbnail right": past ⌄ and the type icon, against the row's end.
-            if (options.thumbnails && right) thumbnail()
         }
+        val none = @Composable {}
+        RowPostLayout(
+            leading = if (options.thumbnails && !right) thumbnail else none,
+            text = text,
+            side = side,
+            // "Align thumbnail right": past ⌄ and the type icon, against the row's end.
+            trailing = if (options.thumbnails && right) thumbnail else none,
+        )
         if (expanded) {
             if (post.thumbnail() != null && !post.isSelf) {
                 CardPreview(post, onClick = actions.onMedia, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp).clip(RoundedCornerShape(8.dp)))
@@ -389,6 +397,39 @@ private fun RowPost(post: Post, showSubreddit: Boolean, actions: PostActions, op
             }
         }
         if (!inCard) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+/**
+ * [RowPost]'s row: [text] takes the width the others leave, and [side] (⌄ and the type icon) stretches to the
+ * row's height so ⌄ sits at the bottom. That's what IntrinsicSize.Min did, but it measured the title and meta text
+ * twice per row; here only [side]'s small intrinsics are asked for.
+ */
+@Composable
+private fun RowPostLayout(
+    leading: @Composable () -> Unit,
+    text: @Composable () -> Unit,
+    side: @Composable () -> Unit,
+    trailing: @Composable () -> Unit,
+) {
+    Layout(contents = listOf(leading, text, side, trailing), modifier = Modifier.fillMaxWidth()) { (lead, main, aside, trail), constraints ->
+        val width = constraints.maxWidth
+        val loose = Constraints(maxWidth = width)
+        val leadP = lead.firstOrNull()?.measure(loose)
+        val trailP = trail.firstOrNull()?.measure(loose)
+        val sideM = aside.first()
+        val sideWidth = sideM.maxIntrinsicWidth(Constraints.Infinity)
+        val textWidth = (width - (leadP?.width ?: 0) - (trailP?.width ?: 0) - sideWidth).coerceAtLeast(0)
+        val textP = main.first().measure(Constraints.fixedWidth(textWidth))
+        val height = maxOf(textP.height, leadP?.height ?: 0, trailP?.height ?: 0, sideM.minIntrinsicHeight(sideWidth))
+        val sideP = sideM.measure(Constraints.fixed(sideWidth, height))
+        layout(width, height) {
+            var x = 0
+            leadP?.let { it.place(x, 0); x += it.width }
+            textP.place(x, 0); x += textP.width
+            sideP.place(x, 0); x += sideP.width
+            trailP?.place(x, 0)
+        }
     }
 }
 
@@ -580,9 +621,10 @@ fun PostTitle(
     maxLines: Int = Int.MAX_VALUE,
     dimWhenRead: Boolean = true,
 ) {
-    val read = dimWhenRead && post.id in LocalVisited.current
+    val read = dimWhenRead && rememberVisited(post.id)
     val accent = MaterialTheme.colorScheme.primary
-    val text = buildAnnotatedString {
+    // Remembered, with the marks map below, so Text can skip a row whose title hasn't changed.
+    val text = remember(post.title, post.stickied, post.locked) { buildAnnotatedString {
         append(post.title)
         if (post.stickied) {
             append(" ")
@@ -592,15 +634,15 @@ fun PostTitle(
             append(" ")
             appendInlineContent("lock", "[locked]")
         }
-    }
-    val marks = mapOf(
+    } }
+    val marks = remember(accent) { mapOf(
         "pin" to InlineTextContent(Placeholder(1.em, 1.em, PlaceholderVerticalAlign.TextCenter)) {
             Icon(AppIcons.Pin, "Pinned", tint = accent)
         },
         "lock" to InlineTextContent(Placeholder(0.9.em, 0.9.em, PlaceholderVerticalAlign.TextCenter)) {
             Icon(Icons.Default.Lock, "Locked", tint = accent)
         },
-    )
+    ) }
     Text(
         text,
         style = style,
@@ -631,7 +673,7 @@ fun PostMeta(
     val tag = LocalUserTags.current[post.author.lowercase()]
     val tagStyle = userTagStyle(post.author)
     val me = LocalAccount.current
-    val text = buildAnnotatedString {
+    val text = remember(post, showSubreddit, showAuthor, suffix, me, tag, tagStyle, accent, flairBg) { buildAnnotatedString {
         if (showSubreddit) {
             withStyle(SpanStyle(color = accent)) { append(post.subreddit) }
         }
@@ -663,7 +705,7 @@ fun PostMeta(
         if (post.over18) withStyle(SpanStyle(color = ResyncColors.Nsfw, fontWeight = FontWeight.Bold)) { append(" • NSFW") }
         if (post.spoiler) withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(" • Spoiler") }
         suffix?.let { append(" • $it") }
-    }
+    } }
     Text(
         text,
         style = style,
@@ -693,7 +735,8 @@ fun userTagStyle(user: String? = null): SpanStyle {
 @Composable
 fun distinguishedMarks(): Map<String, InlineTextContent> {
     val accent = MaterialTheme.colorScheme.primary
-    return mapOf(
+    val you = MaterialTheme.colorScheme.onSurfaceVariant
+    return remember(accent, you) { mapOf(
         "moderator" to InlineTextContent(Placeholder(1.15.em, 1.15.em, PlaceholderVerticalAlign.TextCenter)) {
             Icon(AppIcons.Shield, "Moderator", tint = accent)
         },
@@ -701,9 +744,9 @@ fun distinguishedMarks(): Map<String, InlineTextContent> {
             Icon(AppIcons.Shield, "Admin", tint = ResyncColors.Nsfw)
         },
         "you" to InlineTextContent(Placeholder(1.15.em, 1.15.em, PlaceholderVerticalAlign.TextCenter)) {
-            Icon(Icons.Outlined.Person, "You", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.Outlined.Person, "You", tint = you)
         },
-    )
+    ) }
 }
 
 /** Sync drops ".com" ("thehill", "reddit") and keeps other hosts ("i.redd.it"); self posts show none. */
@@ -785,6 +828,8 @@ fun CardPreview(post: Post, onClick: () -> Unit, modifier: Modifier = Modifier, 
     val blur = post.shouldBlur()
     val saving = dataSavingActive()
     val ratio = image.aspectRatio.coerceIn(0.5f, 2.2f)
+    // About a column's width: a three-column grid of cards needn't fetch 1080px previews.
+    val columnWidth = LocalWindowInfo.current.containerSize.width / LocalFeedColumns.current
     Box(
         modifier
             .fillMaxWidth()
@@ -807,10 +852,10 @@ fun CardPreview(post: Post, onClick: () -> Unit, modifier: Modifier = Modifier, 
         // Data saving leaves the preview unloaded: the empty frame keeps its size, with the post's type in it.
         if (!saving) {
             AsyncImage(
-                model = image.url,
+                model = rememberPreviewRequest(image.urlFor(columnWidth), blurWidth = if (blur) CARD_BLUR_WIDTH else null),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.matchParentSize().then(if (blur) Modifier.blur(40.dp) else Modifier),
+                modifier = Modifier.matchParentSize(),
             )
         }
         when (post.media) {
@@ -869,12 +914,17 @@ private fun UrlBand(domain: String, url: String, modifier: Modifier) {
     )
 }
 
+/** How far blurred previews are shrunk ([rememberPreviewRequest]): a heavy blur on cards, a lighter one on thumbnails. */
+const val CARD_BLUR_WIDTH = 24
+private const val THUMBNAIL_BLUR_WIDTH = 6
+
 /** A square or rounded thumbnail; posts without an image get their content-type icon. */
 @Composable
 private fun Thumbnail(post: Post, size: Dp, shape: Shape, onClick: () -> Unit, modifier: Modifier = Modifier) {
     // Data saving shows the type icon in place of the image.
     val saving = dataSavingActive()
     val thumb = post.thumbnail()?.takeUnless { saving }
+    val widthPx = with(LocalDensity.current) { size.roundToPx() }
     Box(
         modifier
             .size(size)
@@ -885,10 +935,10 @@ private fun Thumbnail(post: Post, size: Dp, shape: Shape, onClick: () -> Unit, m
     ) {
         if (thumb != null) {
             AsyncImage(
-                model = thumb.url,
+                model = rememberPreviewRequest(thumb.urlFor(widthPx), blurWidth = if (post.shouldBlur()) THUMBNAIL_BLUR_WIDTH else null),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.matchParentSize().then(if (post.shouldBlur()) Modifier.blur(16.dp) else Modifier),
+                modifier = Modifier.matchParentSize(),
             )
         } else {
             Icon(typeIcon(post), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)

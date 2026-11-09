@@ -17,7 +17,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import java.io.File
@@ -36,7 +35,7 @@ private val VIDEO_FILE = Regex("""\.(mp4|webm|mov)(\?|$)""", RegexOption.IGNORE_
 class MediaDownloads(context: Context) {
     private val context = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val http = OkHttpClient.Builder()
+    private val http = Http.base.newBuilder()
         .addInterceptor { chain ->
             chain.proceed(chain.request().newBuilder().header("User-Agent", "Resync/${BuildConfig.VERSION_NAME} (Android)").build())
         }

@@ -101,7 +101,6 @@ import io.github.radixtrator.resync.ui.navigation.CustomizeViewRoute
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
-import io.github.radixtrator.resync.ui.navigation.LocalVisited
 import io.github.radixtrator.resync.ui.navigation.PostRoute
 import io.github.radixtrator.resync.ui.theme.ResyncColors
 import kotlinx.coroutines.launch
@@ -137,8 +136,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     val callbacks = remember(vm) { vm.postCallbacks() }
     val filters by container.filters.filters.collectAsStateWithLifecycle()
     // Read posts are judged as of when the feed opened, so a post doesn't vanish the moment you come back from it.
-    val visitedNow = LocalVisited.current
-    val readAtOpen = remember(vm) { visitedNow }
+    val readAtOpen = remember(vm) { container.visited.ids.value }
     val hideRead = settings.hideRead
     val posts = state.items.visiblePosts { (it as? ProfileItem.PostItem)?.post }.let { items ->
         remember(items, filters, hideRead) {
@@ -156,9 +154,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     if (settings.markReadOnScroll) {
         LaunchedEffect(gridState, posts) {
             snapshotFlow { gridState.firstVisibleItemIndex }.collect { first ->
-                posts.take((first - 1).coerceAtLeast(0)).forEach { item ->
-                    (item as? ProfileItem.PostItem)?.post?.let { container.visited.mark(it.id) }
-                }
+                container.visited.markAll(posts.take((first - 1).coerceAtLeast(0)).mapNotNull { (it as? ProfileItem.PostItem)?.post?.id })
             }
         }
     }
@@ -199,7 +195,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
                 modifier = Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize(),
             ) {
                 PagedGrid(
-                    state = state.copy(items = posts),
+                    state = remember(state, posts) { state.copy(items = posts) },
                     key = { it.fullname },
                     onLoadMore = vm::loadMore,
                     onRetry = vm::retry,

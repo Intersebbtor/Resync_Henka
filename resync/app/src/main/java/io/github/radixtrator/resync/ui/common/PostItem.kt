@@ -114,7 +114,8 @@ fun PostListItem(
     val settings = LocalSettings.current
     val margins = if (standalone) Modifier.padding(horizontal = layout.gutter, vertical = layout.spacing / 2) else Modifier
     // Hide only exists where the list can drop the post (not on profiles' own lists, for instance).
-    val stages = settings.postSwipeStages.filter { it != SwipeAction.HIDE || callbacks.onHide != null }
+    val canHide = callbacks.onHide != null
+    val stages = remember(settings.postSwipeStages, canHide) { settings.postSwipeStages.filter { it != SwipeAction.HIDE || canHide } }
     SwipeActions(
         stages = stages,
         enabled = settings.postSwipe,

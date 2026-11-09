@@ -12,8 +12,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -102,6 +100,7 @@ import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.data.savedBaseFontScale
 import io.github.radixtrator.resync.ui.theme.LocalBaseFontScale
 import io.github.radixtrator.resync.ui.theme.FullSizeText
+import io.github.radixtrator.resync.ui.theme.Motion
 import io.github.radixtrator.resync.ui.theme.ResyncTheme
 
 class MainActivity : ComponentActivity() {
@@ -153,7 +152,7 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
     val context = LocalContext.current
     val settings by container.settings.settings.collectAsStateWithLifecycle()
     val username by container.username.collectAsStateWithLifecycle()
-    val visited by container.visited.ids.collectAsStateWithLifecycle()
+    val visited = container.visited.ids.collectAsStateWithLifecycle()
     val tags by container.tags.tags.collectAsStateWithLifecycle()
     val tagColors by container.tags.colors.collectAsStateWithLifecycle()
     val currentSettings by rememberUpdatedState(settings)
@@ -248,11 +247,11 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
 }
 
 /** Media viewers fade in and out; they have their own drag-to-dismiss. */
-private val MediaFade = NavDisplay.transitionSpec { ContentTransform(fadeIn(), fadeOut()) } +
-    NavDisplay.popTransitionSpec { ContentTransform(fadeIn(), fadeOut(), targetContentZIndex = -1f) } +
-    NavDisplay.predictivePopTransitionSpec { ContentTransform(fadeIn(), fadeOut(), targetContentZIndex = -1f) }
+private val MediaFade = NavDisplay.transitionSpec { ContentTransform(fadeIn(Motion.enter()), fadeOut(Motion.exit())) } +
+    NavDisplay.popTransitionSpec { ContentTransform(fadeIn(Motion.enter()), fadeOut(Motion.exit()), targetContentZIndex = -1f) } +
+    NavDisplay.predictivePopTransitionSpec { ContentTransform(fadeIn(Motion.enter()), fadeOut(Motion.exit()), targetContentZIndex = -1f) }
 
-private val CardSpec = tween<IntOffset>(320, easing = FastOutSlowInEasing)
+private val CardSpec = Motion.page<IntOffset>()
 
 /** Sync's card push: the new screen slides over the old one, which drifts left and dims. */
 private fun cardPush() = ContentTransform(

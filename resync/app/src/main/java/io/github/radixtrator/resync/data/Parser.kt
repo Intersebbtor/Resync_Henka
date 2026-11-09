@@ -472,19 +472,20 @@ object Parser {
         }
     }
 
-    /** Smallest preview at least [PREVIEW_WIDTH] wide, else the source. */
+    /** Smallest preview at least [PREVIEW_WIDTH] wide, else the source; narrower ones ride along in [ImageSource.smaller]. */
     private fun pickResolution(image: JsonObject): ImageSource? {
         val source = image.obj("source")?.let(::imageSource)
-        val sized = image.arr("resolutions").orEmpty()
-            .mapNotNull { (it as? JsonObject)?.let(::imageSource) }
-            .firstOrNull { it.width >= PREVIEW_WIDTH }
-        return sized ?: source
+        val all = image.arr("resolutions").orEmpty().mapNotNull { (it as? JsonObject)?.let(::imageSource) }
+        return withSmaller(all.firstOrNull { it.width >= PREVIEW_WIDTH } ?: source, all)
     }
 
     private fun pickFromList(list: JsonArray): ImageSource? {
         val all = list.mapNotNull { (it as? JsonObject)?.let { o -> o.string("u")?.let { u -> ImageSource(u, o.int("x") ?: 0, o.int("y") ?: 0) } } }
-        return all.firstOrNull { it.width >= PREVIEW_WIDTH } ?: all.lastOrNull()
+        return withSmaller(all.firstOrNull { it.width >= PREVIEW_WIDTH } ?: all.lastOrNull(), all)
     }
+
+    private fun withSmaller(chosen: ImageSource?, all: List<ImageSource>): ImageSource? =
+        chosen?.copy(smaller = all.filter { it.width in 1 until chosen.width }.sortedBy { it.width })
 
     private fun imageSource(o: JsonObject): ImageSource? =
         o.string("url")?.let { ImageSource(it, o.int("width") ?: 0, o.int("height") ?: 0) }

@@ -7,7 +7,6 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
@@ -17,10 +16,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +36,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -44,6 +46,7 @@ import io.github.radixtrator.resync.ui.theme.ResyncColors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * Drag distances at which Sync's extended swipe arms each stage, measured from its screens: a short
@@ -106,8 +109,11 @@ fun SwipeActions(
     val density = LocalDensity.current
     val thresholds = remember(density) { with(density) { StageThresholds.map { it.toPx() } } }
     var width by remember { mutableIntStateOf(0) }
-    val distance = -offset.value
-    val armed = armedStage(distance, thresholds, stages.size)
+    // The gesture outlives recompositions, so it reads the latest action (a vote flips with the post's state).
+    val currentOnAction by rememberUpdatedState(onAction)
+    // The row recomposes only when the panel appears or a stage arms; the drag itself moves in layout and layers.
+    val armed by remember(thresholds, stages.size) { derivedStateOf { armedStage(-offset.value, thresholds, stages.size) } }
+    val revealed by remember { derivedStateOf { offset.value < 0f } }
 
     LaunchedEffect(armed) { if (armed >= 0) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) }
 
@@ -123,14 +129,14 @@ fun SwipeActions(
                         val stage = armedStage(-offset.value, thresholds, stages.size)
                         if (stage >= 0) {
                             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                            onAction(stages[stage])
+                            currentOnAction(stages[stage])
                         }
                         offset.animateTo(0f)
                     },
                 )
             },
     ) {
-        if (distance > 0f) {
+        if (revealed) {
             val shown = stages[armed.coerceAtLeast(0)]
             Box(
                 Modifier
@@ -139,7 +145,14 @@ fun SwipeActions(
             ) {
                 // The icon rides in the middle of the revealed strip.
                 Box(
-                    Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(with(density) { distance.toDp() }),
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .layout { measurable, constraints ->
+                            val strip = (-offset.value).roundToInt().coerceIn(0, constraints.maxWidth)
+                            val placeable = measurable.measure(constraints.copy(minWidth = strip, maxWidth = strip))
+                            layout(strip, placeable.height) { placeable.place(0, 0) }
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(

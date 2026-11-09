@@ -181,8 +181,9 @@ fun ShellScaffold(
             else -> action
         }
     }
-    // The nav bar and FAB slide away with the toolbar, as Sync's autohide does.
-    val hidden = scrollBehavior.state.collapsedFraction
+    // The nav bar and FAB slide away with the toolbar, as Sync's autohide does. Its collapsedFraction is read only
+    // inside graphicsLayer, so scrolling redraws them without recomposing the page.
+    val toolbar = scrollBehavior.state
     // Tablet mode: on a wide screen the Posts / Explore / Inbox bar becomes a rail down the left edge.
     val settings = LocalSettings.current
     val rail = home && settings.tabletMode && LocalConfiguration.current.screenWidthDp >= 600
@@ -262,7 +263,7 @@ fun ShellScaffold(
                     .padding(end = 24.dp, bottom = 16.dp + navInset + if (bar) NavBarHeight else 0.dp)
                     .graphicsLayer {
                         val travel = 16.dp.toPx() + FabSize.toPx() + if (bar) NavBarHeight.toPx() + navInset.toPx() else navInset.toPx()
-                        translationY = hidden * travel
+                        translationY = toolbar.collapsedFraction * travel
                     },
             )
             if (rail) {
@@ -300,7 +301,7 @@ fun ShellScaffold(
                     onInbox = { if (tab == HomeTab.INBOX) onReselectTab() else nav.push(InboxRoute(home = true)) },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .graphicsLayer { translationY = hidden * size.height },
+                        .graphicsLayer { translationY = toolbar.collapsedFraction * size.height },
                 )
             }
         }

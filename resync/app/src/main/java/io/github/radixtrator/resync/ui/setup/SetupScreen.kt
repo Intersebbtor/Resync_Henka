@@ -123,7 +123,7 @@ fun SetupScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Save") }
-            if (BuildConfig.DEBUG) {
+            if (BuildConfig.DEMO) {
                 TextButton(
                     onClick = {
                         container.enableDemo()
