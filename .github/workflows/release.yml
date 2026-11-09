@@ -75,4 +75,6 @@ jobs:
         with:
           files: ${{ runner.temp }}/resync-${{ github.ref_name }}.apk
           prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
+          body: |
+            **Install or update:** add `https://github.com/Radixtrator/Resync` in [Obtainium](https://github.com/ImranR98/Obtainium) to get updates automatically ([steps](https://github.com/Radixtrator/Resync#install)), or download the APK below.
           generate_release_notes: true
