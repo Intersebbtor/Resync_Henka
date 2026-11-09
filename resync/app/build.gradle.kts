@@ -20,12 +20,28 @@ android {
         applicationId = "io.github.radixtrator.resync"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        // Release builds take these from the tag (see .github/workflows/release.yml): -PversionCode=… -PversionName=…
+        versionCode = providers.gradleProperty("versionCode").orNull?.toInt() ?: 1
+        versionName = providers.gradleProperty("versionName").orNull ?: "0.1.0"
+    }
+
+    // The release key comes from the environment (CI secrets), so it never lives in the repo. Without it, release
+    // builds stay unsigned. Every published release must use the same key, or Obtainium/Android can't update in place.
+    val releaseKeystore = System.getenv("RESYNC_KEYSTORE")?.let(::file)?.takeIf { it.exists() }
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = System.getenv("RESYNC_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("RESYNC_KEY_ALIAS")
+                keyPassword = System.getenv("RESYNC_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
+            if (releaseKeystore != null) signingConfig = signingConfigs.getByName("release")
             // The bundled demo feed (Setup's "browse demo data") is for checking the UI, not for users.
             buildConfigField("boolean", "DEMO", "false")
             isMinifyEnabled = true

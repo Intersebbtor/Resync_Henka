@@ -6,6 +6,14 @@ for which endpoints it called and how it behaved (see `../NOTES.md`).
 
 Kotlin, Jetpack Compose (Material 3), Navigation 3, OkHttp, Coil 3, kotlinx.serialization.
 
+## Install and updates
+
+Install with [Obtainium](https://github.com/ImranR98/Obtainium) to get notified of new versions:
+[add Resync to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Radixtrator/Resync),
+or in Obtainium tap **Add app** and paste `https://github.com/Radixtrator/Resync`. Obtainium checks this repo's
+GitHub releases and offers each new APK as an update. The APK is also attached to every
+[release](https://github.com/Radixtrator/Resync/releases) for installing by hand.
+
 ## Reddit API access
 
 Reddit no longer issues new API keys, so Resync asks for a client ID on first launch, the same
@@ -31,6 +39,28 @@ APK: `app/build/outputs/apk/debug/app-debug.apk` (package `io.github.radixtrator
 
 Debug builds have a "browse bundled demo data" option on the setup screen, backed by synthetic
 JSON in `app/src/debug/assets/demo/` (generated; the unit tests use the same files).
+
+## Releases
+
+Pushing a version tag builds a signed APK and publishes it as a GitHub release
+(`.github/workflows/release.yml`), which is what Obtainium picks up:
+
+```bash
+git tag v0.2.0 && git push origin v0.2.0      # v0.2.0-beta.1 publishes a pre-release
+```
+
+The version name comes from the tag and the version code is derived from it (1.2.3 → 10203), so tags must
+keep increasing. One-time setup: make a release key and add it as repository secrets (Settings › Secrets and
+variables › Actions). **Keep the keystore safe**: every release must be signed with it, or installed copies
+can't update.
+
+```bash
+keytool -genkeypair -v -keystore resync-release.keystore -alias resync -keyalg RSA -keysize 4096 -validity 10000
+base64 -w0 resync-release.keystore   # -> RESYNC_KEYSTORE_BASE64
+```
+
+Other secrets: `RESYNC_KEYSTORE_PASSWORD`, `RESYNC_KEY_ALIAS` (`resync` above), `RESYNC_KEY_PASSWORD`.
+Local signed builds read the same names as environment variables, with `RESYNC_KEYSTORE` set to the file's path.
 
 ## Layout
 
