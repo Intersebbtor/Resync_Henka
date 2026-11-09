@@ -363,6 +363,50 @@ object AppIcons {
         }
     }
 
+    // Settings categories without a material-icons-core glyph.
+    val Tablet: ImageVector by lazy {
+        outline("Tablet") {
+            moveTo(5f, 3f); lineTo(19f, 3f); lineTo(19f, 21f); lineTo(5f, 21f); close()
+            moveTo(10f, 18f); lineTo(14f, 18f)
+        }
+    }
+
+    val Palette: ImageVector by lazy {
+        outline("Palette") {
+            moveTo(12f, 3f); arcTo(9f, 9f, 0f, false, false, 12f, 21f)
+            curveTo(13.4f, 21f, 14f, 20.1f, 14f, 19.2f); curveTo(14f, 18f, 13f, 17.7f, 13f, 16.5f)
+            curveTo(13f, 15.5f, 13.8f, 15f, 14.8f, 15f); lineTo(17f, 15f)
+            curveTo(19.2f, 15f, 21f, 13.2f, 21f, 11f); curveTo(21f, 6.5f, 17f, 3f, 12f, 3f); close()
+            dot(7.5f, 12f); dot(9f, 8f); dot(13.5f, 7f); dot(17f, 9.5f)
+        }
+    }
+
+    /** Up and down arrows: data use. */
+    val DataTransfer: ImageVector by lazy {
+        outline("DataTransfer") {
+            moveTo(8f, 20f); lineTo(8f, 5f)
+            moveTo(4f, 9f); lineTo(8f, 5f); lineTo(12f, 9f)
+            moveTo(16f, 4f); lineTo(16f, 19f)
+            moveTo(12f, 15f); lineTo(16f, 19f); lineTo(20f, 15f)
+        }
+    }
+
+    /** A cloud with an up arrow: backup. */
+    val Backup: ImageVector by lazy {
+        outline("Backup") {
+            moveTo(7f, 18f); arcTo(4.5f, 4.5f, 0f, false, true, 6.5f, 9f)
+            arcTo(6f, 6f, 0f, false, true, 18f, 10.5f)
+            arcTo(3.75f, 3.75f, 0f, false, true, 17.5f, 18f); close()
+            moveTo(12f, 16f); lineTo(12f, 11f)
+            moveTo(9.5f, 13.5f); lineTo(12f, 11f); lineTo(14.5f, 13.5f)
+        }
+    }
+
+    /** A dot drawn by the outline's stroke: a circle too small to show a hole. */
+    private fun PathBuilder.dot(x: Float, y: Float) {
+        moveTo(x - 0.4f, y); arcTo(0.4f, 0.4f, 0f, true, true, x + 0.4f, y); arcTo(0.4f, 0.4f, 0f, true, true, x - 0.4f, y); close()
+    }
+
     private fun PathBuilder.bookmark() {
         moveTo(6.5f, 3.5f); lineTo(17.5f, 3.5f); lineTo(17.5f, 20.5f); lineTo(12f, 16.5f)
         lineTo(6.5f, 20.5f); close()

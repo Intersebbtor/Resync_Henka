@@ -11,6 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import io.github.radixtrator.resync.ui.theme.THEME_SEEDS
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
@@ -30,6 +31,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Settings as SettingsGlyph
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -87,6 +91,7 @@ import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.SetupRoute
 import io.github.radixtrator.resync.ui.navigation.SettingsRoute
 import io.github.radixtrator.resync.data.Settings
+import io.github.radixtrator.resync.ui.common.AppIcons
 import io.github.radixtrator.resync.ui.navigation.ThemeManagementRoute
 import io.github.radixtrator.resync.watch.WatchWorker
 import kotlinx.coroutines.Dispatchers
@@ -116,6 +121,27 @@ enum class SettingsCategory(val group: String, val title: String, val summary: S
     OTHER("Other", "Everything else", "Reddit API setup & app info"),
 }
 
+/** The glyph beside each category on the root screen. */
+private val SettingsCategory.icon: ImageVector
+    get() = when (this) {
+        SettingsCategory.GENERAL -> Icons.Outlined.SettingsGlyph
+        SettingsCategory.TABLET -> AppIcons.Tablet
+        SettingsCategory.THEME -> AppIcons.Palette
+        SettingsCategory.DARK_MODE -> AppIcons.Moon
+        SettingsCategory.VIEW_TYPE -> AppIcons.ViewStack
+        SettingsCategory.COMMENTS -> AppIcons.Comment
+        SettingsCategory.POSTS -> AppIcons.Text
+        SettingsCategory.COMMENT_OPTIONS -> AppIcons.Reply
+        SettingsCategory.MESSAGING -> Icons.Outlined.Email
+        SettingsCategory.MEDIA -> AppIcons.Image
+        SettingsCategory.LINKS -> AppIcons.Link
+        SettingsCategory.HISTORY -> AppIcons.Clock
+        SettingsCategory.DATA -> AppIcons.DataTransfer
+        SettingsCategory.FILTERS -> AppIcons.Filter
+        SettingsCategory.BACKUP -> AppIcons.Backup
+        SettingsCategory.OTHER -> Icons.Outlined.Info
+    }
+
 /** Sync's settings: the categories at [category] null, else that category's page. */
 @Composable
 fun SettingsScreen(container: AppContainer, category: SettingsCategory? = null) {
@@ -139,6 +165,7 @@ fun SettingsScreen(container: AppContainer, category: SettingsCategory? = null) 
                             ListItem(
                                 headlineContent = { Text(entry.title) },
                                 supportingContent = { Text(entry.summary) },
+                                leadingContent = { Icon(entry.icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                 modifier = Modifier.clickable { nav.push(SettingsRoute(entry)) },
                             )
                         }
