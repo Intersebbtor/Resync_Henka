@@ -18,7 +18,9 @@ import androidx.navigation3.runtime.NavKey
 import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostMedia
+import io.github.radixtrator.resync.data.RedditApi
 import io.github.radixtrator.resync.data.Settings
+import io.github.radixtrator.resync.ui.media.ScreenSnapshot
 
 /**
  * Screen-to-screen navigation plus link handling. Provided as both LocalNavigator and LocalUriHandler,
@@ -46,6 +48,8 @@ class Navigator(
 
     fun push(route: NavKey) {
         if (inListPane && (route is PostRoute || route is FeedRoute)) closeDetailPane()
+        // The image viewer sits on a blurred copy of the page it opens from.
+        if (route is ImageRoute) ScreenSnapshot.capture()
         backStack.add(route)
     }
 
@@ -104,9 +108,14 @@ class Navigator(
     }
 
     /** Sync's Random. Reddit dropped its random-community endpoint (Sync now errors), so this picks one you joined. */
-    fun openRandomCommunity(subscriptions: List<String>) {
-        val pick = subscriptions.randomOrNull()
-        if (pick == null) Toast.makeText(context, "Join some communities first", Toast.LENGTH_SHORT).show() else push(FeedRoute(pick))
+    /** Opens a random community from all of Reddit (not just yours); [nsfw] picks an NSFW one. */
+    suspend fun openRandomCommunity(api: RedditApi, nsfw: Boolean = false) {
+        val pick = runCatching { api.randomCommunityPool(nsfw) }.getOrNull()?.randomOrNull()
+        if (pick == null) {
+            Toast.makeText(context, "Couldn't find a random community", Toast.LENGTH_SHORT).show()
+        } else {
+            push(FeedRoute(pick))
+        }
     }
 
     /** What tapping a post's media does: viewer for images/galleries, player for video, else the link. */

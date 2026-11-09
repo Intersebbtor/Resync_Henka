@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import io.github.radixtrator.resync.ui.common.rememberLazyStaggeredGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -171,7 +171,7 @@ fun ProfileScreen(name: String, initialTab: UserWhere, container: AppContainer) 
     val user by vm.user.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    val gridState = rememberLazyStaggeredGridState()
+    val gridState = rememberLazyStaggeredGridState(vm.scroll)
     val scope = rememberCoroutineScope()
     val me = LocalAccount.current
     val isSelf = me.equals(name, ignoreCase = true)

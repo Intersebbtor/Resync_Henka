@@ -1,5 +1,7 @@
 package io.github.radixtrator.resync.data
 
+import kotlinx.serialization.Serializable
+
 data class Listing<T>(val items: List<T>, val after: String?)
 
 /** [smaller]: Reddit's narrower renditions of the same image, narrowest first, for small thumbnails and columns. */
@@ -118,6 +120,7 @@ enum class TimeRange(val param: String, val label: String) {
     ALL("all", "All"),
 }
 
+@Serializable
 data class Sort(val kind: SortKind, val time: TimeRange? = null) {
     val path: String get() = kind.path
     val label: String get() = time?.let { "${kind.label} · ${it.label}" } ?: kind.label

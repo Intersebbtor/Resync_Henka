@@ -4,6 +4,7 @@ import androidx.navigation3.runtime.NavKey
 import io.github.radixtrator.resync.data.FilterType
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.UserWhere
+import io.github.radixtrator.resync.ui.settings.SettingsCategory
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -12,8 +13,9 @@ data object SetupRoute : NavKey
 @Serializable
 data object LoginRoute : NavKey
 
+/** Sync's settings: the category list, or with [category] that category's page. */
 @Serializable
-data object SettingsRoute : NavKey
+data class SettingsRoute(val category: SettingsCategory? = null) : NavKey
 
 /** Sync's Theme management (Settings › Appearance): previews, saved themes, share and load. */
 @Serializable

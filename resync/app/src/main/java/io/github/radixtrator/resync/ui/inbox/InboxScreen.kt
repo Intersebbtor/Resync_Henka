@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.rememberLazyListState
+import io.github.radixtrator.resync.ui.common.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit
@@ -126,7 +126,7 @@ fun InboxScreen(route: InboxRoute, container: AppContainer) {
     val snackbar = remember { SnackbarHostState() }
     val loggedIn = LocalAccount.current != null
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    val listState = rememberLazyListState()
+    val listState = rememberLazyListState(vm.scroll)
     val scope = rememberCoroutineScope()
     var boxOpen by rememberSaveable { mutableStateOf(false) }
     val headerGone by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }

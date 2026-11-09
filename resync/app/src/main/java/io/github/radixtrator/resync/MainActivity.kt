@@ -12,6 +12,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -21,7 +24,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.IntOffset
-import io.github.radixtrator.resync.ui.common.LocalPreviousScreen
 import io.github.radixtrator.resync.ui.common.PARALLAX
 import io.github.radixtrator.resync.ui.common.SwipeBackState
 import androidx.compose.runtime.CompositionLocalProvider
@@ -51,6 +53,7 @@ import io.github.radixtrator.resync.ui.home.rememberDualPaneSceneStrategies
 import io.github.radixtrator.resync.ui.inbox.InboxScreen
 import io.github.radixtrator.resync.ui.login.LoginScreen
 import io.github.radixtrator.resync.ui.media.ImageViewerScreen
+import io.github.radixtrator.resync.ui.media.ScreenSnapshotHost
 import io.github.radixtrator.resync.ui.media.VideoPlayerScreen
 import io.github.radixtrator.resync.ui.navigation.ComposeRoute
 import io.github.radixtrator.resync.ui.navigation.CustomizeViewRoute
@@ -203,7 +206,7 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
                 entry<SubmitRoute> { route -> SubmitScreen(route.subreddit, container) }
                 entry<ComposeRoute> { route -> ComposeScreen(route, container) }
                 // Sync's settings don't shrink with its base font size.
-                entry<SettingsRoute> { FullSizeText { SettingsScreen(container) } }
+                entry<SettingsRoute> { route -> FullSizeText { SettingsScreen(container, route.category) } }
                 entry<ThemeManagementRoute> { FullSizeText { ThemeManagementScreen(container) } }
                 // Its preview stays at feed size; the screen sizes its own option rows like the settings.
                 entry<CustomizeViewRoute> { route -> CustomizeViewScreen(route.layout, container) }
@@ -230,18 +233,18 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
                 dismissButton = { TextButton(onClick = { confirmingExit = false }) { Text("Cancel") } },
             )
         }
-        val previous: (@Composable () -> Unit)? = entries.getOrNull(entries.size - 2)?.let { entry -> { entry.Content() } }
-        // The dual pane scene sets LocalPreviousScreen for each of its panes, so neither redraws the other.
         val sceneStrategies = rememberDualPaneSceneStrategies()
-        CompositionLocalProvider(LocalPreviousScreen provides previous) {
-            NavDisplay(
-                entries = entries,
-                sceneStrategies = sceneStrategies,
-                onBack = navigator::pop,
-                transitionSpec = { cardPush() },
-                popTransitionSpec = { if (SwipeBackState.popping) noTransition() else cardPop() },
-                predictivePopTransitionSpec = { cardPop() },
-            )
+        ScreenSnapshotHost {
+        NavDisplay(
+            entries = entries,
+            sceneStrategies = sceneStrategies,
+            onBack = navigator::pop,
+            transitionSpec = { cardPush() },
+            // A dual pane's own swipe-back has already slid the page away (ui/common/Gestures.kt).
+            popTransitionSpec = { if (SwipeBackState.popping) noTransition() else cardPop() },
+            // Slide-to-go-back and the system's edge swipe: linear, so the page stays under the finger.
+            predictivePopTransitionSpec = { cardPop(GestureSpec) },
+        )
         }
     }
 }
@@ -252,6 +255,7 @@ private val MediaFade = NavDisplay.transitionSpec { ContentTransform(fadeIn(Moti
     NavDisplay.predictivePopTransitionSpec { ContentTransform(fadeIn(Motion.enter()), fadeOut(Motion.exit()), targetContentZIndex = -1f) }
 
 private val CardSpec = Motion.page<IntOffset>()
+private val GestureSpec = tween<IntOffset>(Motion.PAGE, easing = LinearEasing)
 
 /** Sync's card push: the new screen slides over the old one, which drifts left and dims. */
 private fun cardPush() = ContentTransform(
@@ -260,9 +264,9 @@ private fun cardPush() = ContentTransform(
 )
 
 /** The reverse: the top card slides off to the right and the screen under it drifts back into place. */
-private fun cardPop() = ContentTransform(
-    targetContentEnter = slideInHorizontally(CardSpec) { (-it * PARALLAX).toInt() },
-    initialContentExit = slideOutHorizontally(CardSpec) { it },
+private fun cardPop(spec: FiniteAnimationSpec<IntOffset> = CardSpec) = ContentTransform(
+    targetContentEnter = slideInHorizontally(spec) { (-it * PARALLAX).toInt() },
+    initialContentExit = slideOutHorizontally(spec) { it },
     targetContentZIndex = -1f,
 )
 

@@ -304,9 +304,12 @@ data class Settings(
     val readerReplies: Boolean = false,
     /** The comment reader's ⋮ speed: TextToSpeech's speech rate, 1.0 being the engine's normal pace. */
     val readerSpeechRate: Float = 1.0f,
-    /** Media › "Tap to close" the image viewer. */
+    /**
+     * Media › "Close images by": a single tap (true; swiping up then slides in the control bar) or swiping up or
+     * down (false; a tap then shows and hides the bar).
+     */
     val tapToClose: Boolean = true,
-    /** Media › "Swipe to close" the image and video viewers with a vertical fling. */
+    /** Media › "Swipe to close" videos, and images that close by a tap, with a downward fling. */
     val swipeToClose: Boolean = true,
     /** Media › Video / GIF playback: "Display seek bar". */
     val videoSeekBar: Boolean = true,
@@ -318,8 +321,12 @@ data class Settings(
     val feedLayouts: Map<String, PostLayout> = emptyMap(),
     /** Sync's Customize view choices, per layout; a layout missing here uses the [ViewOptions] defaults. */
     val viewOptions: Map<PostLayout, ViewOptions> = emptyMap(),
+    /** Sorts saved from the sort sheet ("Always use Hot here?"), keyed by [feedKey]; other feeds open on Reddit's default. */
+    val feedSorts: Map<String, Sort> = emptyMap(),
 ) {
     fun layoutFor(subreddit: String?): PostLayout = feedLayouts[feedKey(subreddit)] ?: layout
+
+    fun sortFor(subreddit: String?): Sort? = feedSorts[feedKey(subreddit)]
 
     fun viewOptionsFor(layout: PostLayout): ViewOptions = viewOptions[layout] ?: ViewOptions()
 

@@ -109,6 +109,32 @@ class RedditApi(private val client: RedditClient) {
     /** Communities the account moderates (Explore's Moderated section). */
     suspend fun moderated(): List<Subreddit> = mine("moderator")
 
+    /**
+     * Community names for More actions › Random and Random nsfw, Reddit-wide rather than from your subscriptions:
+     * Reddit's /r/random and /r/randnsfw are gone, so this draws from the first 200 of its popular communities, or for
+     * [nsfw] the NSFW ones from those plus a community search for "nsfw". Fetched once per app run, then reused.
+     */
+    suspend fun randomCommunityPool(nsfw: Boolean): List<String> {
+        randomPools[nsfw]?.let { return it }
+        val subs = mutableListOf<Subreddit>()
+        suspend fun pages(path: String, extra: Map<String, String?>) {
+            var after: String? = null
+            repeat(2) {
+                val page = Parser.subredditListing(client.get(path, extra + mapOf("limit" to "100", "after" to after)))
+                subs += page.items
+                after = page.after ?: return
+            }
+        }
+        val over18 = if (nsfw) mapOf("include_over_18" to "on") else emptyMap()
+        pages("/subreddits/popular", over18)
+        if (nsfw) pages("/subreddits/search", over18 + mapOf("q" to "nsfw"))
+        val pool = subs.filter { it.over18 == nsfw }.map { it.name }.distinctBy { it.lowercase() }
+        if (pool.isNotEmpty()) randomPools[nsfw] = pool
+        return pool
+    }
+
+    private val randomPools = java.util.concurrent.ConcurrentHashMap<Boolean, List<String>>()
+
     private suspend fun mine(where: String): List<Subreddit> {
         val subs = mutableListOf<Subreddit>()
         var after: String? = null

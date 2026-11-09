@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import io.github.radixtrator.resync.ui.common.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.appendInlineContent
@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -37,6 +38,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -115,7 +117,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     val about by vm.about.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    val gridState = rememberLazyStaggeredGridState()
+    val gridState = rememberLazyStaggeredGridState(vm.scroll)
     val settings = LocalSettings.current
     // Each feed keeps its own view; a domain's is kept apart from the front page's.
     val layoutFeed = route.domain?.let { "domain:$it" } ?: subreddit
@@ -221,7 +223,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
                             onWatch = { community?.let(toggleWatch) },
                             // Sync offers Random on the front page.
                             onRandom = if (subreddit == null && route.domain == null) {
-                                { nav.openRandomCommunity(container.subscriptions.value) }
+                                { scope.launch { nav.openRandomCommunity(container.api) } }
                             } else null,
                         )
                     },
@@ -238,7 +240,28 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
         }
     }
 
-    if (sortOpen) SortSheet(current = sort, options = vm.sortOptions, onDismiss = { sortOpen = false }, onPick = vm::setSort)
+    // A sort other than the one this feed opens on asks whether to keep it ("Always use Hot for Frontpage?").
+    var offerToSave by remember { mutableStateOf<Sort?>(null) }
+    if (sortOpen) {
+        SortSheet(current = sort, options = vm.sortOptions, onDismiss = { sortOpen = false }, onPick = { picked ->
+            vm.setSort(picked)
+            if (picked != (settings.sortFor(vm.feedKey) ?: vm.openingSort)) offerToSave = picked
+        })
+    }
+    offerToSave?.let { picked ->
+        AlertDialog(
+            onDismissRequest = { offerToSave = null },
+            title = { Text("Always use ${picked.label}?") },
+            text = { Text("Open $title sorted by ${picked.label} from now on.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.saveSort(picked)
+                    offerToSave = null
+                }) { Text("Always") }
+            },
+            dismissButton = { TextButton(onClick = { offerToSave = null }) { Text("Just this time") } },
+        )
+    }
     if (viewOpen) ChangeViewSheet(container, layoutFeed, current = layout, onDismiss = { viewOpen = false })
     if (aboutOpen) {
         SubredditInfoSheet(
