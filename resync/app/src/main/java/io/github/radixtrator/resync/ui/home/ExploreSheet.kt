@@ -51,6 +51,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -67,6 +68,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -148,6 +150,11 @@ fun ExploreSheet(
     val q = query.trim().removePrefix("/").removePrefix("r/")
 
     LaunchedEffect(Unit) { if (mode == ExploreMode.SEARCH) focus.requestFocus() }
+    // Searching from the half-open sheet slides it to the top, so the keyboard doesn't hide the results.
+    fun expandForSearch() {
+        if (sheetState.currentValue != SheetValue.Expanded) scope.launch { sheetState.expand() }
+    }
+    LaunchedEffect(q.isNotEmpty()) { if (q.isNotEmpty()) expandForSearch() }
     LaunchedEffect(q) {
         suggestions = emptyList()
         if (q.length < 2) return@LaunchedEffect
@@ -234,7 +241,10 @@ fun ExploreSheet(
             onChange = { query = it },
             onSubmit = { if (q.isNotEmpty()) close { nav.push(SearchRoute(query = q)) } },
             menu = { ExploreOptionsMenu(container, explore) },
-            modifier = Modifier.padding(horizontal = 16.dp).focusRequester(focus),
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .focusRequester(focus)
+                .onFocusChanged { if (it.hasFocus) expandForSearch() },
         )
         HorizontalDivider(Modifier.padding(top = 16.dp))
         // Always full height, so the sheet doesn't jump as results come and go while typing.
