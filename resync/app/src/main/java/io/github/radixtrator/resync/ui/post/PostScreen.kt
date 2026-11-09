@@ -22,7 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import io.github.radixtrator.resync.ui.common.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -194,7 +194,7 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
     val avatars by container.avatars.urls.collectAsStateWithLifecycle()
     val showAvatars = LocalSettings.current.profilePictures
     val snackbar = remember { SnackbarHostState() }
-    val listState = rememberLazyListState()
+    val listState = rememberLazyListState(vm.scroll)
     val scope = rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val visible = remember(state.comments, state.collapsed) { CommentTree.visible(state.comments, state.collapsed) }
@@ -231,9 +231,8 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
     // Sync's "Remember comment position": return to last visit's spot once the comments are in,
     // and note where the user is whenever this page leaves the screen. Positions are stored as in the
     // single-scroll list (post header at row 0), so they survive switching tabbed comments on or off.
-    var restored by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(state.comments.isNotEmpty()) {
-        if (!restored && state.comments.isNotEmpty()) {
+        if (!vm.positionRestored && state.comments.isNotEmpty()) {
             vm.savedPosition?.let {
                 val index = (it.index - 1 + headerRows).coerceAtLeast(0)
                 if (showComments) {
@@ -242,7 +241,7 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
                     pendingScroll = index to it.offset
                 }
             }
-            restored = true
+            vm.positionRestored = true
         }
     }
     DisposableEffect(Unit) {
@@ -513,7 +512,7 @@ fun PostScreen(route: PostRoute, container: AppContainer) {
                     QuickAction("Refresh", Icons.Outlined.Refresh) { vm.load(refresh = true) },
                     QuickAction("About", Icons.Outlined.Info) { aboutOpen = true },
                     QuickAction("Collapse all", AppIcons.CollapseAll, onClick = vm::collapseAll),
-                    QuickAction("Settings", Icons.Outlined.Settings) { nav.push(SettingsRoute) },
+                    QuickAction("Settings", Icons.Outlined.Settings) { nav.push(SettingsRoute()) },
                     QuickAction("Sort", AppIcons.Sort) { sortOpen = true },
                     QuickAction("Search", Icons.Outlined.Search) { searchOpen = true },
                     QuickAction("Recents", AppIcons.Clock) { recentsOpen = true },

@@ -129,6 +129,7 @@ import io.github.radixtrator.resync.ui.navigation.LoginRoute
 import io.github.radixtrator.resync.ui.navigation.Navigator
 import io.github.radixtrator.resync.ui.navigation.SearchRoute
 import io.github.radixtrator.resync.ui.navigation.SettingsRoute
+import io.github.radixtrator.resync.ui.settings.SettingsCategory
 import io.github.radixtrator.resync.ui.navigation.SwipeModeRoute
 import io.github.radixtrator.resync.ui.navigation.SubmitRoute
 import io.github.radixtrator.resync.ui.navigation.UserRoute
@@ -328,7 +329,7 @@ fun ShellScaffold(
                         else fromDrawer(leaves = true) { nav.push(InboxRoute(home = true)) }
                     },
                     onOpenFeed = { name -> fromDrawer(leaves = true) { openFeedFromExplore(nav, name) } },
-                    onSettings = { fromDrawer(leaves = true) { nav.push(SettingsRoute) } },
+                    onSettings = { fromDrawer(leaves = true) { nav.push(SettingsRoute()) } },
                 )
             },
         ) { page() }
@@ -429,7 +430,7 @@ fun quickActions(
         add(QuickAction("Dark mode", AppIcons.Moon, active = dark) {
             container.settings.update { it.copy(theme = if (dark) ThemeMode.LIGHT else ThemeMode.DARK) }
         })
-        add(QuickAction("Settings", Icons.Outlined.Settings) { nav.push(SettingsRoute) })
+        add(QuickAction("Settings", Icons.Outlined.Settings) { nav.push(SettingsRoute()) })
         add(QuickAction("Swipe mode", AppIcons.Gallery) { nav.push(SwipeModeRoute(subreddit)) })
         onChangeView?.let { add(QuickAction("Change view", AppIcons.ViewStack, onClick = it)) }
         add(QuickAction("Refresh", Icons.Outlined.Refresh, onClick = onRefresh))
@@ -444,7 +445,7 @@ fun quickActions(
             }
         })
         add(QuickAction(ACTION_EXPLORE, AppIcons.Compass) {})
-        add(QuickAction("Filters", AppIcons.Filter) { nav.push(SettingsRoute) })
+        add(QuickAction("Filters", AppIcons.Filter) { nav.push(SettingsRoute(SettingsCategory.FILTERS)) })
         if (me != null) add(QuickAction("Inbox", Icons.Outlined.Email) { nav.push(InboxRoute()) })
         // Random from the NSFW communities you joined; Reddit's own /r/randnsfw is gone, like /r/random.
         if (me != null && settings.nsfw != NsfwMode.HIDE) {
@@ -465,7 +466,7 @@ fun quickActions(
                 Toast.makeText(context, "Switched to u/$next", Toast.LENGTH_SHORT).show()
             })
         }
-        add(QuickAction("Watched", Icons.Outlined.Notifications) { nav.push(SettingsRoute) })
+        add(QuickAction("Watched", Icons.Outlined.Notifications) { nav.push(SettingsRoute(SettingsCategory.MESSAGING)) })
     }.filterNot { it.label in settings.hiddenActions }
 }
 
@@ -749,7 +750,7 @@ private fun AccountCard(container: AppContainer, onDismiss: () -> Unit) {
                     CardRow("Add account", AppIcons.PersonAdd) { go { nav.push(LoginRoute) } }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     me?.let { name -> CardRow("Profile", Icons.Outlined.Person) { go { nav.push(UserRoute(name)) } } }
-                    CardRow("Settings", Icons.Outlined.Settings) { go { nav.push(SettingsRoute) } }
+                    CardRow("Settings", Icons.Outlined.Settings) { go { nav.push(SettingsRoute()) } }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Text(
                         "Resync ${BuildConfig.VERSION_NAME}",

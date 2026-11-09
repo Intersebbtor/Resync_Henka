@@ -26,6 +26,9 @@ class FeedViewModel(container: AppContainer, val subreddit: String?, val domain:
     private val _sort = MutableStateFlow(defaultSort(container.username.value))
     val sort = _sort.asStateFlow()
 
+    /** What this feed opened on, so picking it again doesn't ask to save it. */
+    val openingSort = _sort.value
+
     private val _about = MutableStateFlow<Subreddit?>(null)
     val about = _about.asStateFlow()
 

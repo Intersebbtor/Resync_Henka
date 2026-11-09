@@ -59,8 +59,10 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Sync's image viewer: a tap or a downward fling closes it, and swiping up opens the info sheet
- * (download, host and URL, resolution, file size, then Comments / Open in browser / Copy / Share).
+ * Sync's image viewer, with its control bar (download, host and URL, resolution, file size, then Comments / Open in
+ * browser / Copy / Share). Media › "Close images by": a single tap closes it and swiping up slides the bar in from
+ * the bottom (a downward fling closes it too, with "Swipe to close"); or swiping up or down closes it and a tap shows
+ * and hides the bar.
  */
 @Composable
 fun ImageViewerScreen(urls: List<String>, start: Int, postId: String?, downloads: MediaDownloads, onClose: () -> Unit) {
@@ -74,21 +76,27 @@ fun ImageViewerScreen(urls: List<String>, start: Int, postId: String?, downloads
     val backdrop = animateColorAsState(tints[pager.currentPage] ?: Color.Black, tween(300), label = "backdrop")
     var infoOpen by rememberSaveable { mutableStateOf(false) }
     val download = rememberDownloader(downloads)
-    // Media › "Tap to close" and "Swipe to close".
     val settings = LocalSettings.current
+    val tapCloses = settings.tapToClose
     BackHandler(enabled = infoOpen) { infoOpen = false }
     DismissibleMedia(
         onDismiss = onClose,
-        enabled = zoomed[pager.currentPage] != true && !infoOpen,
-        dismissOnDrag = settings.swipeToClose,
-        onSwipeUp = { infoOpen = true },
+        // Closing by tap, the open bar takes vertical drags; closing by swipe, a swipe still closes with it showing.
+        enabled = zoomed[pager.currentPage] != true && (!tapCloses || !infoOpen),
+        dismissOnDrag = !tapCloses || settings.swipeToClose,
+        // Without onSwipeUp, a fling either way closes.
+        onSwipeUp = if (tapCloses) ({ infoOpen = true }) else null,
     ) {
         Box(Modifier.fillMaxSize().drawBehind { drawRect(backdrop.value) }) {
             HorizontalPager(state = pager, beyondViewportPageCount = 1, pageSpacing = 16.dp, modifier = Modifier.fillMaxSize()) { page ->
                 ZoomableImage(
                     urls[page],
                     onTap = {
-                        if (infoOpen) infoOpen = false else if (settings.tapToClose) onClose()
+                        when {
+                            !tapCloses -> infoOpen = !infoOpen
+                            infoOpen -> infoOpen = false
+                            else -> onClose()
+                        }
                     },
                     onZoomChange = { zoomed[page] = it },
                     onTint = { tints[page] = it },

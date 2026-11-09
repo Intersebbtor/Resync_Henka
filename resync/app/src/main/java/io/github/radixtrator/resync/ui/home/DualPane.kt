@@ -28,6 +28,7 @@ import androidx.navigation3.scene.SinglePaneSceneStrategy
 import androidx.navigation3.ui.NavDisplay
 import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.ui.common.LocalPreviousScreen
+import io.github.radixtrator.resync.ui.common.PaneBelow
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import io.github.radixtrator.resync.ui.navigation.Navigator
@@ -131,14 +132,14 @@ private fun DualPane(list: NavEntry<NavKey>, detail: NavEntry<NavKey>, belowList
                 CompositionLocalProvider(
                     LocalNavigator provides listNavigator,
                     LocalUriHandler provides listNavigator,
-                    LocalPreviousScreen provides underList,
+                    LocalPreviousScreen provides PaneBelow(underList),
                 ) { list.Content() }
             }
             VerticalDivider()
             Box(Modifier.weight(1f).fillMaxHeight().clipToBounds()) {
                 // The screen under the post is the feed, already showing on the left: drawing it again
                 // behind a swipe-back would compose it twice. A swipe just slides the post away.
-                CompositionLocalProvider(LocalPreviousScreen provides null) { detail.Content() }
+                CompositionLocalProvider(LocalPreviousScreen provides PaneBelow(null)) { detail.Content() }
             }
         }
     }

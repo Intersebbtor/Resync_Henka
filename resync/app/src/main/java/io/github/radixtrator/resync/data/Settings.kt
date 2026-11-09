@@ -304,9 +304,12 @@ data class Settings(
     val readerReplies: Boolean = false,
     /** The comment reader's ⋮ speed: TextToSpeech's speech rate, 1.0 being the engine's normal pace. */
     val readerSpeechRate: Float = 1.0f,
-    /** Media › "Tap to close" the image viewer. */
+    /**
+     * Media › "Close images by": a single tap (true; swiping up then slides in the control bar) or swiping up or
+     * down (false; a tap then shows and hides the bar).
+     */
     val tapToClose: Boolean = true,
-    /** Media › "Swipe to close" the image and video viewers with a vertical fling. */
+    /** Media › "Swipe to close" videos, and images that close by a tap, with a downward fling. */
     val swipeToClose: Boolean = true,
     /** Media › Video / GIF playback: "Display seek bar". */
     val videoSeekBar: Boolean = true,

@@ -33,6 +33,9 @@ abstract class ListingViewModel<T>(protected val container: AppContainer) : View
     val state: StateFlow<ListingState<T>> = _state.asStateFlow()
     private var loadJob: Job? = null
 
+    /** Where the list is scrolled to, for [rememberLazyListState] and [rememberLazyStaggeredGridState]. */
+    val scroll = ScrollMemory()
+
     protected abstract suspend fun fetch(after: String?): Listing<T>
     protected abstract fun keyOf(item: T): String
     protected open fun postOf(item: T): Post? = null

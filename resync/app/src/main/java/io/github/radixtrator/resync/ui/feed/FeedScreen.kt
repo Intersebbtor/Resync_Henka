@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import io.github.radixtrator.resync.ui.common.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.appendInlineContent
@@ -117,7 +117,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     val about by vm.about.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    val gridState = rememberLazyStaggeredGridState()
+    val gridState = rememberLazyStaggeredGridState(vm.scroll)
     val settings = LocalSettings.current
     // Each feed keeps its own view; a domain's is kept apart from the front page's.
     val layoutFeed = route.domain?.let { "domain:$it" } ?: subreddit
@@ -126,8 +126,6 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     val columns = layout.columns(LocalConfiguration.current.screenWidthDp, settings.viewOptionsFor(layout).columns)
     val scope = rememberCoroutineScope()
     var sortOpen by rememberSaveable { mutableStateOf(false) }
-    // What this feed opened on, so picking it again doesn't ask to save it.
-    val defaultOpening = remember(vm) { sort }
     var viewOpen by rememberSaveable { mutableStateOf(false) }
     var aboutOpen by rememberSaveable { mutableStateOf(false) }
     // Wiki, Flairs, Rules or Moderators, from a header chip or the About ⋮.
@@ -247,7 +245,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     if (sortOpen) {
         SortSheet(current = sort, options = vm.sortOptions, onDismiss = { sortOpen = false }, onPick = { picked ->
             vm.setSort(picked)
-            if (picked != (settings.sortFor(vm.feedKey) ?: defaultOpening)) offerToSave = picked
+            if (picked != (settings.sortFor(vm.feedKey) ?: vm.openingSort)) offerToSave = picked
         })
     }
     offerToSave?.let { picked ->

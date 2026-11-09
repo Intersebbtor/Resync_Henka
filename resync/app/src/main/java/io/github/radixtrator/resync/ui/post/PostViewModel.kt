@@ -10,6 +10,7 @@ import io.github.radixtrator.resync.data.CommentSort
 import io.github.radixtrator.resync.data.CommentTree
 import io.github.radixtrator.resync.data.MoreComments
 import io.github.radixtrator.resync.data.Post
+import io.github.radixtrator.resync.ui.common.ScrollMemory
 import io.github.radixtrator.resync.data.PostMemory
 import io.github.radixtrator.resync.data.PostMemoryStore
 import io.github.radixtrator.resync.ui.common.likesFor
@@ -31,6 +32,12 @@ class PostViewModel(
     val focusCommentId: String?,
     private val context: Int,
 ) : ViewModel() {
+
+    /** Where the comments are scrolled to; see [ScrollMemory]. */
+    val scroll = ScrollMemory()
+
+    /** Whether last visit's position has been restored, kept here for the same reason as [scroll]. */
+    var positionRestored = false
 
     data class State(
         val post: Post? = null,
