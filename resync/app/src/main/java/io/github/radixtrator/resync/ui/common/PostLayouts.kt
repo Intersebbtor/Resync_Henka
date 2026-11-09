@@ -838,10 +838,9 @@ fun rememberPostPreloads(layout: PostLayout, columns: Int): (Post) -> List<Image
         }
         val cards = layout == PostLayout.CARD || (layout == PostLayout.SLIDES && options.imagePreviews)
         val thumbnailPx = thumbnailSize?.let { with(density) { it.roundToPx() } }
-        preloads@{ post: Post ->
-            if (saving) return@preloads emptyList()
+        val preloads: (Post) -> List<ImagePreload> = { post ->
             val decode = !post.shouldBlur(settings)
-            when {
+            if (saving) emptyList() else when {
                 cards -> post.media.cardImage()?.let { image ->
                     val ratio = image.aspectRatio.coerceIn(0.5f, 2.2f)
                     listOf(ImagePreload(image.urlFor(columnWidth), columnWidth, (columnWidth / ratio).roundToInt(), decode))
@@ -850,6 +849,7 @@ fun rememberPostPreloads(layout: PostLayout, columns: Int): (Post) -> List<Image
                 else -> null
             }.orEmpty()
         }
+        preloads
     }
 }
 
