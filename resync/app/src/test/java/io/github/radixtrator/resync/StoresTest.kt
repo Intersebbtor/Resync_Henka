@@ -6,6 +6,14 @@ import io.github.radixtrator.resync.data.AccountStore
 import io.github.radixtrator.resync.data.ApiConfig
 import io.github.radixtrator.resync.data.ApiConfigStore
 import io.github.radixtrator.resync.data.Backup
+import io.github.radixtrator.resync.data.AccountsBackup
+import io.github.radixtrator.resync.data.BackupPart
+import io.github.radixtrator.resync.data.BackupPasswordException
+import io.github.radixtrator.resync.data.PostColumns
+import io.github.radixtrator.resync.data.RestoreResult
+import io.github.radixtrator.resync.data.ViewOptions
+import io.github.radixtrator.resync.data.columnsFor
+import io.github.radixtrator.resync.data.isCoverScreen
 import io.github.radixtrator.resync.data.BackupFormatException
 import io.github.radixtrator.resync.data.Draft
 import io.github.radixtrator.resync.data.DraftStore
@@ -382,8 +390,8 @@ class BackupTest {
         UserTags(target).set("someone", "only here") // replaced by the backup's tags
         RecentPostsStore(target).record(RecentPost("x", "t", "s"))
 
-        val signedOut = Backup.restore(target, doc, includeApiConfig = false)
-        assertTrue(!signedOut)
+        val result = Backup.restore(target, doc, includeApiConfig = false)
+        assertTrue(!result.signedOut)
         Backup.LOCAL_KEYS.forEach { key -> assertEquals(source.values[key], target.values[key], key) }
         assertTrue(SettingsStore(target).settings.value.hideRead)
         assertEquals("admin", UserTags(target).tagOf("spez"))
@@ -410,11 +418,11 @@ class BackupTest {
     fun `restoring a different client ID signs accounts out, the same one keeps them`() {
         val target = filledPrefs(clientId = "client_id_one")
         val same = Backup.decode(Backup.export(filledPrefs(clientId = "client_id_one")))
-        assertTrue(!Backup.restore(target, same, includeApiConfig = true))
+        assertTrue(!Backup.restore(target, same, includeApiConfig = true).signedOut)
         assertEquals("me", AccountStore(target).active?.username)
 
         val other = Backup.decode(Backup.export(filledPrefs(clientId = "client_id_two")))
-        assertTrue(Backup.restore(target, other, includeApiConfig = true))
+        assertTrue(Backup.restore(target, other, includeApiConfig = true).signedOut)
         assertEquals(ApiConfig("client_id_two", "app://redirect", "agent/1.0"), ApiConfigStore(target).load())
         assertTrue(AccountStore(target).accounts.isEmpty())
         assertNull(AccountStore(target).activeUsername)
@@ -427,8 +435,94 @@ class BackupTest {
         ApiConfigStore(target).demoMode = true
         AccountStore(target).upsert(Account("demo_user", "demo"))
         val doc = Backup.decode(Backup.export(filledPrefs()))
-        assertTrue(Backup.restore(target, doc, includeApiConfig = true))
+        assertTrue(Backup.restore(target, doc, includeApiConfig = true).signedOut)
         assertTrue(!ApiConfigStore(target).demoMode)
         assertTrue(AccountStore(target).accounts.isEmpty())
+    }
+
+    private val password = "correct horse".toCharArray()
+
+    @Test
+    fun `accounts travel encrypted and only with a password`() {
+        val prefs = filledPrefs()
+        val withAccounts = Backup.export(prefs, createdMillis = 0, accountsPassword = password.copyOf())
+        assertTrue("SECRET_REFRESH_TOKEN" !in withAccounts)
+        assertTrue("SECRET_ACCESS_TOKEN" !in withAccounts)
+        val doc = Backup.decode(withAccounts)
+        assertEquals(listOf("me"), doc.accountNames)
+        assertEquals(AccountsBackup("client_id_one", listOf(Account("me", "SECRET_REFRESH_TOKEN")), "me"), Backup.decryptAccounts(doc, password.copyOf()))
+        assertTrue(runCatching { Backup.decryptAccounts(doc, "wrong password".toCharArray()) }.exceptionOrNull() is BackupPasswordException)
+
+        assertNull(Backup.decode(Backup.export(prefs, createdMillis = 0)).accounts)
+        // A hand-written plain accounts section is ignored rather than trusted.
+        val planted = Backup.decode("""{"format":"resync-backup","version":1,"prefs":{},"accounts":{"accounts":[{"username":"x","refreshToken":"y"}]}}""")
+        assertNull(planted.accounts)
+    }
+
+    @Test
+    fun `restoring accounts signs them in and brings their API setup`() {
+        val doc = Backup.decode(Backup.export(filledPrefs(clientId = "client_id_two"), accountsPassword = password.copyOf()))
+        val accounts = Backup.decryptAccounts(doc, password.copyOf())
+
+        // Same client: accounts merge, the backup's active one wins.
+        val same = FakePrefs()
+        ApiConfigStore(same).save(ApiConfig("client_id_two", "app://mine", "mine/1.0"))
+        AccountStore(same).upsert(Account("other", "OTHER_REFRESH"))
+        AccountStore(same).activeUsername = "other"
+        AccountStore(same).accessToken = "OLD_ACCESS"
+        val result = Backup.restore(same, doc, includeApiConfig = false, accounts = accounts)
+        assertEquals(RestoreResult(signedOut = false, accountsRestored = 1), result)
+        assertEquals(setOf("other", "me"), AccountStore(same).accounts.map { it.username }.toSet())
+        assertEquals("me", AccountStore(same).activeUsername)
+        assertNull(AccountStore(same).accessToken)
+
+        // Different client: the old accounts go, the API setup comes along even though it wasn't ticked.
+        val other = FakePrefs()
+        ApiConfigStore(other).save(ApiConfig("client_id_one", "app://mine", "mine/1.0"))
+        AccountStore(other).upsert(Account("other", "OTHER_REFRESH"))
+        val switched = Backup.restore(other, doc, includeApiConfig = false, accounts = accounts)
+        assertEquals(RestoreResult(signedOut = true, accountsRestored = 1), switched)
+        assertEquals("client_id_two", ApiConfigStore(other).load()?.clientId)
+        assertEquals(listOf(Account("me", "SECRET_REFRESH_TOKEN")), AccountStore(other).accounts)
+        assertEquals("me", AccountStore(other).activeUsername)
+    }
+
+    @Test
+    fun `restore only replaces the chosen parts`() {
+        val doc = Backup.decode(Backup.export(filledPrefs()))
+        val target = FakePrefs()
+        UserTags(target).set("someone", "only here")
+        Backup.restore(target, doc, includeApiConfig = false, parts = setOf(BackupPart.SETTINGS))
+        assertTrue(SettingsStore(target).settings.value.hideRead)
+        assertEquals("only here", UserTags(target).tagOf("someone"))
+        assertNull(target.values["visited.v1"])
+    }
+
+    @Test
+    fun `a snapshot puts everything back, accounts included`() {
+        val prefs = filledPrefs()
+        val before = HashMap(prefs.values)
+        val snapshot = Backup.snapshot(prefs, createdMillis = 0)
+        assertEquals("1970-01-01T00:00:00Z", Backup.snapshotCreated(snapshot))
+
+        Backup.restore(prefs, Backup.decode(Backup.export(FakePrefs())), includeApiConfig = false)
+        AccountStore(prefs).removeAll()
+        prefs.values["junk"] = "x"
+        Backup.restoreSnapshot(prefs, snapshot)
+        assertEquals(before, prefs.values)
+        assertNull(Backup.snapshotCreated(Backup.export(prefs)))
+    }
+
+    @Test
+    fun `cover and main screens pick their own columns`() {
+        val options = ViewOptions(columns = PostColumns.FOUR, coverColumns = PostColumns.TWO)
+        assertTrue(isCoverScreen(344))
+        assertTrue(!isCoverScreen(673))
+        assertEquals(PostColumns.TWO, options.columnsFor(coverScreen = true))
+        assertEquals(PostColumns.FOUR, options.columnsFor(coverScreen = false))
+        // Settings saved before the cover screen choice keep their single override for the big screen.
+        val old = RedditClient.JSON.decodeFromString(ViewOptions.serializer(), """{"columns":"TWO"}""")
+        assertEquals(PostColumns.TWO, old.columns)
+        assertEquals(PostColumns.AUTO, old.coverColumns)
     }
 }

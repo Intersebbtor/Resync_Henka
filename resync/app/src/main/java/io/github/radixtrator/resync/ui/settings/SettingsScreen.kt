@@ -84,7 +84,6 @@ import io.github.radixtrator.resync.data.VideoQuality
 import io.github.radixtrator.resync.notify.InboxWorker
 import io.github.radixtrator.resync.notify.Notifications
 import io.github.radixtrator.resync.ui.common.SwipeBack
-import io.github.radixtrator.resync.ui.home.QUICK_ACTION_LABELS
 import io.github.radixtrator.resync.ui.navigation.CustomizeViewRoute
 import io.github.radixtrator.resync.ui.navigation.FilterEditorRoute
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
@@ -196,12 +195,6 @@ private fun CategoryRows(container: AppContainer, category: SettingsCategory, se
                 update { it.copy(baseFontSize = v) }
                 // The scale lives in the activity's configuration, which only a restart rebuilds.
                 (context as? android.app.Activity)?.recreate()
-            }
-            Section("Action visibility")
-            QUICK_ACTION_LABELS.forEach { label ->
-                Toggle(label, null, label !in settings.hiddenActions) { on ->
-                    update { it.copy(hiddenActions = if (on) it.hiddenActions - label else it.hiddenActions + label) }
-                }
             }
         }
         SettingsCategory.TABLET -> {
@@ -405,131 +398,8 @@ private fun MessagingRows(container: AppContainer, settings: Settings) {
     }
 }
 
-/**
- * Sync's Backup screen: Backup now and Restore from backup. The system file picker stands in for Sync's
- * "Change backup directory". A restore asks first (what it replaces, and whether to take the Reddit API setup
- * too), then restarts the app, since the stores keep what they loaded in memory.
- */
-@Composable
-private fun BackupSection(container: AppContainer) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var toRestore by remember { mutableStateOf<BackupDocument?>(null) }
-    var restarting by remember { mutableStateOf<Boolean?>(null) } // non-null once restored: whether accounts were signed out
-
-    val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        val text = container.exportBackup()
-        scope.launch {
-            val result = runCatching {
-                withContext(Dispatchers.IO) {
-                    context.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) } ?: error("couldn't open the file")
-                }
-            }
-            Toast.makeText(context, result.fold({ "Backup saved" }, { "Couldn't save the backup: ${it.message}" }), Toast.LENGTH_SHORT).show()
-        }
-    }
-    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            runCatching {
-                val text = withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
-                } ?: error("couldn't open the file")
-                Backup.decode(text)
-            }
-                .onSuccess { toRestore = it }
-                .onFailure {
-                    val message = (it as? BackupFormatException)?.message ?: "Couldn't read the backup: ${it.message}"
-                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                }
-        }
-    }
-
-    Section("Backup")
-    Text(
-        "Backups hold this device's settings, filters, tags, favorites, watched items and drafts. Your accounts and their sign-ins aren't included.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-    )
-    ListItem(
-        headlineContent = { Text("Backup now") },
-        supportingContent = { Text("Save a backup file wherever you choose") },
-        modifier = Modifier.clickable { backupLauncher.launch(Backup.fileName()) },
-    )
-    ListItem(
-        headlineContent = { Text("Restore from backup") },
-        supportingContent = { Text("Replace this device's data with a backup file") },
-        modifier = Modifier.clickable { restoreLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/*")) },
-    )
-
-    toRestore?.let { doc ->
-        var includeApi by remember(doc) { mutableStateOf(false) }
-        AlertDialog(
-            onDismissRequest = { toRestore = null },
-            title = { Text("Restore from backup?") },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    doc.created?.let { created ->
-                        Text("Backup from ${created.take(10)}", style = MaterialTheme.typography.bodyMedium)
-                    }
-                    Text("This replaces on this device:", Modifier.padding(top = 8.dp))
-                    BackupPart.entries.forEach { part ->
-                        Text("• ${part.label}", Modifier.padding(start = 8.dp, top = 2.dp))
-                    }
-                    Text(
-                        "Your accounts stay signed in. Resync restarts to load the backup.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                    if (doc.hasApiConfig) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(top = 8.dp).clickable { includeApi = !includeApi },
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(checked = includeApi, onCheckedChange = { includeApi = it })
-                            Column(Modifier.padding(start = 4.dp)) {
-                                Text("Include Reddit API setup")
-                                Text(
-                                    "Client ID, redirect URI and user agent. A different client ID signs out your accounts.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    toRestore = null
-                    restarting = container.restoreBackup(doc, includeApi)
-                }) { Text("Restore") }
-            },
-            dismissButton = { TextButton(onClick = { toRestore = null }) { Text("Cancel") } },
-        )
-    }
-
-    restarting?.let { signedOut ->
-        // No way out but the restart: anything the in-memory stores saved now would overwrite the restored data.
-        AlertDialog(
-            onDismissRequest = {},
-            title = { Text("Backup restored") },
-            text = {
-                Text(
-                    if (signedOut) "The restored API setup uses a different client ID, so your accounts were signed out. Resync restarts to load the backup."
-                    else "Resync restarts to load the backup.",
-                )
-            },
-            confirmButton = { TextButton(onClick = { restartApp(context) }) { Text("Restart") } },
-        )
-    }
-}
-
 /** Relaunches the app in a fresh process, so every store reloads from preferences. */
-private fun restartApp(context: Context) {
+internal fun restartApp(context: Context) {
     val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
     launch?.component?.let { context.startActivity(Intent.makeRestartActivityTask(it)) }
     Runtime.getRuntime().exit(0)

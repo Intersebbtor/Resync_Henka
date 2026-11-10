@@ -117,10 +117,13 @@ data class ViewOptions(
     /** Slides: `slide_hide_all_buttons`, "Hide all buttons": no button row at all (⋮ stays on long press). */
     val hideAllButtons: Boolean = false,
     /**
-     * Cards and Small cards: Sync's Card options › `post_columns_portrait` / `post_columns_landscape`, as one override
-     * per layout. [PostColumns.AUTO] keeps Resync's width-based tiling.
+     * Cards and Small cards: how many columns on a foldable's main (inner) screen, a tablet, or any window at least
+     * [COVER_SCREEN_MAX_SW_DP] dp in its smallest width. [PostColumns.AUTO] keeps Resync's width-based tiling.
+     * (The name predates [coverColumns], so settings saved with one override keep it for the big screen.)
      */
     val columns: PostColumns = PostColumns.AUTO,
+    /** Cards and Small cards: the same for a foldable's cover screen, or any phone-sized window. */
+    val coverColumns: PostColumns = PostColumns.AUTO,
     /**
      * Every layout: the size half of Sync's "Title font" picker (`slide_title`, `card_title`, `small_card_title`,
      * `smaller_card_title`, `compact_title`, `list_title`), reduced to three steps around the layout's own size.
@@ -142,7 +145,20 @@ enum class PostColumns(val label: String, val count: Int?) {
     ONE("1", 1),
     TWO("2", 2),
     THREE("3", 3),
+    FOUR("4", 4),
 }
+
+/**
+ * Below this smallest width (dp) a window counts as a cover screen: phones and foldables' outer displays sit around
+ * 320-420 dp, while unfolded inner screens and tablets are 600 dp or more whichever way they're held.
+ */
+const val COVER_SCREEN_MAX_SW_DP = 600
+
+/** Whether a window whose smallest width is [smallestWidthDp] is a cover (phone-sized) screen. */
+fun isCoverScreen(smallestWidthDp: Int): Boolean = smallestWidthDp < COVER_SCREEN_MAX_SW_DP
+
+/** The [ViewOptions.columns] or [ViewOptions.coverColumns] choice for a cover screen or not. */
+fun ViewOptions.columnsFor(coverScreen: Boolean): PostColumns = if (coverScreen) coverColumns else columns
 
 /**
  * A Customize view font size ([ViewOptions.titleSize], [ViewOptions.descriptionSize], [ViewOptions.selftextSize]):

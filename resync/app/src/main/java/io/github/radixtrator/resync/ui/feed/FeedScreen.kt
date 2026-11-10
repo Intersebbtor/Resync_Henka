@@ -90,7 +90,7 @@ import io.github.radixtrator.resync.ui.common.SheetHandle
 import io.github.radixtrator.resync.ui.common.SheetTitle
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.common.TopSheet
-import io.github.radixtrator.resync.ui.common.columns
+import io.github.radixtrator.resync.ui.common.feedColumns
 import io.github.radixtrator.resync.ui.common.distinguishedMarks
 import io.github.radixtrator.resync.ui.common.gutter
 import io.github.radixtrator.resync.ui.common.postCallbacks
@@ -124,7 +124,7 @@ fun FeedScreen(route: FeedRoute, container: AppContainer) {
     val layoutFeed = route.domain?.let { "domain:$it" } ?: subreddit
     val layout = settings.layoutFor(layoutFeed)
     // Customize view's Columns choice for this layout, else as many as the width fits.
-    val columns = layout.columns(LocalConfiguration.current.screenWidthDp, settings.viewOptionsFor(layout).columns)
+    val columns = layout.feedColumns(settings.viewOptionsFor(layout))
     val postPreloads = rememberPostPreloads(layout, columns)
     val scope = rememberCoroutineScope()
     var sortOpen by rememberSaveable { mutableStateOf(false) }

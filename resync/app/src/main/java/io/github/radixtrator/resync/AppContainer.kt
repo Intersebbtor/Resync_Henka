@@ -8,7 +8,10 @@ import io.github.radixtrator.resync.data.ApiConfig
 import io.github.radixtrator.resync.data.ApiConfigStore
 import io.github.radixtrator.resync.data.AvatarCache
 import io.github.radixtrator.resync.data.Backup
+import io.github.radixtrator.resync.data.AccountsBackup
 import io.github.radixtrator.resync.data.BackupDocument
+import io.github.radixtrator.resync.data.BackupPart
+import io.github.radixtrator.resync.data.RestoreResult
 import io.github.radixtrator.resync.data.Comment
 import io.github.radixtrator.resync.data.DraftStore
 import io.github.radixtrator.resync.data.ExploreStore
@@ -125,14 +128,47 @@ class AppContainer(context: Context) {
         WatchWorker.schedule(appContext, !watch.isEmpty)
     }
 
-    /** Settings › Backup now: the backed-up preferences as a JSON document (never account tokens). */
-    fun exportBackup(): String = Backup.export(prefs)
+    /** Settings › Backup now: the backed-up preferences, plus the accounts encrypted with [accountsPassword] if given. */
+    fun exportBackup(accountsPassword: CharArray? = null): String = Backup.export(prefs, accountsPassword = accountsPassword)
+
+    /** Whether there are signed-in accounts Backup now could include. */
+    val hasBackupAccounts: Boolean get() = Backup.accountsIn(prefs) != null
+
+    /** Where the copy taken before the last restore lives: private storage, excluded from any cloud backup. */
+    private val preRestoreFile get() = java.io.File(appContext.noBackupFilesDir, "pre-restore-snapshot.json")
+
+    /** When the copy taken before the last restore was made, or null if there's none to go back to. */
+    fun preRestoreSnapshotCreated(): String? =
+        preRestoreFile.takeIf { it.exists() }?.let { runCatching { Backup.snapshotCreated(it.readText()) }.getOrNull() }
 
     /**
-     * Settings › Restore from backup. The stores keep what they loaded in memory, so the caller must restart the
-     * app straight away. Returns whether accounts were signed out (a restored API setup with a new client ID).
+     * Settings › Restore from backup. First saves everything as it is now (accounts included) so the restore can be
+     * undone. The stores keep what they loaded in memory, so the caller must restart the app straight away.
      */
-    fun restoreBackup(doc: BackupDocument, includeApiConfig: Boolean): Boolean = Backup.restore(prefs, doc, includeApiConfig)
+    fun restoreBackup(
+        doc: BackupDocument,
+        includeApiConfig: Boolean,
+        parts: Set<BackupPart>,
+        accounts: AccountsBackup?,
+    ): RestoreResult {
+        writeAtomically(preRestoreFile, Backup.snapshot(prefs))
+        return Backup.restore(prefs, doc, includeApiConfig, parts, accounts)
+    }
+
+    /** Puts everything back as it was before the last restore. The caller must restart the app straight away. */
+    fun undoRestore() {
+        Backup.restoreSnapshot(prefs, preRestoreFile.readText())
+        preRestoreFile.delete()
+    }
+
+    private fun writeAtomically(file: java.io.File, text: String) {
+        val tmp = java.io.File(file.parentFile, file.name + ".tmp")
+        tmp.writeText(text)
+        if (!tmp.renameTo(file)) {
+            file.delete()
+            check(tmp.renameTo(file)) { "couldn't save a copy of the current data" }
+        }
+    }
 
     fun emit(event: ContentEvent) {
         _events.tryEmit(event)

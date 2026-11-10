@@ -76,6 +76,8 @@ import coil3.compose.AsyncImage
 import io.github.radixtrator.resync.data.ImageSource
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostColumns
+import io.github.radixtrator.resync.data.columnsFor
+import io.github.radixtrator.resync.data.isCoverScreen
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.PostMedia
 import io.github.radixtrator.resync.data.ViewOptions
@@ -150,12 +152,22 @@ val PostLayout.swipeShape: Shape
 private fun PostLayout.fullWidthCards(): Boolean {
     if (this != PostLayout.CARD) return false
     val options = LocalSettings.current.viewOptionsFor(this)
-    return options.cardFullWidth && columns(LocalConfiguration.current.screenWidthDp, options.columns) == 1
+    return options.cardFullWidth && feedColumns(options) == 1
+}
+
+/**
+ * How many columns a feed of this layout has in the current window: the Customize view choice for this kind of
+ * screen (a foldable's cover or main screen, [ViewOptions.columnsFor]), else as many as the width fits.
+ */
+@Composable
+fun PostLayout.feedColumns(options: ViewOptions): Int {
+    val config = LocalConfiguration.current
+    return columns(config.screenWidthDp, options.columnsFor(isCoverScreen(config.smallestScreenWidthDp)))
 }
 
 /**
  * Cards and small cards tile into columns on wide screens, as on Sync's foldable cover screen. A Customize view
- * [override] other than Auto ([ViewOptions.columns]) fixes the count instead, whatever the width.
+ * [override] other than Auto fixes the count instead, whatever the width.
  */
 fun PostLayout.columns(widthDp: Int, override: PostColumns = PostColumns.AUTO): Int = override.count ?: when (this) {
     PostLayout.CARD, PostLayout.SMALL_CARDS -> when {

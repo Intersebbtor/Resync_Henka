@@ -24,6 +24,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.unit.Dp
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Home
@@ -337,14 +342,14 @@ fun ShellScaffold(
     if (accountOpen) AccountCard(container, onDismiss = { accountOpen = false })
     if (moreOpen) {
         TopSheet(onDismiss = { moreOpen = false }) {
-            SheetTitle("More actions")
+            MoreActionsTitle(container)
             QuickActionGrid(moreActions, onPicked = { moreOpen = false })
         }
     }
     if (fabMoreOpen) {
         ModalBottomSheet(onDismissRequest = { fabMoreOpen = false }, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, dragHandle = { SheetHandle() }) {
             Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
-                SheetTitle("More actions", topPadding = 0.dp)
+                MoreActionsTitle(container, topPadding = 0.dp)
                 QuickActionGrid(moreActions, onPicked = { fabMoreOpen = false })
             }
         }
@@ -461,7 +466,66 @@ fun quickActions(
     }.filterNot { it.label in settings.hiddenActions }
 }
 
-/** Every More actions button that "Action visibility" in Settings can switch off, in grid order. */
+/**
+ * The More actions sheets' title, with Sync's ⋮ in the corner. Its menu is a small tree: "Action visibility ▸" opens a
+ * checklist of every action (ticking one shows it in the grid at once, the menu stays open), with a back row to the
+ * top level, where "Show all actions" undoes every hide.
+ */
+@Composable
+private fun MoreActionsTitle(container: AppContainer, topPadding: Dp = 16.dp) {
+    val settings = LocalSettings.current
+    var menuOpen by remember { mutableStateOf(false) }
+    var inVisibility by remember { mutableStateOf(false) }
+    fun close() {
+        menuOpen = false
+        inVisibility = false
+    }
+    Box(Modifier.fillMaxWidth()) {
+        SheetTitle("More actions", topPadding = topPadding)
+        Box(Modifier.align(Alignment.TopEnd).padding(top = (topPadding - 12.dp).coerceAtLeast(0.dp), end = 4.dp)) {
+            IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, "More actions options") }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = ::close) {
+                if (!inVisibility) {
+                    DropdownMenuItem(
+                        text = { Text("Action visibility") },
+                        trailingIcon = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                        onClick = { inVisibility = true },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Show all actions") },
+                        enabled = settings.hiddenActions.isNotEmpty(),
+                        onClick = {
+                            container.settings.update { it.copy(hiddenActions = emptySet()) }
+                            close()
+                        },
+                    )
+                } else {
+                    DropdownMenuItem(
+                        text = { Text("Action visibility", style = MaterialTheme.typography.titleSmall) },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") },
+                        onClick = { inVisibility = false },
+                    )
+                    HorizontalDivider()
+                    QUICK_ACTION_LABELS.sortedBy { it.lowercase() }.forEach { label ->
+                        val shown = label !in settings.hiddenActions
+                        val toggle = {
+                            container.settings.update {
+                                it.copy(hiddenActions = if (shown) it.hiddenActions + label else it.hiddenActions - label)
+                            }
+                        }
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            trailingIcon = { Checkbox(checked = shown, onCheckedChange = { toggle() }) },
+                            onClick = toggle,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Every More actions button that the sheets' ⋮ › Action visibility can switch off, in grid order. */
 val QUICK_ACTION_LABELS = listOf(
     "Search", "Profile", "Hide read", "About", "Submit", "Random", "Dark mode", "Settings",
     "Swipe mode", "Change view", "Refresh", "Saved", "Dark overlay", "Data saving", ACTION_EXPLORE, "Filters", "Inbox", "Random nsfw",

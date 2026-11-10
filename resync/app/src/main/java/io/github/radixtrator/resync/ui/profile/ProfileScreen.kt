@@ -84,7 +84,7 @@ import io.github.radixtrator.resync.ui.common.SheetHandle
 import io.github.radixtrator.resync.ui.common.SheetTitle
 import io.github.radixtrator.resync.ui.common.SwipeBack
 import io.github.radixtrator.resync.ui.common.TagUserDialog
-import io.github.radixtrator.resync.ui.common.columns
+import io.github.radixtrator.resync.ui.common.feedColumns
 import io.github.radixtrator.resync.ui.common.gutter
 import io.github.radixtrator.resync.ui.common.postCallbacks
 import io.github.radixtrator.resync.ui.common.spacing
@@ -178,7 +178,7 @@ fun ProfileScreen(name: String, initialTab: UserWhere, container: AppContainer) 
     val isSelf = me.equals(name, ignoreCase = true)
     val canAct = me != null && !isSelf
     val layout = LocalSettings.current.layout
-    val columns = layout.columns(LocalConfiguration.current.screenWidthDp, LocalSettings.current.viewOptionsFor(layout).columns)
+    val columns = layout.feedColumns(LocalSettings.current.viewOptionsFor(layout))
     val postPreloads = rememberPostPreloads(layout, columns)
     val callbacks = remember(vm) { vm.postCallbacks(allowHide = false) }
     val items = state.items.visiblePosts { (it as? ProfileItem.PostItem)?.post }

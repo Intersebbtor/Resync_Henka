@@ -35,6 +35,7 @@ import io.github.radixtrator.resync.AppContainer
 import io.github.radixtrator.resync.data.ImageSource
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostColumns
+import io.github.radixtrator.resync.data.isCoverScreen
 import io.github.radixtrator.resync.data.PostLayout
 import io.github.radixtrator.resync.data.PostMedia
 import io.github.radixtrator.resync.data.TitleSize
@@ -44,7 +45,7 @@ import io.github.radixtrator.resync.ui.common.LargeHeader
 import io.github.radixtrator.resync.ui.common.PostActions
 import io.github.radixtrator.resync.ui.common.PostLayoutItem
 import io.github.radixtrator.resync.ui.common.SwipeBack
-import io.github.radixtrator.resync.ui.common.columns
+import io.github.radixtrator.resync.ui.common.feedColumns
 import io.github.radixtrator.resync.ui.common.gutter
 import io.github.radixtrator.resync.ui.common.spacing
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
@@ -69,7 +70,9 @@ fun CustomizeViewScreen(initial: PostLayout, container: AppContainer) {
         s.copy(viewOptions = s.viewOptions + (layout to edit(s.viewOptionsFor(layout))))
     }
     // The preview tiles like the feed: the Columns choice, else as many as this window fits.
-    val columns = layout.columns(LocalConfiguration.current.screenWidthDp, options.columns)
+    val columns = layout.feedColumns(options)
+    // A foldable's cover screen (or any phone-sized window) has its own Columns choice.
+    val coverScreen = isCoverScreen(LocalConfiguration.current.smallestScreenWidthDp)
 
     SwipeBack(enabled = settings.swipeBack, onBack = nav::pop) {
         Scaffold(
@@ -123,8 +126,15 @@ fun CustomizeViewScreen(initial: PostLayout, container: AppContainer) {
                                     is ViewRow.Switch -> Toggle(row.option.title, row.option.summary, row.option.read(options)) { v ->
                                         change { row.option.write(it, v) }
                                     }
-                                    ViewRow.Columns -> Choice("Columns", PostColumns.entries, options.columns, PostColumns::label) { v ->
-                                        change { it.copy(columns = v) }
+                                    ViewRow.Columns -> {
+                                        // Labelled so it's clear which of the two this screen is using right now.
+                                        fun title(name: String, here: Boolean) = if (here) "$name (this screen)" else name
+                                        Choice(title("Columns on main screen", !coverScreen), PostColumns.entries, options.columns, PostColumns::label) { v ->
+                                            change { it.copy(columns = v) }
+                                        }
+                                        Choice(title("Columns on cover screen", coverScreen), PostColumns.entries, options.coverColumns, PostColumns::label) { v ->
+                                            change { it.copy(coverColumns = v) }
+                                        }
                                     }
                                     is ViewRow.FontSize -> Choice(row.size.title, TitleSize.entries, row.size.read(options), TitleSize::label) { v ->
                                         change { row.size.write(it, v) }
@@ -198,7 +208,7 @@ private sealed interface ViewRow {
 
     class FontSize(val size: ViewFontSize) : ViewRow
 
-    /** [ViewOptions.columns]. */
+    /** [ViewOptions.columns] and [ViewOptions.coverColumns]: main and cover screen. */
     object Columns : ViewRow
 }
 
