@@ -257,7 +257,7 @@ private fun CategoryRows(container: AppContainer, category: SettingsCategory, se
         SettingsCategory.POSTS -> {
             Choice("NSFW posts", NsfwMode.entries, settings.nsfw, NsfwMode::label) { v -> update { it.copy(nsfw = v) } }
             if (settings.nsfw == NsfwMode.BLUR) {
-                Toggle("Blur NSFW only on Frontpage & All", "Show NSFW previews unblurred everywhere else", settings.blurNsfwOnlyFrontpageAndAll) { v ->
+                Toggle("Blur NSFW only on Frontpage, Popular & All", "Show NSFW previews unblurred everywhere else", settings.blurNsfwOnlyFrontpageAndAll) { v ->
                     update { it.copy(blurNsfwOnlyFrontpageAndAll = v) }
                 }
             }

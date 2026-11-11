@@ -250,7 +250,7 @@ data class Settings(
     val nsfw: NsfwMode = NsfwMode.BLUR,
     val blurSpoilers: Boolean = true,
     /**
-     * With [nsfw] on [NsfwMode.BLUR], blur NSFW previews only in the Frontpage and r/all feeds; communities,
+     * With [nsfw] on [NsfwMode.BLUR], blur NSFW previews only in the Frontpage, r/popular and r/all feeds; communities,
      * profiles, search and the rest show them as is.
      */
     val blurNsfwOnlyFrontpageAndAll: Boolean = false,

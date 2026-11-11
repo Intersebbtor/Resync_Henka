@@ -70,7 +70,7 @@ fun Context.onMeteredNetwork(): Boolean =
 @Composable
 fun Post.shouldBlur(): Boolean = shouldBlur(LocalSettings.current, LocalFrontpageOrAllFeed.current)
 
-/** [frontpageOrAll]: shown in the Frontpage or r/all feed, which matters with "Blur NSFW only on Frontpage & All". */
+/** [frontpageOrAll]: shown in the Frontpage, r/popular or r/all feed, which matters with "Blur NSFW only on Frontpage, Popular & All". */
 fun Post.shouldBlur(settings: Settings, frontpageOrAll: Boolean): Boolean =
     (over18 && settings.nsfw == NsfwMode.BLUR && (frontpageOrAll || !settings.blurNsfwOnlyFrontpageAndAll)) ||
         (spoiler && settings.blurSpoilers)
