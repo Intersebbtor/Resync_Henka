@@ -3,6 +3,7 @@ package io.github.radixtrator.resync.ui.navigation
 import androidx.navigation3.runtime.NavKey
 import io.github.radixtrator.resync.data.FilterType
 import io.github.radixtrator.resync.data.PostLayout
+import io.github.radixtrator.resync.data.Redgifs
 import io.github.radixtrator.resync.data.UserWhere
 import io.github.radixtrator.resync.ui.settings.SettingsCategory
 import kotlinx.serialization.Serializable
@@ -51,7 +52,8 @@ data class ImageRoute(val urls: List<String>, val start: Int = 0, val postId: St
 
 /** See [ImageRoute] for [postId]. */
 @Serializable
-data class VideoRoute(val url: String, val loop: Boolean = false, val postId: String? = null) : NavKey
+/** [url] can be a RedGifs page, resolved by the player; [fallback] is played if that fails. */
+data class VideoRoute(val url: String, val loop: Boolean = false, val postId: String? = null, val fallback: String? = null) : NavKey
 
 @Serializable
 data class UserRoute(val name: String, val tab: UserWhere = UserWhere.OVERVIEW) : NavKey
@@ -116,6 +118,7 @@ object RedditLinks {
         USER.find(url)?.let { return UserRoute(it.groupValues[1]) }
         REDDIT_VIDEO.find(url)?.let { return VideoRoute("https://v.redd.it/${it.groupValues[1]}/HLSPlaylist.m3u8") }
         GIFV.find(url)?.let { return VideoRoute(it.groupValues[1] + ".mp4", loop = true) }
+        if (Redgifs.id(url) != null) return VideoRoute(url, loop = true)
         if (MP4.matches(url)) return VideoRoute(url)
         if (IMAGE.matches(url)) return ImageRoute(listOf(url))
         return null

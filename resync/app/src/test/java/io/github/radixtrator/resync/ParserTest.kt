@@ -30,6 +30,8 @@ import io.github.radixtrator.resync.data.ProfileItem
 import io.github.radixtrator.resync.data.RedditClient
 import io.github.radixtrator.resync.data.RedditException
 import io.github.radixtrator.resync.data.Settings
+import io.github.radixtrator.resync.data.Redgifs
+import io.github.radixtrator.resync.data.RedgifsVideo
 import io.github.radixtrator.resync.data.ThemeMode
 import io.github.radixtrator.resync.data.ViewOptions
 import io.github.radixtrator.resync.data.DashTracks
@@ -162,6 +164,45 @@ class ParserTest {
         assertEquals(VideoRoute("https://i.imgur.com/abc.mp4", loop = true), RedditLinks.route("https://i.imgur.com/abc.gifv"))
         assertNull(RedditLinks.route("https://example.com/r/foo"))
         assertNull(RedditLinks.route("https://example.com/article"))
+    }
+
+    @Test
+    fun `redgifs links play in app`() {
+        assertEquals("cleverhappydog", Redgifs.id("https://www.redgifs.com/watch/CleverHappyDog"))
+        assertEquals("cleverhappydog", Redgifs.id("https://v3.redgifs.com/watch/cleverhappydog?utm=x"))
+        assertEquals("cleverhappydog", Redgifs.id("https://redgifs.com/ifr/cleverhappydog"))
+        assertNull(Redgifs.id("https://www.redgifs.com/users/someone"))
+        assertNull(Redgifs.id("https://example.com/watch/abc"))
+        assertEquals(
+            VideoRoute("https://www.redgifs.com/watch/CleverHappyDog", loop = true),
+            RedditLinks.route("https://www.redgifs.com/watch/CleverHappyDog"),
+        )
+        val media = Parser.post(
+            RedditClient.JSON.parseToJsonElement(
+                """{"id":"rg1","title":"t","url":"https://www.redgifs.com/watch/cleverhappydog","domain":"redgifs.com",
+                "post_hint":"rich:video","preview":{"images":[{"source":{"url":"https://i.redd.it/p.jpg","width":640,"height":480},
+                "resolutions":[]}],"reddit_video_preview":{"fallback_url":"https://v.redd.it/x/DASH_480.mp4","is_gif":true}}}""",
+            ).jsonObject,
+        ).media
+        val video = assertIs<PostMedia.Video>(media)
+        assertEquals("https://www.redgifs.com/watch/cleverhappydog", video.url)
+        assertEquals("https://v.redd.it/x/DASH_480.mp4", video.fallback)
+        assertTrue(video.loop)
+    }
+
+    @Test
+    fun `redgifs api response gives sd and hd files`() {
+        fun parse(json: String) = Redgifs.parseGif(RedditClient.JSON.parseToJsonElement(json).jsonObject)
+        assertEquals(
+            RedgifsVideo("https://media.redgifs.com/A-mobile.mp4", "https://media.redgifs.com/A.mp4", hasAudio = true),
+            parse("""{"gif":{"id":"a","hasAudio":true,"urls":{"sd":"https://media.redgifs.com/A-mobile.mp4","hd":"https://media.redgifs.com/A.mp4"}}}"""),
+        )
+        assertEquals(
+            RedgifsVideo("https://media.redgifs.com/B.mp4", "https://media.redgifs.com/B.mp4", hasAudio = false),
+            parse("""{"gif":{"urls":{"hd":"https://media.redgifs.com/B.mp4"}}}"""),
+        )
+        assertNull(parse("""{"gif":{"urls":{}}}"""))
+        assertNull(parse("""{"error":{"code":"NotFound"}}"""))
     }
 
     @Test

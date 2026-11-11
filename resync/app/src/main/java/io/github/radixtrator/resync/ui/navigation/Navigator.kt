@@ -123,7 +123,7 @@ class Navigator(
         when (val m = post.media) {
             is PostMedia.Image -> push(ImageRoute(listOf(m.url), postId = post.id))
             is PostMedia.Gallery -> push(ImageRoute(m.images.map { it.url }, postId = post.id))
-            is PostMedia.Video -> push(VideoRoute(m.url, loop = m.loop, postId = post.id))
+            is PostMedia.Video -> push(VideoRoute(m.url, loop = m.loop, postId = post.id, fallback = m.fallback))
             is PostMedia.Link -> openUri(m.url)
             PostMedia.None -> push(PostRoute(post.id))
         }

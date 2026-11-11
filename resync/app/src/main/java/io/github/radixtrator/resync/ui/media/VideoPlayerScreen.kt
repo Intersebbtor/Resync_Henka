@@ -40,6 +40,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,9 +68,13 @@ import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import io.github.radixtrator.resync.data.MediaDownloads
+import io.github.radixtrator.resync.data.Redgifs
+import io.github.radixtrator.resync.data.RedgifsVideo
 import io.github.radixtrator.resync.data.VideoQuality
 import io.github.radixtrator.resync.ui.common.AppIcons
 import io.github.radixtrator.resync.ui.common.DismissibleMedia
@@ -88,18 +93,86 @@ private val SoftwareFirst = MediaCodecSelector { mimeType, secure, tunneling ->
 private val SPEEDS = listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
 
 /**
- * Full-screen Media3 player for v.redd.it (HLS) and mp4 clips, with Sync's controls: seek bar, then HD,
- * restart, play/pause, mute, time, download and ⋮. The ⋮ (or a swipe up) adds playback speed, link info
+ * Full-screen Media3 player for v.redd.it (HLS), mp4 clips and RedGifs pages, with Sync's controls: seek bar,
+ * then HD, restart, play/pause, mute, time, download and ⋮. The ⋮ (or a swipe up) adds playback speed, link info
  * and the Comments / Open in browser / Copy / Share bar. [loop] is for GIF-style clips: they repeat
- * silently and hide the controls until tapped.
+ * silently and hide the controls until tapped. A RedGifs [url] is first looked up for its mp4s ([Redgifs]);
+ * if RedGifs can't be reached, [fallback] (Reddit's own copy) plays instead, when there is one.
+ */
+@Composable
+fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: MediaDownloads, onClose: () -> Unit, fallback: String? = null) {
+    val redgifsId = remember(url) { Redgifs.id(url) }
+    if (redgifsId == null) {
+        VideoPlayer(url, stream = url, hdStream = null, loop = loop, repeat = loop, postId = postId, downloads = downloads, onClose = onClose)
+        return
+    }
+    var attempt by remember { mutableIntStateOf(0) }
+    var resolved by remember { mutableStateOf<RedgifsVideo?>(null) }
+    var failure by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(redgifsId, attempt) {
+        failure = null
+        runCatching { Redgifs.resolve(redgifsId) }
+            .onSuccess { resolved = it }
+            .onFailure { failure = it.message ?: "Couldn't reach RedGifs" }
+    }
+    val video = resolved
+    when {
+        // Clips with sound play like videos (controls up, sound per "Mute videos"); silent ones like GIFs. Both repeat.
+        video != null -> VideoPlayer(
+            url, stream = video.sd, hdStream = video.hd, loop = !video.hasAudio, repeat = true,
+            postId = postId, downloads = downloads, onClose = onClose, userAgent = Redgifs.USER_AGENT,
+        )
+        failure != null && fallback != null ->
+            VideoPlayer(url, stream = fallback, hdStream = null, loop = true, repeat = true, postId = postId, downloads = downloads, onClose = onClose)
+        else -> DismissibleMedia(onDismiss = onClose, dismissOnDrag = LocalSettings.current.swipeToClose) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                val message = failure
+                if (message == null) {
+                    CircularProgressIndicator(color = Color.White)
+                } else {
+                    val nav = LocalNavigator.current
+                    Column(
+                        Modifier.padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(message, color = Color.White, textAlign = TextAlign.Center)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { attempt++ }) { Text("Retry") }
+                            OutlinedButton(onClick = { nav.openExternal(url) }) { Text("Open in browser", color = Color.White) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The player itself. [url] is the page the media came from (for the link info, sharing and the browser);
+ * [stream] is what plays, and [hdStream], when given, a higher-quality file the HD button switches to.
+ * [loop] mutes and hides the controls, GIF-style; [repeat] plays it over and over. [userAgent] replaces
+ * Media3's own for hosts that check it (RedGifs).
  */
 @OptIn(UnstableApi::class)
 @Composable
-fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: MediaDownloads, onClose: () -> Unit) {
+private fun VideoPlayer(
+    url: String,
+    stream: String,
+    hdStream: String?,
+    loop: Boolean,
+    repeat: Boolean,
+    postId: String?,
+    downloads: MediaDownloads,
+    onClose: () -> Unit,
+    userAgent: String? = null,
+) {
     val context = LocalContext.current
     val nav = LocalNavigator.current
     val settings = LocalSettings.current
-    val adaptive = url.contains(".m3u8")
+    val adaptive = stream.contains(".m3u8")
+    // Separate SD and HD files (RedGifs) rather than one adaptive stream.
+    val twoFiles = hdStream != null && hdStream != stream
     var error by remember { mutableStateOf<String?>(null) }
     var muted by rememberSaveable { mutableStateOf(settings.muteVideos || loop) }
     // Data saving keeps videos in SD whatever "HD Reddit video quality" says; the HD button still switches.
@@ -122,21 +195,31 @@ fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: Me
     // Hardware decoders occasionally die mid-stream (Media3's own fallback only covers ones that
     // fail to start), so a decoding failure gets one retry with software decoders first.
     var softwareFirst by remember { mutableStateOf(false) }
-    val player = remember(url, softwareFirst) {
+    val playingUrl = if (twoFiles && hd) hdStream!! else stream
+    // Where to pick up when the player is rebuilt (switching SD/HD files, or retrying with software decoders).
+    val resumeAt = remember { longArrayOf(0L) }
+    val player = remember(playingUrl, softwareFirst) {
         val renderers = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
             .apply { if (softwareFirst) setMediaCodecSelector(SoftwareFirst) }
-        ExoPlayer.Builder(context, renderers).build().apply {
-            val item = MediaItem.Builder()
-                .setUri(url)
-                .apply { if (adaptive) setMimeType(MimeTypes.APPLICATION_M3U8) }
-                .build()
-            setMediaItem(item)
-            repeatMode = if (loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
-            volume = if (muted) 0f else 1f
-            playWhenReady = true
-            prepare()
-        }
+        ExoPlayer.Builder(context, renderers)
+            .apply {
+                if (userAgent != null) {
+                    setMediaSourceFactory(DefaultMediaSourceFactory(DefaultHttpDataSource.Factory().setUserAgent(userAgent)))
+                }
+            }
+            .build().apply {
+                val item = MediaItem.Builder()
+                    .setUri(playingUrl)
+                    .apply { if (adaptive) setMimeType(MimeTypes.APPLICATION_M3U8) }
+                    .build()
+                setMediaItem(item)
+                if (resumeAt[0] > 0) seekTo(resumeAt[0])
+                repeatMode = if (repeat) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+                volume = if (muted) 0f else 1f
+                playWhenReady = true
+                prepare()
+            }
     }
     DisposableEffect(player) {
         fun updateAspect(size: VideoSize) {
@@ -175,6 +258,7 @@ fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: Me
         while (true) {
             playing = player.playWhenReady && player.playbackState != Player.STATE_ENDED
             position = player.currentPosition
+            resumeAt[0] = position
             duration = player.duration.coerceAtLeast(0L)
             buffering = player.playWhenReady && player.playbackState == Player.STATE_BUFFERING
             delay(200)
@@ -248,7 +332,7 @@ fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: Me
                     }
                     // Sync packs the playback buttons 38dp apart from the left edge.
                     Row(Modifier.fillMaxWidth().padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (adaptive) HdToggle(hd, onToggle = { hd = !hd })
+                        if (adaptive || twoFiles) HdToggle(hd, onToggle = { hd = !hd })
                         IconButton(onClick = {
                             player.seekTo(0)
                             player.play()
@@ -267,7 +351,8 @@ fun VideoPlayerScreen(url: String, loop: Boolean, postId: String?, downloads: Me
                         Spacer(Modifier.width(8.dp))
                         Text("${clock(position)} / ${clock(duration)}", color = Color.White, style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.weight(1f))
-                        IconButton(onClick = { download(url) }) { Icon(AppIcons.Download, "Download", tint = Color.White) }
+                        // The file itself when there's one to hand (RedGifs' HD mp4), else the link as given.
+                        IconButton(onClick = { download(hdStream ?: url) }) { Icon(AppIcons.Download, "Download", tint = Color.White) }
                         IconButton(onClick = { panelOpen = !panelOpen }) {
                             if (panelOpen) Icon(Icons.Default.Close, "Close", tint = Color.White) else Icon(Icons.Default.MoreVert, "More", tint = Color.White)
                         }

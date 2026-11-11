@@ -199,7 +199,7 @@ private fun ResyncNavHost(container: AppContainer, openRoute: NavKey?, onRouteOp
                 entry<ModMailConversationRoute> { route -> ModMailConversationScreen(route.id, container) }
                 entry<SwipeModeRoute> { route -> SwipeModeScreen(route.subreddit, container) }
                 entry<ImageRoute>(metadata = MediaFade) { route -> ImageViewerScreen(route.urls, route.start, route.postId, container.downloads, onClose = navigator::pop) }
-                entry<VideoRoute>(metadata = MediaFade) { route -> VideoPlayerScreen(route.url, route.loop, route.postId, container.downloads, onClose = navigator::pop) }
+                entry<VideoRoute>(metadata = MediaFade) { route -> VideoPlayerScreen(route.url, route.loop, route.postId, container.downloads, onClose = navigator::pop, fallback = route.fallback) }
                 entry<UserRoute> { route -> ProfileScreen(route.name, route.tab, container) }
                 entry<InboxRoute> { route -> InboxScreen(route, container) }
                 entry<SearchRoute> { route -> SearchScreen(route.query, route.subreddit, container, communitiesTab = route.communities) }

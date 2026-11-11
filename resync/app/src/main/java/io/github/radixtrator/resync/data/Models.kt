@@ -16,8 +16,11 @@ sealed interface PostMedia {
     data object None : PostMedia
     data class Image(val preview: ImageSource?, val url: String, val isGif: Boolean) : PostMedia
     data class Gallery(val preview: ImageSource?, val images: List<ImageSource>) : PostMedia
-    /** [loop]: GIF-like clip (no audio, repeats) rather than a real video. */
-    data class Video(val preview: ImageSource?, val url: String, val loop: Boolean = false) : PostMedia
+    /**
+     * [loop]: GIF-like clip (no audio, repeats) rather than a real video. [url] can be a RedGifs page, which the
+     * player resolves to its mp4 ([Redgifs]); [fallback] is then Reddit's own copy, played if RedGifs can't be reached.
+     */
+    data class Video(val preview: ImageSource?, val url: String, val loop: Boolean = false, val fallback: String? = null) : PostMedia
     data class Link(val thumbnail: ImageSource?, val url: String) : PostMedia
 }
 

@@ -463,6 +463,11 @@ object Parser {
         }
         // Externally hosted GIF/video that Reddit transcoded itself (gfycat-era links, imgur, etc.).
         val transcoded = d.obj("preview")?.obj("reddit_video_preview")
+        // RedGifs: played from RedGifs itself (full length, HD, with sound), Reddit's transcode as the fallback.
+        if (!d.bool("is_self") && Redgifs.id(url) != null) {
+            val fallback = transcoded?.let { it.string("hls_url") ?: it.string("fallback_url") }
+            return PostMedia.Video(preview, url, loop = true, fallback = fallback)
+        }
         if (!d.bool("is_self") && transcoded != null) {
             (transcoded.string("hls_url") ?: transcoded.string("fallback_url"))
                 ?.let { return PostMedia.Video(preview, it, loop = transcoded.bool("is_gif")) }
