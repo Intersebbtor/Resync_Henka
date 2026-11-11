@@ -33,6 +33,7 @@ import io.github.radixtrator.resync.data.NsfwMode
 import io.github.radixtrator.resync.data.Settings
 import io.github.radixtrator.resync.data.Post
 import io.github.radixtrator.resync.data.PostMedia
+import io.github.radixtrator.resync.ui.navigation.LocalFrontpageOrAllFeed
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
 
 private fun PostMedia.largePreview(): ImageSource? = when (this) {
@@ -67,10 +68,12 @@ fun Context.onMeteredNetwork(): Boolean =
 
 /** Whether this post's preview should be blurred under the current settings. */
 @Composable
-fun Post.shouldBlur(): Boolean = shouldBlur(LocalSettings.current)
+fun Post.shouldBlur(): Boolean = shouldBlur(LocalSettings.current, LocalFrontpageOrAllFeed.current)
 
-fun Post.shouldBlur(settings: Settings): Boolean =
-    (over18 && settings.nsfw == NsfwMode.BLUR) || (spoiler && settings.blurSpoilers)
+/** [frontpageOrAll]: shown in the Frontpage or r/all feed, which matters with "Blur NSFW only on Frontpage & All". */
+fun Post.shouldBlur(settings: Settings, frontpageOrAll: Boolean): Boolean =
+    (over18 && settings.nsfw == NsfwMode.BLUR && (frontpageOrAll || !settings.blurNsfwOnlyFrontpageAndAll)) ||
+        (spoiler && settings.blurSpoilers)
 
 @Composable
 fun LinkRow(post: Post, onClick: () -> Unit, modifier: Modifier = Modifier) {

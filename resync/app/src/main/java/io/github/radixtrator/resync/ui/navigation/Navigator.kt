@@ -133,6 +133,13 @@ class Navigator(
 val LocalNavigator = staticCompositionLocalOf<Navigator> { error("No Navigator provided") }
 val LocalSettings = compositionLocalOf { Settings() }
 
+/** True inside the Frontpage and r/all feeds, where "Blur NSFW only on Frontpage & All" still blurs. */
+val LocalFrontpageOrAllFeed = compositionLocalOf { false }
+
+/** Whether a feed of [subreddit] (null or "" is the front page) is the Frontpage or r/all; [domain] feeds are neither. */
+fun isFrontpageOrAll(subreddit: String?, domain: String? = null): Boolean =
+    domain == null && subreddit?.lowercase().let { it == null || it == "" || it == "all" }
+
 /**
  * Ids of posts the user has opened, for dimming them in feeds. It's the state itself rather than its value, so
  * marking a post read recomposes only rows that read it (through [rememberVisited]), not every row on screen.

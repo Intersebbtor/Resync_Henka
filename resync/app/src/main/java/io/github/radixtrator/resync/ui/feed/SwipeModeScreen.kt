@@ -24,6 +24,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,7 +55,9 @@ import io.github.radixtrator.resync.ui.home.ExploreMode
 import io.github.radixtrator.resync.ui.home.ExploreSheet
 import io.github.radixtrator.resync.ui.media.rememberDownloader
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
+import io.github.radixtrator.resync.ui.navigation.LocalFrontpageOrAllFeed
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
+import io.github.radixtrator.resync.ui.navigation.isFrontpageOrAll
 import io.github.radixtrator.resync.ui.navigation.PostRoute
 import io.github.radixtrator.resync.ui.navigation.SearchRoute
 import io.github.radixtrator.resync.ui.navigation.SwipeModeRoute
@@ -65,9 +68,16 @@ import io.github.radixtrator.resync.ui.navigation.SwipeModeRoute
  * on screen: vote, save, comments, download and post options. Pages near the end trigger the next load.
  * The toolbar's feed name (▾) opens Explore to switch feeds in place, and Sort re-sorts.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SwipeModeScreen(subreddit: String?, container: AppContainer) {
+    CompositionLocalProvider(LocalFrontpageOrAllFeed provides isFrontpageOrAll(subreddit)) {
+        SwipeModeScreenContent(subreddit, container)
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun SwipeModeScreenContent(subreddit: String?, container: AppContainer) {
     val nav = LocalNavigator.current
     val settings = LocalSettings.current
     val vm = viewModel(key = "swipe:${subreddit.orEmpty()}") { FeedViewModel(container, subreddit) }

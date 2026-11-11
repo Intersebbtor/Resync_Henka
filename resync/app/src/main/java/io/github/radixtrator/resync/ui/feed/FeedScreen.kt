@@ -41,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -103,13 +104,22 @@ import io.github.radixtrator.resync.ui.home.quickActions
 import io.github.radixtrator.resync.ui.navigation.CustomizeViewRoute
 import io.github.radixtrator.resync.ui.navigation.FeedRoute
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
+import io.github.radixtrator.resync.ui.navigation.LocalFrontpageOrAllFeed
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
+import io.github.radixtrator.resync.ui.navigation.isFrontpageOrAll
 import io.github.radixtrator.resync.ui.navigation.PostRoute
 import io.github.radixtrator.resync.ui.theme.ResyncColors
 import kotlinx.coroutines.launch
 
 @Composable
 fun FeedScreen(route: FeedRoute, container: AppContainer) {
+    CompositionLocalProvider(LocalFrontpageOrAllFeed provides isFrontpageOrAll(route.subreddit, route.domain)) {
+        FeedScreenContent(route, container)
+    }
+}
+
+@Composable
+private fun FeedScreenContent(route: FeedRoute, container: AppContainer) {
     val subreddit = route.subreddit
     val nav = LocalNavigator.current
     val vm = viewModel { FeedViewModel(container, subreddit, route.domain) }

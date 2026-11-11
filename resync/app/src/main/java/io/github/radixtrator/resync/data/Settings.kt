@@ -249,6 +249,11 @@ data class Settings(
     val layout: PostLayout = PostLayout.CARD,
     val nsfw: NsfwMode = NsfwMode.BLUR,
     val blurSpoilers: Boolean = true,
+    /**
+     * With [nsfw] on [NsfwMode.BLUR], blur NSFW previews only in the Frontpage and r/all feeds; communities,
+     * profiles, search and the rest show them as is.
+     */
+    val blurNsfwOnlyFrontpageAndAll: Boolean = false,
     /** Sync's "Hide read": posts you had already opened when a feed loaded are left out of it. */
     val hideRead: Boolean = false,
     val commentSort: CommentSort = CommentSort.BEST,

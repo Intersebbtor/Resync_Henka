@@ -85,6 +85,7 @@ import io.github.radixtrator.resync.ui.navigation.LocalAccount
 import io.github.radixtrator.resync.ui.navigation.LocalContainer
 import io.github.radixtrator.resync.ui.navigation.LocalNavigator
 import io.github.radixtrator.resync.ui.navigation.LocalUserTagColors
+import io.github.radixtrator.resync.ui.navigation.LocalFrontpageOrAllFeed
 import io.github.radixtrator.resync.ui.navigation.LocalSettings
 import io.github.radixtrator.resync.ui.navigation.LocalUserTags
 import io.github.radixtrator.resync.ui.navigation.rememberVisited
@@ -837,10 +838,11 @@ private fun PostMedia.cardImage(): ImageSource? = when (this) {
 @Composable
 fun rememberPostPreloads(layout: PostLayout, columns: Int): (Post) -> List<ImagePreload> {
     val settings = LocalSettings.current
+    val frontpageOrAll = LocalFrontpageOrAllFeed.current
     val saving = dataSavingActive()
     val columnWidth = LocalWindowInfo.current.containerSize.width / columns.coerceAtLeast(1)
     val density = LocalDensity.current
-    return remember(layout, settings, saving, columnWidth, density) {
+    return remember(layout, settings, frontpageOrAll, saving, columnWidth, density) {
         val options = settings.viewOptionsFor(layout)
         val thumbnailSize = when (layout) {
             PostLayout.LIST -> if (options.thumbnails) 72.dp else null
@@ -851,7 +853,7 @@ fun rememberPostPreloads(layout: PostLayout, columns: Int): (Post) -> List<Image
         val cards = layout == PostLayout.CARD || (layout == PostLayout.SLIDES && options.imagePreviews)
         val thumbnailPx = thumbnailSize?.let { with(density) { it.roundToPx() } }
         val preloads: (Post) -> List<ImagePreload> = { post ->
-            val decode = !post.shouldBlur(settings)
+            val decode = !post.shouldBlur(settings, frontpageOrAll)
             if (saving) emptyList() else when {
                 cards -> post.media.cardImage()?.let { image ->
                     val ratio = image.aspectRatio.coerceIn(0.5f, 2.2f)

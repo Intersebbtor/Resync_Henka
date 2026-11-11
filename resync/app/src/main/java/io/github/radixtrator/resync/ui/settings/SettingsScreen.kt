@@ -256,6 +256,11 @@ private fun CategoryRows(container: AppContainer, category: SettingsCategory, se
         }
         SettingsCategory.POSTS -> {
             Choice("NSFW posts", NsfwMode.entries, settings.nsfw, NsfwMode::label) { v -> update { it.copy(nsfw = v) } }
+            if (settings.nsfw == NsfwMode.BLUR) {
+                Toggle("Blur NSFW only on Frontpage & All", "Show NSFW previews unblurred everywhere else", settings.blurNsfwOnlyFrontpageAndAll) { v ->
+                    update { it.copy(blurNsfwOnlyFrontpageAndAll = v) }
+                }
+            }
             Toggle("Blur spoiler previews", null, settings.blurSpoilers) { v -> update { it.copy(blurSpoilers = v) } }
             Toggle("Show post flair", "Flair chips on posts in feeds", settings.showPostFlair) { v -> update { it.copy(showPostFlair = v) } }
             Toggle("Show post author", "In feeds", settings.showPostAuthor) { v -> update { it.copy(showPostAuthor = v) } }
