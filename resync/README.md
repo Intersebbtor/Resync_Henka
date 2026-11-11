@@ -37,6 +37,9 @@ JAVA_HOME=~/.local/share/AndroidStudio/android-studio-rabbit1-linux/android-stud
 
 APK: `app/build/outputs/apk/debug/app-debug.apk` (package `io.github.radixtrator.resync.debug`).
 
+CI (`.github/workflows/ci.yml`) runs the same two tasks on every push and pull request and keeps the debug APK
+as a workflow artifact for a week.
+
 Debug builds have a "browse bundled demo data" option on the setup screen, backed by synthetic
 JSON in `app/src/debug/assets/demo/` (generated; the unit tests use the same files).
 
